@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#14213d">
 <title>PlanThenRoam Seller Tools</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Seller Tools">
 <style>
 :root{
  --bg:#f5f6f8;--card:#fff;--ink:#172033;--muted:#687386;--line:#e2e7ee;
@@ -60,6 +67,11 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
    <div class="stat"><b id="homeDraftCount">0</b><span>Etsy drafts</span></div>
   </div>
  </div>
+ <div class="card" id="installCard">
+  <div class="sectionHead"><h2>Install the Android app</h2><span id="installState" class="linkstate wait">Open in Chrome</span></div>
+  <div class="helper">Install Seller Tools on your home screen. It opens in its own app window while keeping the same secure cloud data.</div>
+  <button class="primary" id="installApp" style="margin-top:9px">Install Seller Tools</button>
+ </div>
  <div class="card">
   <h2>Built for your actual workflow</h2>
   <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> TikTok hook, on-screen scenes, caption, CTA and 5 hashtags auto-fill<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Private owner-only media uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
@@ -87,6 +99,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  <div class="card"><div class="sectionHead"><h2>New Pinterest Pin</h2><span class="linkstate wait">Not publishing yet</span></div>
   <div class="grid">
    <div class="upload"><input id="pinImage" type="file" accept="image/png,image/jpeg,image/webp"><label for="pinImage">Tap to choose your Pin</label><small>1000 × 1500 PNG recommended</small><div id="pinMediaState" class="mediaList">Uploads securely when you add the Pin.</div><div id="pinPreview" class="preview"><img id="pinPreviewImg" alt="Pin preview"></div></div>
+   <div class="helper" id="pinRecogniseState"><strong>Automatic planner recognition:</strong> choose a Pin and the app will read its text, select the planner, board and Etsy link, then create matching SEO copy.</div>
    <div class="field"><label>Planner</label><select id="pinPlanner"></select></div>
    <div class="field"><label>Pin type</label><div class="chips" id="pinTypes"><button class="chip active" data-type="advert">Advert</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
    <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
@@ -225,7 +238,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 <div id="toast" class="toast"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const KEYS={planners:'ptr_planners_master_v4',pins:'ptr_pin_queue_v4',tiks:'ptr_tik_queue_v4',drafts:'ptr_etsy_drafts_v4',settings:'ptr_settings_master_v4',variants:'ptr_variants_v4'};
@@ -373,24 +386,85 @@ function updateHome(){$('#homePlannerCount').textContent=planners.length;$('#hom
 function fillSelects(){const opts=planners.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');const vals=[$('#pinPlanner').value,$('#tikPlanner').value,$('#etsyPlanner').value];$('#pinPlanner').innerHTML=opts;$('#tikPlanner').innerHTML=opts;$('#etsyPlanner').innerHTML=opts;if(planner(vals[0]))$('#pinPlanner').value=vals[0];if(planner(vals[1]))$('#tikPlanner').value=vals[1];if(planner(vals[2]))$('#etsyPlanner').value=vals[2]}
 
 /* Pinterest */
-function pinVariants(p,type){const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights;return{
- advert:[
- [`${place}${season} | ${r} Itinerary`,`Planning ${place}? Explore a ready-planned ${r} itinerary covering ${h}. Use the guide to organise the key stops in a sensible order and make trip planning faster and easier.`],
- [`Plan ${place}${season} | ${r} Routes`,`Take the stress out of planning ${place} with ${r} route options covering ${h}. A practical digital itinerary guide for building a clear, realistic trip plan.`],
- [`${place} Travel Planner | ${r}`,`Build your ${place} trip around ${r} carefully structured routes, with ${h}. Save this Pin for a practical planning shortcut before you travel.`]
- ],
- save:[
- [`Save This ${p.keyword} | ${r}`,`Save this for your ${place} trip. Compare ${r} route options covering ${h}, with practical planning organised into an easy-to-follow itinerary.`],
- [`${place}: Save These ${r} Route Ideas`,`Planning ${place} later? Save these ${r} itinerary options featuring ${h} so you have a useful starting point when you are ready to plan.`],
- [`A Smarter Way to Plan ${place}`,`Save this ${p.keyword} idea for later: ${r} route options, ${h}, and a clear structure to help turn your ideas into a workable trip.`]
- ],
- factual:[
- [`${place}: ${r} Route Ideas`,`Useful ${p.keyword} planning: choose from ${r} routes featuring ${h}. Save this Pin as a quick reference while comparing trip lengths.`],
- [`How Long Do You Need in ${place}?`,`This planner includes ${r} route options covering ${h}. Save it while deciding how much time to allow for your trip.`],
- [`${place} Trip Planning: ${r}`,`Quick planning reference for ${place}: ${r} itinerary options with ${h}. Save for later when comparing routes and trip length.`]
- ]}[type]}
+function pinVariants(p,type){
+ const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights,k=p.keyword;
+ return {
+  advert:[
+   [`${place}${season} | ${r} Itinerary`,`Planning ${place}? Explore ${r} ready-planned route options covering ${h}. Start with a clear structure, then personalise the bookings and details around your own trip.`],
+   [`Plan ${place}${season} | ${r} Routes`,`Take the stress out of planning ${place}. Compare ${r} practical itinerary options featuring ${h}, organised to give the trip a clearer starting point.`],
+   [`${place} Travel Planner | ${r}`,`Build your ${place} trip around ${r} carefully structured routes, including ${h}. A practical PDF guide for turning saved ideas into a workable plan.`],
+   [`${place}${season}: Start With the Route`,`Too many tabs and no clear order? This ${k} brings together ${r} route options with ${h}, helping you move from research to a trip you can actually organise.`],
+   [`${place} Itinerary Guide | Plan Smarter`,`Spend less time piecing the route together. Use ${r} structured ${place} itineraries covering ${h}, then adjust the details to fit your travel style.`],
+   [`${r} Ways to Plan ${place}`,`One destination, different trip lengths. Compare ${r} ${place} routes featuring ${h} and choose the pace that works for you.`],
+   [`Your ${place}${season} Trip, Organised`,`A clearer way to plan ${place}: ${r} itinerary options, key highlights including ${h}, and practical guidance in one customer-ready PDF.`],
+   [`${place} Route Planner | Digital Guide`,`Start your ${place} planning with the route already structured. Explore ${r} options covering ${h} and build your own bookings around them.`]
+  ],
+  save:[
+   [`Save This ${k} | ${r}`,`Save this for your ${place} trip. Compare ${r} route options covering ${h}, with practical planning organised into an easy-to-follow itinerary.`],
+   [`${place}: Save These ${r} Route Ideas`,`Planning ${place} later? Save these ${r} itinerary options featuring ${h} so you have a useful starting point when you are ready to plan.`],
+   [`A Smarter Way to Plan ${place}`,`Save this ${k} idea for later: ${r} route options, ${h}, and a clear structure to help turn your ideas into a workable trip.`],
+   [`Save for Later: ${place}${season}`,`If ${place} is on your list, keep this planning shortcut. It compares ${r} routes and brings together ${h} in one structured guide.`],
+   [`${place} Planning Shortcut | Save This`,`Keep this Pin for the moment your ${place} plans become real. Start with ${r} routes covering ${h}, then personalise from there.`],
+   [`Do Not Lose These ${place} Route Ideas`,`Save ${r} different ways to structure a ${place} trip, with ${h} already organised into practical itinerary options.`],
+   [`${place} Trip Research, Simplified`,`Pin this before opening another dozen tabs. The guide gives you ${r} structured ${place} routes featuring ${h}.`],
+   [`Future ${place} Trip? Save This Guide`,`A useful starting point for a future ${place} trip: ${r} route choices, ${h}, and a clearer order for planning.`]
+  ],
+  factual:[
+   [`${place}: ${r} Route Ideas`,`Useful ${k} planning: choose from ${r} routes featuring ${h}. Save this Pin as a quick reference while comparing trip lengths.`],
+   [`How Long Do You Need in ${place}?`,`This planner includes ${r} route options covering ${h}. Save it while deciding how much time to allow for your trip.`],
+   [`${place} Trip Planning: ${r}`,`Quick planning reference for ${place}: ${r} itinerary options with ${h}. Save for later when comparing routes and trip length.`],
+   [`${place} Itinerary Options Compared`,`Not every ${place} trip needs the same pace. Compare ${r} route structures and see how ${h} can fit into your available time.`],
+   [`What to Include in a ${place} Trip`,`Start with the essentials: ${h}. The PDF guide organises them across ${r} practical itinerary options.`],
+   [`${place} Route First, Bookings Second`,`A simple planning principle: choose the route before locking the details. Compare ${r} ${place} itineraries covering ${h}.`],
+   [`${place} Planning Reference | ${r}`,`Use this as a quick ${place} planning reference: ${r} trip lengths, key stops including ${h}, and a structure you can adapt.`],
+   [`${place}: Choose the Right Trip Length`,`Shorter trip or slower pace? Review ${r} route options for ${place}, with ${h} included across the guide.`]
+  ]
+ }[type]
+}
+const PIN_ALIASES={
+ nc500:['nc500','north coast 500','scottish highlands','highlands road trip'],
+ japan:['japan','tokyo','kyoto','osaka','hakone','mount fuji','nara','hiroshima'],
+ 'south-korea':['south korea','seoul','busan','gyeongju','jeju'],
+ rome:['rome','vatican','trastevere','colosseum','ancient rome'],
+ salem:['salem halloween','salem massachusetts','witch trials','haunted happenings'],
+ 'new-england':['new england fall foliage','new england road trip','fall foliage','autumn foliage','vermont','new hampshire'],
+ 'nyc-christmas':['christmas in new york','new york christmas','nyc christmas','rockefeller centre','rockefeller center','bryant park christmas'],
+ lapland:['finnish lapland','lapland winter','rovaniemi','levi finland','santa claus village'],
+ 'europe-markets':['european christmas markets by train','christmas markets by train','nuremberg prague vienna','bratislava budapest'],
+ tromso:['tromso winter','tromsø winter','tromso norway','tromsø norway','arctic norway'],
+ munich:['munich itinerary','munich city break','marienplatz','munich old town'],
+ oktoberfest:['oktoberfest','munich oktoberfest','wiesn','theresienwiese','oide wiesn','beer tents'],
+ 'london-christmas':['christmas in london','london christmas','london festive','christmas lights london'],
+ iceland:['iceland ring road','ring road iceland','iceland road trip','golden circle'],
+ copenhagen:['copenhagen christmas','christmas in copenhagen','tivoli christmas','tivoli gardens','nyhavn christmas'],
+ alsace:['alsace christmas markets','strasbourg christmas','colmar christmas','alsace markets'],
+ belgium:['belgian christmas markets','belgium christmas markets','brussels christmas','bruges christmas','ghent christmas']
+};
+function normaliseRecognitionText(value=''){return String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim()}
+function recognitionTerms(p){return [...new Set([...(PIN_ALIASES[p.id]||[]),p.keyword,shortName(p.name)].map(normaliseRecognitionText).filter(x=>x.length>3))]}
+function matchPlannerFromText(raw){
+ const text=normaliseRecognitionText(raw);if(!text)return null;
+ const ranked=planners.map(p=>{let score=0,matches=[];for(const term of recognitionTerms(p)){if(text.includes(term)){const words=term.split(' ').length,weight=words>=3?12:words===2?8:Math.min(7,Math.max(4,term.length/2));score+=weight;matches.push(term)}}return {p,score,matches}}).sort((a,b)=>b.score-a.score);
+ const top=ranked[0],second=ranked[1]||{score:0};if(!top||top.score<4||top.score-second.score<2)return null;return {...top,confidence:top.score>=12?'High':'Likely'};
+}
+let pinOcrWorker=null,pinOcrRun=0;
+function loadOcrLibrary(){if(window.Tesseract)return Promise.resolve();return new Promise((resolve,reject)=>{const old=document.querySelector('script[data-ocr]');if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return}const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js';script.dataset.ocr='true';script.onload=resolve;script.onerror=()=>reject(new Error('Text reader could not load'));document.head.appendChild(script)})}
+async function getPinOcrWorker(runId){await loadOcrLibrary();if(!pinOcrWorker)pinOcrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(runId!==pinOcrRun)return;if(m.status==='recognizing text')$('#pinRecogniseState').innerHTML=`<strong>Reading Pin text:</strong> ${Math.round((m.progress||0)*100)}%`}});return pinOcrWorker}
+async function recognisePinPlanner(file){
+ const runId=++pinOcrRun;$('#pinRecogniseState').innerHTML='<strong>Reading Pin text:</strong> starting…';
+ try{const worker=await getPinOcrWorker(runId);if(runId!==pinOcrRun)return;const result=await worker.recognize(file);if(runId!==pinOcrRun)return;const text=`${file.name} ${result.data?.text||''}`,match=matchPlannerFromText(text);if(!match){$('#pinRecogniseState').innerHTML='<span class="warn">! I could not match this Pin confidently.</span> Choose the planner manually this time.';return}$('#pinPlanner').value=match.p.id;syncPin();genPin(true);$('#pinRecogniseState').innerHTML=`<span class="ok">✓ Matched: <strong>${esc(match.p.name)}</strong></span> · ${match.confidence} confidence. Board, Etsy link and fresh SEO copy filled automatically.`}
+ catch(error){console.error('Pin recognition failed',error);$('#pinRecogniseState').innerHTML='<span class="warn">! Automatic reading was unavailable.</span> Choose the planner manually.'}
+}
+function pinAltVariants(p){const place=shortName(p.name),r=p.routes,h=p.highlights;return[
+ `Pinterest travel Pin for ${place}, highlighting ${r} itinerary options and ${h}.`,
+ `${place} itinerary guide Pin showing ${r} route choices with planning for ${h}.`,
+ `Travel-planning graphic for ${place} featuring a PDF itinerary with ${r} routes and ${h}.`,
+ `${place} trip-planning Pin promoting ${r} structured itinerary options covering ${h}.`,
+ `Digital ${place} itinerary guide Pin with ${r} route lengths and practical planning for ${h}.`,
+ `Save-worthy ${place} travel Pin featuring ${r} itinerary ideas and ${h}.`
+]}
 function syncPin(){const p=planner($('#pinPlanner').value);if(!p)return;$('#pinBoard').value=p.board||'';$('#pinLink').value=p.link||'';genPin(false);nextSlot('pin')}
-function genPin(advance=true){const p=planner($('#pinPlanner').value);if(!p)return;const arr=pinVariants(p,pinType),i=nextVariant(`pin_${p.id}_${pinType}`,arr.length,advance),pair=arr[i];$('#pinTitle').value=clean(pair[0]).slice(0,100);$('#pinDesc').value=clean(pair[1]).slice(0,500);$('#pinAlt').value=clean(`Pinterest travel Pin for ${shortName(p.name)}, highlighting ${p.routes} itinerary options and ${p.highlights}.`).slice(0,500);pinCount();pinCheck(p)}
+function genPin(advance=true){const p=planner($('#pinPlanner').value);if(!p)return;const arr=pinVariants(p,pinType),i=nextVariant(`pin_${p.id}_${pinType}`,arr.length,advance),pair=arr[i],alts=pinAltVariants(p),ai=nextVariant(`pinalt_${p.id}_${pinType}`,alts.length,advance);$('#pinTitle').value=clean(pair[0]).slice(0,100);$('#pinDesc').value=clean(pair[1]).slice(0,500);$('#pinAlt').value=clean(alts[ai]).slice(0,500);pinCount();pinCheck(p)}
 function pinCount(){$('#pinTitleCount').textContent=$('#pinTitle').value.length+'/100';$('#pinDescCount').textContent=$('#pinDesc').value.length+'/500'}
 function pinCheck(p){const t=($('#pinTitle').value+' '+$('#pinDesc').value).toLowerCase(),main=(shortName(p.name).split(' ')[0]||'').toLowerCase();const checks=[['Destination/search phrase',t.includes(main)],['Route lengths',t.includes((p.routes.split(' ')[0]||'').toLowerCase())],['No price in copy',!(/£|14\.99/.test(t))],['No editable Word wording',!(/editable word|word document/.test(t))],['Board auto-filled',!!$('#pinBoard').value.trim()],['Exact Etsy link',!!$('#pinLink').value.trim()]];$('#pinChecks').innerHTML=checks.map(([x,ok],i)=>`<div class="${ok?'ok':(i===5?'warn':'bad')}">${ok?'✓':'!'} ${x}${i===5&&!ok?' — awaiting Etsy sync':''}</div>`).join('')}
 function nextSlot(kind){const slots=(kind==='pin'?settings.pinSlots:settings.tikSlots).split(',').map(x=>x.trim()).filter(Boolean).sort();const q=kind==='pin'?pinQueue:tikQueue,ds=kind==='pin'?$('#pinDate'):$('#tikDate'),ts=kind==='pin'?$('#pinTime'):$('#tikTime');let now=new Date();now.setSeconds(0,0);for(let add=0;add<45;add++){const day=new Date(now);day.setDate(now.getDate()+add);for(const s of slots){const [h,m]=s.split(':').map(Number),c=new Date(day);c.setHours(h||0,m||0,0,0);if(c>now&&!q.some(x=>Math.abs(new Date(x.when)-c)<60000)){ds.value=localDate(c);ts.value=s;return}}}}
@@ -586,7 +660,28 @@ function conceptPack(p,concept,angle){
    direction:'Fast hard cuts, one short phrase per frame, strongest motion clips only. No sentence-length on-screen text.'
   }
  };
- return {...data[concept],hook};
+ const pack={...data[concept],hook};
+ const captionEnds=shop?[
+  'Choose the destination that is next for you.',
+  'Start with the route, then make the trip your own.',
+  'A calmer starting point for the trip you keep meaning to plan.',
+  'Browse the collection and pick the guide that fits your next trip.',
+  'Clear routes first. Personal touches second.',
+  'Save this for the trip-planning stage.'
+ ]:[
+  `Use it as the starting point, then personalise ${place} around your own bookings.`,
+  'Save this before the research tabs start multiplying.',
+  'Compare the route lengths first, then build the details around your choice.',
+  'A clearer route makes every later booking decision easier.',
+  'Keep this for the moment the trip moves from idea to plan.',
+  'Start with the structure and make the trip yours.'
+ ];
+ const ci=nextVariant(`tikcaption_${p.id}_${tikType}_${concept}`,captionEnds.length,true);pack.caption=clean(`${pack.caption} ${captionEnds[ci]}`);
+ const ctas=shop?['Browse the itinerary collection','Choose your next trip','See all planners on Etsy','Find your next itinerary','Explore the full collection','Pick a planner and start']:[
+  'See the full PDF guide','Save this and view the itinerary','Compare the routes on Etsy','Start planning with the full guide','Keep this, then explore the planner','View the itinerary guide'
+ ];
+ pack.cta=ctas[nextVariant(`tikcta_${p.id}_${tikType}_${concept}`,ctas.length,true)];
+ return pack;
 }
 function genTik(advance=true){
  const p=planner($('#tikPlanner').value);if(!p)return;
@@ -618,19 +713,42 @@ async function addTik(){
 }
 
 /* Etsy */
-function makeTags(p){const base=[p.keyword,shortName(p.name),`${p.routes.split(' and ')[0]} itinerary`,'travel itinerary','trip planner','travel planner','digital itinerary','vacation planner',p.season?`${p.season} travel`:'travel guide','city break planner','holiday planner','travel pdf','itinerary guide'];const out=[];for(const x of base){let t=String(x||'').toLowerCase().replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,20);if(t&&!out.includes(t))out.push(t)}while(out.length<13)out.push(`travel planning ${out.length+1}`.slice(0,20));return out.slice(0,13)}
-function makeEtsy(){const p=planner($('#etsyPlanner').value);if(!p)return;const place=shortName(p.name),season=p.season?` ${p.season}`:'';$('#etsyTitle').value=clean(`${place}${season} Itinerary Guide, ${p.routes}, Digital Travel Planner, ${p.keyword}`).slice(0,140);$('#etsyDesc').value=`Plan your ${place} trip with a clear, practical digital itinerary guide built around ${p.routes} route options.
-
-WHAT'S INCLUDED
-• ${p.routes} route options
-• ${p.highlights}
-• Practical planning guidance
-• Customer-ready PDF digital download
-
-This guide is designed to help you organise the trip more quickly while still leaving room to personalise your own bookings, timings and preferences.
-
-Please check current opening times, transport information and booking requirements before travel. Digital product only; no physical item will be posted.`;const tags=makeTags(p);$$('#tagGrid input').forEach((el,i)=>el.value=tags[i]||'')}
-function syncEtsy(){const p=planner($('#etsyPlanner').value);makeEtsy();$('#etsyState').innerHTML=p&&p.link?`<span class="ok">✓ Exact Etsy link saved.</span> This becomes a live editor after API approval.`:`<span class="warn">! Exact listing data will auto-sync after Etsy approval.</span> Draft creation works now.`}
+function makeTags(p,advance=true){
+ const place=shortName(p.name),firstRoute=(p.routes.match(/\d+/)||[''])[0],season=p.season||'',pool=[
+  p.keyword,place,`${place} itinerary`,`${place} travel`,firstRoute?`${firstRoute} day itinerary`:'trip itinerary',
+  'travel itinerary','trip planner','travel planner','digital itinerary','vacation planner',season?`${season} travel`:'travel guide',
+  'city break planner','holiday planner','travel pdf','itinerary guide','printable itinerary','route planner','travel download',
+  'trip planning guide','digital travel guide','vacation itinerary','travel planning'
+ ];
+ const cleaned=[...new Set(pool.map(x=>String(x||'').toLowerCase().replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,20)).filter(Boolean))];
+ const offset=nextVariant(`etsytags_${p.id}`,Math.max(1,cleaned.length),advance),rotated=[...cleaned.slice(offset),...cleaned.slice(0,offset)],out=rotated.slice(0,13);
+ while(out.length<13)out.push(`travel planning ${out.length+1}`.slice(0,20));
+ return out;
+}
+function makeEtsy(advance=true){
+ const p=planner($('#etsyPlanner').value);if(!p)return;const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights;
+ const titles=[
+  `${place}${season} Itinerary Guide | ${r} Routes | Digital Travel Planner PDF`,
+  `${place} Travel Planner${season} | ${r} Itineraries | Instant PDF Guide`,
+  `${place} Itinerary PDF${season} | ${r} Trip Plans | Digital Travel Guide`,
+  `Plan ${place}${season} | ${r} Route Options | Printable Itinerary PDF`,
+  `${place} Trip Planner${season} | ${r} Ready-Planned Routes | Travel PDF`,
+  `${place} Digital Itinerary${season} | ${r} Routes | Practical Trip Guide`,
+  `${place} Holiday Planner${season} | ${r} Itinerary Options | PDF Download`,
+  `${place} Route Planner${season} | ${r} Travel Itineraries | Digital PDF`
+ ];
+ const descriptions=[
+  `Plan your ${place} trip with a clear, practical PDF itinerary guide built around ${r} route options.\n\nWHAT'S INCLUDED\n• ${r} structured route options\n• ${h}\n• Practical planning guidance\n• Customer-ready PDF digital download\n\nUse the guide as a reliable starting point, then personalise your own bookings, timings and preferences.\n\nPlease check current opening times, transport information and booking requirements before travel. Digital product only; no physical item will be posted.`,
+  `Turn your saved ${place} ideas into a trip that has a sensible order. This digital PDF guide gives you ${r} complete itinerary options covering ${h}.\n\nYOU WILL RECEIVE\n• One customer-ready PDF itinerary guide\n• ${r} route choices for different trip lengths\n• Organised highlights and practical planning detail\n• A structure you can adapt to your own travel style\n\nNothing physical will be posted. Always confirm live opening, transport and booking details before travelling.`,
+  `Planning ${place} should feel exciting, not like managing dozens of tabs. Start with ${r} ready-planned routes featuring ${h}, then adjust the details around your own bookings.\n\nINSIDE THE PDF\n• Clear itinerary options for ${r}\n• Key destinations and experiences in a practical order\n• Useful planning guidance\n• A digital guide ready to download\n\nThis is a digital product. Please verify current times, availability and transport information before your trip.`,
+  `Choose the pace that suits your ${place} trip. The guide compares ${r} itinerary options and brings together ${h} in one organised PDF.\n\nTHE GUIDE HELPS YOU\n• Compare trip lengths before booking\n• Follow a clearer route\n• Keep key planning details together\n• Personalise the final trip around your preferences\n\nDigital PDF download only; no physical product will be sent. Check live travel information before departure.`,
+  `A route-first approach to planning ${place}. This practical digital itinerary includes ${r} structured options covering ${h}, so you can begin with a workable plan instead of a blank page.\n\nINCLUDED\n• ${r} complete itinerary structures\n• Destination highlights in a sensible sequence\n• Practical trip-planning information\n• Downloadable customer PDF\n\nPersonal bookings are not included. Confirm current prices, hours, transport and reservation requirements directly before travel.`,
+  `Make ${place} easier to organise with one focused PDF guide. Review ${r} itinerary routes, see how ${h} can fit together and choose the version that best matches your available time.\n\nWHAT YOU GET\n• A finished digital itinerary guide\n• ${r} route options\n• Practical structure and destination guidance\n• Space to adapt the trip to your own needs\n\nNo physical item will be delivered. Live details can change, so check official information before travelling.`
+ ];
+ const i=nextVariant(`etsycopy_${p.id}`,titles.length,advance);$('#etsyTitle').value=clean(titles[i]).slice(0,140);$('#etsyDesc').value=descriptions[i%descriptions.length];
+ const tags=makeTags(p,advance);$$('#tagGrid input').forEach((el,n)=>el.value=tags[n]||'');
+}
+function syncEtsy(){const p=planner($('#etsyPlanner').value);makeEtsy(false);$('#etsyState').innerHTML=p&&p.link?`<span class="ok">✓ Exact Etsy link saved.</span> This becomes a live editor after API approval.`:`<span class="warn">! Exact listing data will auto-sync after Etsy approval.</span> Draft creation works now.`}
 async function saveDraft(){
  const p=planner($('#etsyPlanner').value);if(!p)return;
  const pdf=$('#etsyPdf').files[0],images=[...$('#etsyImages').files],button=$('#saveEtsyDraft'),old=drafts.find(x=>x.plannerId===p.id&&x.mode===etsyMode);let pdfPaths=[],imagePaths=[];
@@ -679,15 +797,28 @@ $('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot')
 $('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));$('#addTikQueue').addEventListener('click',addTik);
 $('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
 $('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
-$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block';setMediaState('#pinMediaState',`${f.name} ready to upload.`)});
+$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block';setMediaState('#pinMediaState',`${f.name} ready to upload.`);recognisePinPlanner(f)});
 $('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];setMediaState('#tikMediaList',fs.length?fs.map(f=>f.name).join(' • '):'Choose clips or images to upload.')});$('#etsyPdf').addEventListener('change',()=>{const f=$('#etsyPdf').files[0];setMediaState('#etsyPdfState',f?`${f.name} ready to upload.`:'Choose a PDF to upload.')});$('#etsyImages').addEventListener('change',()=>{const fs=[...$('#etsyImages').files];setMediaState('#etsyImagesState',fs.length?`${fs.length} image${fs.length===1?'':'s'} ready to upload.`:'Choose listing images to upload.')});
-$('#regenEtsy').addEventListener('click',makeEtsy);$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
+$('#regenEtsy').addEventListener('click',()=>makeEtsy(true));$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
 $('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
 $('#sendMagicLink').addEventListener('click',sendCloudMagicLink);
 $('#pushCloud').addEventListener('click',pushCloudData);
 $('#pullCloud').addEventListener('click',pullCloudData);
 $('#cloudSignOut').addEventListener('click',signOutCloud);
-$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');initCloud();
+let installPrompt=null;
+function standaloneMode(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
+function initAppInstall(){
+ const card=$('#installCard'),button=$('#installApp'),state=$('#installState');
+ if(standaloneMode()){card.style.display='none';return}
+ window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;state.textContent='Ready to install';state.className='linkstate ready'});
+ window.addEventListener('appinstalled',()=>{installPrompt=null;card.style.display='none';toast('Seller Tools installed')});
+ button.addEventListener('click',async()=>{
+  if(!installPrompt){toast('Chrome menu → Add to Home screen');return}
+  installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice.outcome==='accepted')card.style.display='none';installPrompt=null;
+ });
+}
+function initPwa(){if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(error=>console.error('App install support failed',error))}
+$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');initCloud();initAppInstall();initPwa();
 </script>
 </body>
 </html>
