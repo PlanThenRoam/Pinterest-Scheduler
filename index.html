@@ -40,7 +40,7 @@
  <section id="settings" class="screen"><div class="hero"><div class="eyebrow">Settings</div><h1>Quiet controls. Nothing extra.</h1><p>Import a pack manually when needed and check the genuine status of each connection.</p></div>
   <div class="card"><div class="sectionhead"><h2>Import project pack</h2><span class="badge">Fallback</span></div><p class="muted">Choose a ChatGPT ZIP containing <strong>manifest.json</strong> and its media. JSON-only packs are also accepted.</p><label class="upload"><input id="packFile" type="file" accept=".zip,.json,application/zip,application/json"><b>Choose project pack</b><span>TikTok, Etsy or a 10-Pin Pinterest batch</span></label><div id="importState" class="notice hidden" style="margin-top:10px"></div></div>
   <div class="card"><h2>Connections</h2><div id="connections"></div></div>
-  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version 9 · secure owner-only storage</p></div>
+  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version 10 · secure owner-only storage</p></div>
  </section>
 </main>
 <nav id="nav" class="nav hidden">
@@ -110,8 +110,15 @@ async function renderTikTokProject(p){
  renderingTikToks.add(p.id);setTikTokProgress(p.id,0,'Starting MP4 renderer');let uploadedPath='';
  try{
   const renderer=await rendererReady(),scenes=p.manifest.scenes;
-  const images=scenes.map((scene,i)=>{const role=scene.imageRole||`scene-${i+1}`,item=(p.media||[]).find(x=>x.role===role);return {url:p._urls[role],name:item?.name||scene.imageFile||`scene-${i+1}.jpg`}});
-  const result=await renderer.render({manifest:p.manifest,images,onProgress:(n,label)=>setTikTokProgress(p.id,n,label)});
+  const images=[];
+  for(let i=0;i<scenes.length;i++){
+   const scene=scenes[i],role=scene.imageRole||`scene-${i+1}`,item=(p.media||[]).find(x=>x.role===role);
+   if(!item?.path)throw new Error(`Scene ${i+1} image is missing from private storage.`);
+   setTikTokProgress(p.id,(i/scenes.length)*.06,`Opening private scene ${i+1} of ${scenes.length}`);
+   const {data,error}=await sb.storage.from(BUCKET.tiktok).download(item.path);if(error)throw error;
+   images.push({blob:data,name:item.name||scene.imageFile||`scene-${i+1}.jpg`});
+  }
+  const result=await renderer.render({manifest:p.manifest,images,onProgress:(n,label)=>setTikTokProgress(p.id,.06+n*.94,label)});
   uploadedPath=`${session.user.id}/${p.id}/${crypto.randomUUID()}-${safeName(p.title||'tiktok-video')}.mp4`;
   setTikTokProgress(p.id,.99,'Saving private MP4');
   const {error:uploadError}=await sb.storage.from(BUCKET.tiktok).upload(uploadedPath,result.blob,{contentType:'video/mp4',upsert:false});if(uploadError)throw uploadError;
