@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "seller-tools": {
+      "type": "http",
+      "url": "https://wyoamcydkbblvujvyljs.supabase.co/functions/v1/seller-tools-inbox"
+    }
+  }
+}

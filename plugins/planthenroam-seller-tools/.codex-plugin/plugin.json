@@ -1,0 +1,20 @@
+{
+  "name": "planthenroam-seller-tools",
+  "version": "0.1.0",
+  "description": "Send complete TikTok, Etsy and Pinterest packs to the private PlanThenRoam review app.",
+  "author": {
+    "name": "PlanThenRoam"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "PlanThenRoam Seller Tools",
+    "shortDescription": "Send finished social and Etsy packs to review.",
+    "longDescription": "Creates complete TikTok, Etsy and Pinterest review projects, attaches generated assets securely and checks the owner's requested revisions.",
+    "developerName": "PlanThenRoam",
+    "category": "Productivity",
+    "capabilities": ["MCP"],
+    "defaultPrompt": "Create a complete project pack and send it to my PlanThenRoam Seller Tools Review Box."
+  },
+  "mcpServers": "./.mcp.json",
+  "apps": "./.app.json"
+}

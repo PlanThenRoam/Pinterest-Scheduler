@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#17384c">
+<meta name="theme-color" content="#1f433b">
+<meta name="description" content="Private review and publishing workspace for PlanThenRoam content.">
 <title>PlanThenRoam Seller Tools</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -13,870 +14,107 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Seller Tools">
 <style>
-:root{
- --bg:#f3eee6;--card:#fffdf9;--ink:#263238;--muted:#6f746f;--line:#ddd3c5;
- --navy:#17384c;--navy2:#4f756e;--soft:#edf1ea;--sage:#668278;--sand:#ead9bd;--clay:#b8664d;--gold:#c49a58;
- --ok:#167052;--warn:#a95625;--bad:#b23a31;--shadow:0 12px 34px rgba(48,54,49,.09)
-}
-*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 96% 2%,rgba(196,154,88,.18),transparent 25rem),radial-gradient(circle at 2% 42%,rgba(102,130,120,.13),transparent 28rem),linear-gradient(180deg,#f8f4ed,var(--bg));color:var(--ink);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min-height:100vh;padding:0 0 92px}
-.top{position:sticky;top:0;z-index:20;background:rgba(248,244,237,.94);backdrop-filter:blur(14px);padding:15px 14px 11px;border-bottom:1px solid #dacdbc}
-.toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.brand{font-size:20px;font-weight:850;letter-spacing:-.45px;color:var(--navy)}.brand:after{content:"";display:inline-block;width:7px;height:7px;margin-left:7px;border-radius:50%;background:var(--clay);box-shadow:11px 0 0 var(--gold)}.sub{font-size:12px;color:var(--muted);margin-top:3px}
-.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:48%}.pill{font-size:9px;font-weight:820;padding:5px 7px;border-radius:999px;border:1px solid var(--line);background:#fffaf3;white-space:nowrap}
-.pill.pending{color:#8a3a14;background:#fff3e8;border-color:#ffd6b0}.pill.off{color:#5d6778;background:#f7f8fa}
-.main{padding:12px}.screen{display:none}.screen.active{display:block}
-.card{background:linear-gradient(180deg,#fffefa,var(--card));border:1px solid var(--line);border-radius:20px;padding:17px;box-shadow:var(--shadow);margin-bottom:15px}.card h2{font-size:18px;margin:0 0 13px;color:var(--navy);letter-spacing:-.2px}.card h3{font-size:14px;margin:0 0 7px}.hero{background:radial-gradient(circle at 90% 5%,rgba(234,217,189,.24),transparent 40%),linear-gradient(135deg,var(--navy) 0%,#315f63 68%,var(--navy2));color:#fff;border:0;padding:20px}.hero h2{color:#fff}.hero .muted{color:#e5eee9}
-.heroStats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}.stat{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px}.stat b{display:block;font-size:18px}.stat span{font-size:9px;color:#dce7f1}
-.grid{display:grid;grid-template-columns:1fr;gap:10px}.two{grid-template-columns:1fr 1fr}.field label{display:block;font-size:11px;font-weight:780;color:#49556a;margin:0 0 5px}
-.field input,.field select,.field textarea{width:100%;border:1px solid #d3c8ba;background:#fffdfa;color:var(--ink);border-radius:13px;padding:12px 13px;outline:none}.field textarea{min-height:104px;resize:vertical}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(102,130,120,.14)}
-.upload{border:1.5px dashed #bbaa94;border-radius:16px;padding:19px;text-align:center;background:#fbf5eb}.upload input{display:none}.upload label{display:block;font-weight:800;cursor:pointer;color:var(--navy)}.upload small{display:block;color:var(--muted);margin-top:4px}
-.preview{display:none;margin-top:10px}.preview img{display:block;width:min(220px,55vw);aspect-ratio:2/3;object-fit:cover;margin:0 auto;border-radius:12px;border:1px solid var(--line)}
-.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{border:1px solid #d1c6b8;background:#fffdfa;border-radius:999px;padding:8px 11px;font-weight:760;color:#4e5c5a;font-size:12px}.chip.active{background:linear-gradient(135deg,var(--navy),var(--sage));color:#fff;border-color:transparent}
-.primary,.secondary,.danger,.smallBtn,.nowButton{border:0;border-radius:13px;padding:12px 14px;font-weight:820;cursor:pointer}.primary{background:linear-gradient(135deg,var(--navy),#3f6d68);color:#fff;width:100%;box-shadow:0 6px 16px rgba(23,56,76,.16)}.secondary{background:#f4eadc;color:var(--navy);border:1px solid #dec9aa;width:100%}.nowButton{background:linear-gradient(135deg,#a9503e,var(--clay));color:#fff;width:100%;box-shadow:0 6px 16px rgba(184,102,77,.18)}
-.danger{background:#fff1f0;color:var(--bad);border:1px solid #ffd0cc;width:100%}.smallBtn{padding:7px 9px;background:#fff;border:1px solid var(--line);color:#49556a;font-size:12px}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.pinActions{display:grid;grid-template-columns:.8fr 1fr 1fr;gap:9px}.helper{background:linear-gradient(135deg,#f7f1e8,#f1f4ee);border:1px solid var(--line);border-radius:13px;padding:11px;color:#626d69;font-size:11px}.helper strong{color:var(--ink)}
-.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.list{display:grid;gap:9px}.item{background:#fffcf7;border:1px solid var(--line);border-radius:15px;padding:12px}.itemtop{display:flex;justify-content:space-between;gap:9px;align-items:flex-start}
-.item h3{font-size:13px;margin:0 0 3px}.badge{display:inline-block;font-size:9px;font-weight:830;padding:5px 7px;border-radius:999px;background:#eef2f6;color:#526070}.item p{font-size:11px;color:var(--muted);margin:6px 0 0}
-.productActions{display:flex;gap:6px;margin-top:8px}.productActions button{flex:1}.counter{float:right;font-weight:700}.empty{text-align:center;padding:25px 10px;color:var(--muted)}
-.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px}.sectionHead h2{margin:0}.linkstate{font-size:10px;font-weight:800}.linkstate.ready{color:var(--ok)}.linkstate.wait{color:var(--warn)}
-.modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fffdfa;padding:10px;border-radius:12px;font-weight:780}.modeSwitch button.active{background:linear-gradient(135deg,var(--navy),var(--sage));color:#fff;border-color:transparent}
-.taggrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.taggrid input{font-size:12px}.scenegrid{display:grid;grid-template-columns:1fr;gap:8px}.scene{display:grid;grid-template-columns:72px 1fr;gap:7px;align-items:start}.scene .time{font-size:11px;font-weight:800;color:var(--navy);background:var(--soft);border-radius:10px;padding:10px 8px;text-align:center}
-.mediaList{font-size:11px;color:var(--muted);margin-top:7px}.mediaList.uploading{color:var(--warn);font-weight:760}.mediaList.ready{color:var(--ok);font-weight:760}.mediaList.error{color:var(--bad);font-weight:760}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
-.scoreCard{display:grid;grid-template-columns:58px 1fr;gap:11px;align-items:center;background:#f7f9fb;border:1px solid var(--line);border-radius:14px;padding:10px}.scoreRing{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ok) calc(var(--score,0)*1%),#e4e9ef 0);position:relative}.scoreRing:after{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}.scoreRing b{position:relative;z-index:1;font-size:14px}.scoreText{font-size:11px;color:var(--muted)}.scoreText strong{display:block;color:var(--ink);font-size:13px}.metricGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px}.metric span{font-size:9px;color:var(--muted)}.mediaThumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.mediaThumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;border:1px solid var(--line)}.statusBadge{display:inline-block;font-size:9px;font-weight:850;padding:5px 7px;border-radius:999px;background:#fff3e8;color:var(--warn)}.statusBadge.published{background:#ecfdf3;color:var(--ok)}.queueActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.queueActions button{flex:1;min-width:82px}.modalCard .field{margin-top:9px}
-.studioCallout{background:radial-gradient(circle at 100% 0,rgba(234,217,189,.22),transparent 45%),linear-gradient(135deg,var(--navy),#486f69);color:#fff;border-radius:17px;padding:16px}.studioCallout h3{font-size:15px;margin:0 0 5px}.studioCallout p{font-size:11px;color:#e6eee9;margin:0 0 12px}.studioCallout .primary{background:#fffaf2;color:var(--navy);box-shadow:none}
-.modal{position:fixed;inset:0;z-index:80;background:rgba(12,20,31,.72);display:none;align-items:center;justify-content:center;padding:18px}.modal.open{display:flex}.modalCard{width:min(430px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:14px;box-shadow:0 24px 80px rgba(0,0,0,.3)}.modalCard video{display:block;width:100%;max-height:72vh;background:#101820;border-radius:14px;margin:10px 0}.modalHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.modalHead h2{margin:0;font-size:17px}
-.nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,252,247,.97);backdrop-filter:blur(14px);border-top:1px solid #d8ccbd;display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:6px 3px calc(6px + env(safe-area-inset-bottom))}
-.nav button{border:0;background:transparent;color:#777a73;padding:7px 2px;font-size:9px;font-weight:770;border-radius:12px}.nav button.active{color:var(--navy);background:var(--soft)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
-.screen>.card:first-child{border-top-width:4px}.screen#home>.card:first-child{border-top-color:var(--gold)}.screen#pin>.card:first-child{border-top-color:#a84f68}.screen#tiktok>.card:first-child{border-top-color:#307b78}.screen#etsy>.card:first-child{border-top-color:#ca7543}.screen#library>.card:first-child{border-top-color:var(--gold)}.screen#queue>.card:first-child{border-top-color:var(--sage)}
-.disclosure{padding:0;overflow:hidden}.disclosure>summary,.options>summary{list-style:none;cursor:pointer;font-weight:830;color:var(--navy)}.disclosure>summary::-webkit-details-marker,.options>summary::-webkit-details-marker{display:none}.disclosure>summary{padding:17px 46px 17px 17px;position:relative}.disclosure>summary:after,.options>summary:after{content:"+";position:absolute;right:17px;color:var(--clay);font-size:20px;line-height:1}.disclosure[open]>summary:after,.options[open]>summary:after{content:"−"}.disclosure[open]>summary{border-bottom:1px solid var(--line)}.disclosure>.disclosureBody{padding:15px 17px 17px}.options{position:relative;border:1px solid var(--line);border-radius:15px;background:#fcf8f1;padding:0}.options>summary{padding:12px 42px 12px 13px;font-size:12px}.options>summary:after{right:13px;font-size:17px}.options[open]>summary{border-bottom:1px solid var(--line)}.options>.grid{padding:13px}
-.toast{position:fixed;z-index:50;left:50%;bottom:91px;transform:translateX(-50%) translateY(18px);background:#172033;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:760;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-@media(max-width:430px){.two,.actions,.pinActions{grid-template-columns:1fr}.heroStats{grid-template-columns:1fr 1fr}.taggrid{grid-template-columns:1fr}.brand{font-size:19px}.scene{grid-template-columns:62px 1fr}}
+:root{--forest:#1f433b;--forest2:#315e53;--cream:#f7f1e7;--paper:#fffdf8;--ink:#202722;--muted:#68716a;--line:#dfd6c7;--terracotta:#c2674d;--gold:#d1a75d;--sage:#dce8df;--pink:#f4dfe3;--orange:#f6e2d2;--ok:#237153;--warn:#9a5a20;--bad:#b64138;--shadow:0 12px 34px rgba(42,54,45,.10)}
+*{box-sizing:border-box}html{background:var(--cream)}body{margin:0;color:var(--ink);background:radial-gradient(circle at 100% 0,#efdec5 0,transparent 25rem),linear-gradient(180deg,#fbf8f2,var(--cream));font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,textarea,select{font:inherit}button{touch-action:manipulation}.app{max-width:760px;margin:auto;min-height:100vh;padding-bottom:92px}.top{position:sticky;top:0;z-index:30;padding:14px 15px 12px;background:rgba(251,248,242,.94);backdrop-filter:blur(16px);border-bottom:1px solid rgba(223,214,199,.8)}.brandrow,.row,.sectionhead,.projecthead{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--forest);letter-spacing:-.4px}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--terracotta);font-weight:850}.avatar{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:var(--forest);color:#fff;font-weight:850}.sync{font-size:10px;color:var(--muted);margin-top:2px}.main{padding:14px}.screen{display:none}.screen.active{display:block}.hero{padding:20px;border-radius:23px;color:#fff;background:radial-gradient(circle at 100% 0,rgba(209,167,93,.38),transparent 38%),linear-gradient(145deg,#183a33,var(--forest2));box-shadow:var(--shadow);margin-bottom:14px}.hero h1{font:700 25px/1.12 Georgia,serif;margin:4px 0 8px}.hero p{font-size:12px;color:#e3eee8;margin:0;max-width:540px}.hero .eyebrow{color:#f5c979}.card{background:rgba(255,253,248,.96);border:1px solid var(--line);border-radius:20px;padding:16px;box-shadow:var(--shadow);margin-bottom:13px}.card h2{font:700 19px/1.2 Georgia,serif;color:var(--forest);margin:0}.card h3{font-size:14px;margin:0}.muted{color:var(--muted);font-size:12px}.badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.4px;background:#eeeae3;color:#5e665f}.badge.ready,.badge.approved,.badge.published{background:#e0f1e6;color:var(--ok)}.badge.editing,.badge.scheduled{background:#fff0da;color:var(--warn)}.badge.failed{background:#fde5e3;color:var(--bad)}.notice{padding:12px 13px;border-radius:14px;background:#f2eee6;border:1px solid var(--line);font-size:12px;color:#5e665f}.notice strong{color:var(--ink)}.platform{display:flex;align-items:center;gap:9px}.platformicon{width:35px;height:35px;border-radius:12px;display:grid;place-items:center;font-weight:900}.platformicon.tiktok{background:#202523;color:#fff}.platformicon.etsy{background:var(--orange);color:#9b4e23}.platformicon.pinterest{background:var(--pink);color:#a72d46}.project{padding:0;overflow:hidden}.projecthead{padding:14px 15px;border-bottom:1px solid var(--line);align-items:flex-start}.projectbody{padding:15px}.projecttitle{font-weight:850;margin:0 0 2px}.source{font-size:10px;color:var(--muted)}.mediaframe{border-radius:17px;overflow:hidden;background:#1e2522;position:relative;margin-bottom:13px}.mediaframe video{width:100%;max-height:520px;display:block;background:#101312}.mediaframe img{display:block;width:100%;max-height:460px;object-fit:contain}.placeholder{min-height:210px;display:grid;place-items:center;text-align:center;color:#bdc6c1;padding:24px}.placeholder b{display:block;font-size:34px;color:#fff;margin-bottom:5px}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.fact{background:#f4f0e8;border-radius:12px;padding:9px}.fact b{display:block;font-size:14px;color:var(--forest)}.fact span{display:block;font-size:9px;color:var(--muted);margin-top:2px}.copy{background:#faf7f0;border-left:3px solid var(--gold);padding:11px;border-radius:4px 12px 12px 4px;margin:9px 0;font-size:12px;white-space:pre-wrap}.scenes{display:grid;gap:7px;margin:10px 0}.scene{display:grid;grid-template-columns:29px 1fr;gap:8px;align-items:start;background:#f4f0e8;border-radius:12px;padding:9px}.scene b{width:25px;height:25px;display:grid;place-items:center;background:var(--forest);color:#fff;border-radius:8px;font-size:10px}.scene span{font-size:12px}.tags{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0}.tag{background:var(--sage);color:#31564b;border-radius:999px;padding:5px 8px;font-size:10px}.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}.gallery img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:11px;background:#eee}.pins{display:grid;gap:12px}.pin{display:grid;grid-template-columns:92px 1fr;gap:11px;border:1px solid var(--line);border-radius:15px;padding:9px;background:#fff}.pin img{width:92px;aspect-ratio:2/3;object-fit:cover;border-radius:10px;background:#eee}.pin h3{font-size:12px}.pin p{font-size:10px;color:var(--muted);margin:4px 0}.pinbuttons{display:flex;gap:5px;margin-top:7px}.pinbuttons button{padding:7px 8px;font-size:10px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.actions.three{grid-template-columns:1fr 1fr 1fr}.btn{border:0;border-radius:13px;padding:11px 12px;font-weight:820;cursor:pointer}.primary{background:linear-gradient(135deg,var(--forest),var(--forest2));color:#fff}.secondary{background:#eee8de;color:var(--forest);border:1px solid #ddd1c1}.warm{background:linear-gradient(135deg,#ad513d,var(--terracotta));color:#fff}.danger{background:#fff0ef;color:var(--bad);border:1px solid #f3cac6}.btn:disabled{opacity:.48;cursor:not-allowed}.empty{text-align:center;padding:42px 18px;color:var(--muted)}.empty .emptyicon{width:62px;height:62px;margin:0 auto 11px;border-radius:22px;background:var(--sage);display:grid;place-items:center;font-size:27px}.empty h2{margin-bottom:6px}.inboxcount{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:var(--terracotta);color:#fff;font-size:9px;margin-left:5px}.upload{display:block;border:1.5px dashed #bdae98;background:#fbf5ea;border-radius:17px;padding:18px;text-align:center;cursor:pointer}.upload input{display:none}.upload b{display:block;color:var(--forest)}.upload span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.field{margin-top:10px}.field label{display:block;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.5px;color:#526059;margin-bottom:5px}.field input,.field textarea,.field select{width:100%;border:1px solid #d7cdbf;background:#fffdf9;border-radius:12px;padding:11px;color:var(--ink);outline:none}.field textarea{min-height:96px;resize:vertical}.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--forest2);box-shadow:0 0 0 3px rgba(49,94,83,.12)}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.modal{display:none;position:fixed;z-index:80;inset:0;background:rgba(16,26,22,.72);padding:17px;align-items:center;justify-content:center}.modal.open{display:flex}.modalcard{width:min(560px,100%);max-height:92vh;overflow:auto;background:var(--paper);border-radius:22px;padding:16px;box-shadow:0 30px 90px rgba(0,0,0,.3)}.modalhead{display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:-16px;background:var(--paper);padding:5px 0 10px;z-index:2}.modalhead h2{font:700 20px Georgia,serif;color:var(--forest);margin:0}.iconbtn{border:0;background:#eee8de;width:34px;height:34px;border-radius:11px;cursor:pointer}.nav{position:fixed;z-index:40;bottom:0;left:0;right:0;max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom));background:rgba(255,253,248,.97);backdrop-filter:blur(16px);border-top:1px solid var(--line)}.nav button{border:0;background:transparent;padding:7px 2px;color:#6c746e;border-radius:12px;font-size:9px;font-weight:800}.nav button b{display:block;font-size:17px;line-height:1.1;margin-bottom:2px}.nav button.active{background:var(--sage);color:var(--forest)}.toast{position:fixed;z-index:100;left:50%;bottom:88px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#17231f;color:#fff;padding:10px 14px;border-radius:99px;font-size:12px;font-weight:750;transition:.2s;max-width:90%;text-align:center}.toast.show{opacity:1;transform:translate(-50%,0)}.update{display:none;background:#f9e9cb;border-bottom:1px solid #e5c895;padding:9px 14px;font-size:11px;text-align:center}.update.show{display:block}.update button{border:0;background:var(--forest);color:#fff;border-radius:9px;padding:6px 9px;margin-left:7px;font-weight:800}.connection{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}.connection:last-child{border:0}.connection b{font-size:13px}.connection span{font-size:10px;color:var(--muted)}.auth{max-width:430px;margin:42px auto}.authlogo{width:64px;height:64px;border-radius:22px;background:var(--forest);color:#fff;display:grid;place-items:center;font:700 27px Georgia,serif;margin-bottom:15px}.small{font-size:10px}.hidden{display:none!important}@media(max-width:480px){.actions.three,.formgrid{grid-template-columns:1fr}.pin{grid-template-columns:78px 1fr}.pin img{width:78px}.facts{grid-template-columns:1fr 1fr}.gallery{grid-template-columns:repeat(3,1fr)}}
 </style>
 </head>
 <body>
+<div id="updateBar" class="update">A fresh version is ready.<button id="reloadApp">Refresh now</button></div>
 <div class="app">
-<header class="top"><div class="toprow"><div><div class="brand">PlanThenRoam Seller Tools</div><div class="sub">Create, preview and organise your seller content</div></div><div class="pills"><span class="pill off">Private</span></div></div></header>
-
+<header class="top"><div class="brandrow"><div><div class="eyebrow">PlanThenRoam</div><div class="brand">Seller Tools</div><div id="syncState" class="sync">Private workspace</div></div><div class="avatar">PR</div></div></header>
 <main class="main">
-
-<section id="home" class="screen active">
- <div class="card hero">
-  <h2 style="margin:0">One planner profile. Three sales engines.</h2>
-  <p class="muted" style="font-size:11px;margin:7px 0 0">Pinterest, TikTok and Etsy now pull from the same planner library.</p>
-  <div class="heroStats">
-   <div class="stat"><b id="homePlannerCount">17</b><span>planners</span></div>
-   <div class="stat"><b id="homePinCount">0</b><span>Pin queue</span></div>
-   <div class="stat"><b id="homeTikCount">0</b><span>TikTok queue</span></div>
-   <div class="stat"><b id="homeDraftCount">0</b><span>Etsy drafts</span></div>
-  </div>
- </div>
- <div class="card" id="installCard">
-  <div class="sectionHead"><h2>Install the Android app</h2><span id="installState" class="linkstate wait">Open in Chrome</span></div>
-  <div class="helper">Install Seller Tools on your home screen. It opens in its own app window while keeping the same secure cloud data.</div>
-  <button class="primary" id="installApp" style="margin-top:9px">Install Seller Tools</button>
- </div>
- <div class="card">
-  <div class="sectionHead"><h2>Performance</h2><span class="badge">Conversion learning</span></div>
-  <div class="metricGrid"><div class="metric"><b id="publishedCount">0</b><span>published</span></div><div class="metric"><b id="trackedSales">0</b><span>sales tracked</span></div><div class="metric"><b id="trackedClicks">0</b><span>clicks tracked</span></div></div>
-  <div class="helper" id="winnerSummary" style="margin-top:9px">Publish content, then add its results in Queue. The strongest seller will be highlighted here.</div>
- </div>
- <details class="card disclosure">
-  <summary>What the app can do</summary>
-  <div class="disclosureBody"><div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest image recognition, SEO, scheduling and Post now sharing<br><span class="ok">✓</span> TikTok concepts with 6–8 generated scenes<br><span class="ok">✓</span> Sound, cover and optional voiceover plans<br><span class="ok">✓</span> 28-style video studio, full preview and local MP4 rendering<br><span class="ok">✓</span> Secure video queue, private previews and download packs<br><span class="ok">✓</span> Etsy copy, tags, PDFs and listing images<br><span class="ok">✓</span> Conversion scoring and results tracking<br><span class="ok">✓</span> Private owner-only uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners</div></div>
- </details>
- <details class="card disclosure">
-  <summary>Connection status</summary>
-  <div class="disclosureBody"><div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> video creation, secure queueing and previews are ready. Direct publishing remains pending platform API approval.</div></div>
- </details>
- <div class="card">
-  <div class="sectionHead"><h2>Cloud Sync</h2><span id="cloudState" class="linkstate wait">Signed out</span></div>
-  <div id="cloudSignedOut" class="grid">
-   <div class="helper">Sign in with your own email to sync the planner library, Pinterest queue, TikTok queue and Etsy drafts to the private backend. The publishable browser key cannot access this data unless you are authenticated.</div>
-   <div class="field"><label>Your email</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
-   <button class="primary" id="sendMagicLink">Send sign-in link</button>
-  </div>
-  <div id="cloudSignedIn" class="grid" style="display:none">
-   <div class="helper"><span class="ok">✓ Secure backend connected.</span> Local changes can now be pushed to the cloud and restored on this phone later.</div>
-   <div class="actions"><button class="secondary" id="pullCloud">Pull from cloud</button><button class="primary" id="pushCloud">Push local data</button></div>
-   <button class="danger" id="cloudSignOut">Sign out</button>
-  </div>
- </div>
-</section>
-
-<section id="pin" class="screen">
- <div class="card"><div class="sectionHead"><h2>New Pinterest Pin</h2><span class="linkstate wait">Not publishing yet</span></div>
-  <div class="grid">
-   <div class="upload"><input id="pinImage" type="file" accept="image/png,image/jpeg,image/webp"><label for="pinImage">Tap to choose your Pin</label><small>1000 × 1500 PNG recommended</small><div id="pinMediaState" class="mediaList">Uploads securely when you add the Pin.</div><div id="pinPreview" class="preview"><img id="pinPreviewImg" alt="Pin preview"></div></div>
-   <div class="helper" id="pinRecogniseState"><strong>Automatic planner recognition:</strong> choose a Pin and the app will read its text, select the planner, board and Etsy link, then create matching SEO copy.</div>
-   <div class="field"><label>Planner</label><select id="pinPlanner"></select></div>
-   <div class="field"><label>Pin type</label><div class="chips" id="pinTypes"><button class="chip active" data-type="advert">Advert</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
-   <details class="options"><summary>Destination and creative controls</summary><div class="grid">
-    <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
-    <div class="field"><label>Exact Etsy link</label><input id="pinLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
-    <div class="field"><label>Creative angle</label><select id="pinAngle"><option value="utility">Useful / practical</option><option value="dream">Dream trip</option><option value="problem">Problem → solution</option><option value="comparison">Compare routes</option><option value="urgency">Seasonal urgency</option><option value="save">Save-this reference</option></select></div>
-    <div class="field"><label>Pin overlay text</label><input id="pinOverlay" maxlength="70" placeholder="Short, readable promise"></div>
-    <div class="field"><label>Pinterest topics — up to 5</label><input id="pinTopics" placeholder="travel planning, city breaks, …"></div>
-   </div></details>
-  </div>
- </div>
- <div class="card"><div class="sectionHead"><h2>SEO auto-fill</h2><button class="smallBtn" id="refreshPinSeo">New variation</button></div>
-  <div class="grid">
-   <div class="field"><label>Title <span class="counter" id="pinTitleCount">0/100</span></label><input id="pinTitle" maxlength="100"></div>
-   <div class="field"><label>Description <span class="counter" id="pinDescCount">0/500</span></label><textarea id="pinDesc" maxlength="500"></textarea></div>
-   <div class="field"><label>Alt text</label><textarea id="pinAlt" maxlength="500"></textarea></div>
-  </div><div id="pinChecks" class="helper" style="margin-top:9px"></div><div id="pinScore" class="scoreCard" style="margin-top:9px"></div><button class="secondary" id="copyPin" style="margin-top:9px">Copy complete Pin pack</button>
- </div>
- <div class="card"><h2>Publish timing</h2><div class="helper">Post now opens your phone’s share sheet so you can choose Pinterest. Until Pinterest approves the app connection, you still confirm the Pin inside Pinterest.</div><div class="grid two" style="margin-top:10px"><div class="field"><label>Date</label><input id="pinDate" type="date"></div><div class="field"><label>Time</label><input id="pinTime" type="time"></div></div><div class="pinActions" style="margin-top:9px"><button class="secondary" id="nextPinSlot">Next slot</button><button class="secondary" id="addPinQueue">Add to queue</button><button class="nowButton" id="postPinNow">Post now</button></div></div>
-</section>
-
-<section id="tiktok" class="screen">
- <div class="card">
-  <div class="sectionHead"><h2>TikTok Creative Engine</h2><span class="linkstate wait">Posting not connected</span></div>
-  <div class="grid">
-   <div class="field"><label>Content goal</label><div class="chips" id="tikTypes"><button class="chip active" data-type="shop">Shop Promo</button><button class="chip" data-type="planner">Planner Promo</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
-   <div class="field"><label>Featured planner</label><select id="tikPlanner"></select></div>
-   <div class="field"><label>Creative concept</label>
-    <select id="tikConcept">
-     <option value="auto">Auto-rotate — avoid repeats</option>
-     <option value="cinematic">Cinematic destination montage</option>
-     <option value="problem">Problem → solution</option>
-     <option value="route">Route reveal</option>
-     <option value="compare">Trip-length comparison</option>
-     <option value="reasons">3 reasons / 3 benefits</option>
-     <option value="facts">Fast fact stack</option>
-     <option value="checklist">Planning checklist</option>
-     <option value="savecard">Save-this reference</option>
-     <option value="inside">What you get</option>
-     <option value="mistake">Planning mistake → fix</option>
-     <option value="beforeafter">Before vs after planning</option>
-     <option value="collection">Collection showcase</option>
-     <option value="seasonal">Seasonal urgency</option>
-     <option value="editorial">Slow editorial / premium</option>
-     <option value="punchy">Fast punchy cuts</option>
-    </select>
-   </div>
-   <div class="field"><label>Number of scenes / photos</label><select id="tikSceneCount"><option value="6" selected>6 scenes — concise</option><option value="7">7 scenes — detailed</option><option value="8">8 scenes — full story</option></select></div>
-   <details class="options"><summary>Fine-tune the creative direction</summary><div class="grid">
-    <div class="field"><label>Hook angle</label><select id="tikAngle"><option value="auto">Auto-rotate</option><option value="pain">Pain point</option><option value="curiosity">Curiosity</option><option value="utility">Useful / practical</option><option value="aspiration">Aspirational</option><option value="identity">Identity / relatable</option><option value="comparison">Comparison</option><option value="urgency">Seasonal urgency</option></select></div>
-    <div class="field"><label>Editing pace</label><select id="tikPace"><option value="auto">Auto for concept</option><option value="fast">Fast — 7–9 seconds</option><option value="balanced">Balanced — 10–12 seconds</option><option value="editorial">Editorial — 13–16 seconds</option></select></div>
-   </div></details>
-   <div class="helper"><strong>Photos are added once, in the Video Studio.</strong> Select exactly one text-free photograph per scene there, where you can check its crop, order, movement and full preview before rendering.</div>
-  </div>
- </div>
-
- <div class="card">
-  <div class="sectionHead"><h2 id="tikConceptTitle">Creative pack</h2><button class="smallBtn" id="refreshTik">Generate a different concept</button></div>
-  <div class="grid">
-   <div class="helper" id="tikDirection"></div>
-   <div class="field"><label>Hook</label><input id="tikHook" maxlength="90"></div>
-   <details class="options"><summary>Review all 6–8 scene captions</summary><div class="grid"><div class="scenegrid" id="tikScenes"></div></div></details>
-   <div class="field"><label>Caption</label><textarea id="tikCaption"></textarea></div>
-   <div class="field"><label>CTA</label><input id="tikCTA"></div>
-   <div class="field"><label>5 SEO hashtags</label><input id="tikHashtags"></div>
-   <details class="options"><summary>Sound, cover and voiceover</summary><div class="grid">
-    <div class="field"><label>Sound plan</label><select id="tikSound"><option value="trending">Add a relevant trending sound in TikTok</option><option value="voiceover">Record voiceover, then add low music in TikTok</option><option value="music">Add suitable music in TikTok</option><option value="silent">Publish without added sound</option></select></div>
-    <div class="field"><label>Cover title</label><input id="tikCover" maxlength="60"></div>
-    <div class="field"><label>Optional voiceover script</label><textarea id="tikVoiceover" maxlength="700"></textarea></div>
-   </div></details>
-   <div class="helper" id="tikWhy"></div>
-   <div id="tikScore" class="scoreCard"></div>
-   <div class="copyRow"><button class="secondary" id="copyTik">Copy full video pack</button><button class="secondary" id="downloadTikPack">Download posting notes</button></div>
-   <button class="secondary" id="copyTikCaption">Copy caption only</button>
-   <div class="studioCallout"><h3>Turn this concept into a finished video</h3><p>All 6–8 scenes, copy, style direction, caption, sound and cover plan transfer automatically. Add the photos once in the studio, preview every scene, then render and download the finished video.</p><button class="primary" id="openVideoStudio">Choose photos &amp; build video</button></div>
-  </div>
- </div>
-
- <details class="card disclosure"><summary>Optional posting reminder</summary><div class="disclosureBody"><div class="helper">Your finished video downloads to your phone and can be saved to the private queue from the studio. Add licensed sound inside TikTok, set the prepared cover, paste the caption, then post.</div><div class="grid two" style="margin-top:9px"><div class="field"><label>Date (optional)</label><input id="tikDate" type="date"></div><div class="field"><label>Time (optional)</label><input id="tikTime" type="time"></div></div><button class="secondary" id="nextTikSlot" style="margin-top:9px">Suggest a posting slot</button></div></details>
-</section>
-
-<section id="etsy" class="screen">
- <div class="card"><div class="sectionHead"><h2>Etsy Listing Engine</h2><span class="linkstate wait">API pending</span></div>
-  <div class="modeSwitch"><button class="active" data-etsy-mode="edit">Edit existing</button><button data-etsy-mode="new">Create new</button></div>
-  <div class="grid" style="margin-top:10px"><div class="field"><label>Planner</label><select id="etsyPlanner"></select></div><div class="helper" id="etsyState"></div></div>
- </div>
- <div class="card"><h2>Listing content</h2><div class="grid">
-  <div class="field"><label>Etsy title <span class="counter" id="etsyTitleCount">0/140</span></label><textarea id="etsyTitle" maxlength="140" style="min-height:76px"></textarea></div>
-  <div class="field"><label>Description <span class="counter" id="etsyDescCount">0</span></label><textarea id="etsyDesc" style="min-height:190px"></textarea></div>
-  <details class="options"><summary>Review all 13 Etsy search tags</summary><div class="grid"><div class="field"><label>Search tags</label><div id="tagGrid" class="taggrid"></div></div></div></details>
-  <div class="field"><label>Customer PDF</label><input id="etsyPdf" type="file" accept="application/pdf"><div id="etsyPdfState" class="mediaList">Uploads securely when you save the draft.</div></div>
-  <div class="field"><label>Listing images</label><input id="etsyImages" type="file" accept="image/png,image/jpeg,image/webp" multiple><div id="etsyImagesState" class="mediaList">Uploads securely when you save the draft.</div><div id="etsyImagePreviews" class="mediaThumbs"></div></div>
-  <div class="helper" id="etsyImagePlan"></div>
-  <div id="etsyScore" class="scoreCard"></div>
-  <div class="helper">Customer-file rule: PDF only. Generated copy excludes editable Word-document wording and does not write £14.99 into the listing copy.</div>
-  <div class="actions"><button class="secondary" id="regenEtsy">Regenerate copy</button><button class="primary" id="saveEtsyDraft">Save draft</button></div><button class="secondary" id="copyEtsy" style="margin-top:8px">Copy complete listing pack</button>
- </div></div>
-</section>
-
-<section id="library" class="screen">
- <div class="card"><div class="sectionHead"><h2>Planner Library</h2><span class="badge" id="plannerBadge">17 planners</span></div><div class="helper">One permanent profile per planner. Board, Etsy link, route lengths, highlights and search phrase are reused by Pinterest, TikTok and Etsy.</div><div id="plannerList" class="list" style="margin-top:10px"></div></div>
- <details class="card disclosure"><summary id="plannerFormTitle">Add planner</summary><div class="disclosureBody"><input type="hidden" id="editPlannerId"><div class="grid">
-  <div class="field"><label>Planner name</label><input id="libName"></div>
-  <div class="field"><label>Main search phrase</label><input id="libKeyword"></div>
-  <div class="grid two"><div class="field"><label>Route lengths</label><input id="libRoutes"></div><div class="field"><label>Edition / season</label><input id="libSeason"></div></div>
-  <div class="field"><label>Destinations / highlights</label><input id="libHighlights"></div>
-  <div class="field"><label>Automatic Pinterest board</label><input id="libBoard"></div>
-  <div class="field"><label>Exact Etsy listing link</label><input id="libLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
-  <div class="field"><label>Etsy listing ID</label><input id="libListingId" inputmode="numeric" placeholder="Auto-sync after Etsy approval"></div>
-  <button class="primary" id="savePlanner">Save planner</button>
- </div></div></details>
-</section>
-
-<section id="queue" class="screen">
- <div class="card"><div class="sectionHead"><h2>Pinterest Queue</h2><span class="badge" id="pinQueueBadge">0 Pins</span></div><div id="pinQueueList" class="list"></div></div>
- <div class="card"><div class="sectionHead"><h2>TikTok download &amp; post queue</h2><span class="badge" id="tikQueueBadge">0 videos</span></div><div id="tikQueueList" class="list"></div></div>
- <div class="card"><h2>Etsy Drafts</h2><div id="etsyDraftList" class="list"></div></div>
- <details class="card disclosure"><summary>Scheduling settings</summary><div class="disclosureBody"><div class="grid two"><div class="field"><label>Pinterest slots</label><input id="pinSlots" value="09:00,18:00"></div><div class="field"><label>TikTok slots</label><input id="tikSlots" value="12:00,20:00"></div></div><button class="primary" id="saveSlots" style="margin-top:9px">Save slots</button></div></details>
-</section>
-
+ <section id="authScreen" class="screen"><div class="auth"><div class="authlogo">PR</div><div class="card"><h2>Your private workspace</h2><p class="muted">Sign in with the owner email. Only your account can open projects or files.</p><div class="field"><label>Email address</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com"></div><button id="signIn" class="btn primary" style="width:100%;margin-top:10px">Send secure sign-in link</button></div></div></section>
+ <section id="tiktok" class="screen">
+  <div class="hero"><div class="eyebrow">TikTok Review Box</div><h1>Watch it. Tweak it. Download it.</h1><p>Finished silent videos arrive here with 6–8 scenes, captions and your sound recommendation.</p></div>
+  <div id="tiktokList"></div>
+ </section>
+ <section id="etsy" class="screen">
+  <div class="hero"><div class="eyebrow">Etsy Review Box</div><h1>Everything ready in one listing pack.</h1><p>Review the customer PDF, listing images, copy, alt text and all 13 tags before publishing.</p></div>
+  <div id="etsyList"></div>
+ </section>
+ <section id="pinterest" class="screen">
+  <div class="hero"><div class="eyebrow">Pinterest Review Box</div><h1>Ten polished Pins, ready together.</h1><p>Check every image, SEO title, description, board and destination before posting or scheduling.</p></div>
+  <div id="pinterestList"></div>
+ </section>
+ <section id="queue" class="screen"><div class="hero"><div class="eyebrow">Queue & history</div><h1>Your publishing trail.</h1><p>See what is ready, scheduled, downloaded, published or needs attention.</p></div><div id="queueList"></div></section>
+ <section id="settings" class="screen"><div class="hero"><div class="eyebrow">Settings</div><h1>Quiet controls. Nothing extra.</h1><p>Import a pack manually when needed and check the genuine status of each connection.</p></div>
+  <div class="card"><div class="sectionhead"><h2>Import project pack</h2><span class="badge">Fallback</span></div><p class="muted">Choose a ChatGPT ZIP containing <strong>manifest.json</strong> and its media. JSON-only packs are also accepted.</p><label class="upload"><input id="packFile" type="file" accept=".zip,.json,application/zip,application/json"><b>Choose project pack</b><span>TikTok, Etsy or a 10-Pin Pinterest batch</span></label><div id="importState" class="notice hidden" style="margin-top:10px"></div></div>
+  <div class="card"><h2>Connections</h2><div id="connections"></div></div>
+  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version 8 · secure owner-only storage</p></div>
+ </section>
 </main>
-
-<nav class="nav">
- <button class="active" data-screen="home"><b>⌂</b>Home</button>
- <button data-screen="pin"><b>＋</b>Pinterest</button>
- <button data-screen="tiktok"><b>▶</b>TikTok</button>
- <button data-screen="etsy"><b>✎</b>Etsy</button>
- <button data-screen="library"><b>▦</b>Planners</button>
- <button data-screen="queue"><b>◷</b>Queue</button>
+<nav id="nav" class="nav hidden">
+ <button data-screen="tiktok" class="active"><b>♪</b>TikTok<span id="tikCount" class="inboxcount hidden">0</span></button>
+ <button data-screen="etsy"><b>✦</b>Etsy<span id="etsyCount" class="inboxcount hidden">0</span></button>
+ <button data-screen="pinterest"><b>●</b>Pins<span id="pinCount" class="inboxcount hidden">0</span></button>
+ <button data-screen="queue"><b>☷</b>Queue</button>
+ <button data-screen="settings"><b>⚙</b>Settings</button>
 </nav>
+</div>
+<div id="editModal" class="modal"><div class="modalcard"><div class="modalhead"><h2 id="editTitle">Edit project</h2><button class="iconbtn" data-close="editModal">×</button></div><form id="editForm"></form></div></div>
+<div id="scheduleModal" class="modal"><div class="modalcard"><div class="modalhead"><h2>Schedule</h2><button class="iconbtn" data-close="scheduleModal">×</button></div><div class="field"><label>Date and time</label><input id="scheduleWhen" type="datetime-local"></div><button id="confirmSchedule" class="btn primary" style="width:100%;margin-top:11px">Save schedule</button></div></div>
 <div id="toast" class="toast"></div>
-<div id="videoModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
- <div class="modalCard"><div class="modalHead"><h2 id="videoModalTitle">Queued TikTok preview</h2><button class="smallBtn" id="closeVideoModal" type="button">Close</button></div><video id="queuedVideo" controls playsinline preload="metadata"></video><div id="queuedVideoState" class="helper">Preparing secure preview…</div></div>
-</div>
-<div id="resultsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="resultsTitle"><div class="modalCard"><div class="modalHead"><h2 id="resultsTitle">Add results</h2><button class="smallBtn" id="closeResults" type="button">Close</button></div><input type="hidden" id="resultKind"><input type="hidden" id="resultId"><div class="grid two"><div class="field"><label>Views</label><input id="resultViews" type="number" min="0" inputmode="numeric"></div><div class="field"><label>Saves / favourites</label><input id="resultSaves" type="number" min="0" inputmode="numeric"></div><div class="field"><label>Clicks</label><input id="resultClicks" type="number" min="0" inputmode="numeric"></div><div class="field"><label>Sales</label><input id="resultSales" type="number" min="0" inputmode="numeric"></div></div><button class="primary" id="saveResults" style="margin-top:10px">Save results</button></div></div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const KEYS={planners:'ptr_planners_master_v4',pins:'ptr_pin_queue_v4',tiks:'ptr_tik_queue_v4',drafts:'ptr_etsy_drafts_v4',settings:'ptr_settings_master_v4',variants:'ptr_variants_v4'};
-const defaults=[
-{id:'nc500',name:'NC500 Road Trip Planner',keyword:'NC500 road trip itinerary',routes:'5, 7 and 10 days',season:'',highlights:'North Coast 500, Scottish Highlands, scenic driving stops and practical route planning',board:'Scotland Road Trips',link:'',listingId:''},
-{id:'japan',name:'Japan First-Timer Itinerary Planner',keyword:'Japan itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Tokyo, Hakone and Mount Fuji, Kyoto, Osaka, Nara and Hiroshima',board:'Japan Travel Planning',link:'',listingId:''},
-{id:'south-korea',name:'South Korea First-Timer Itinerary Planner',keyword:'South Korea itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Seoul, Gyeongju, Busan and Jeju',board:'South Korea Travel Planning',link:'',listingId:''},
-{id:'rome',name:'Rome First-Timer Itinerary Planner',keyword:'Rome itinerary',routes:'3, 4 and 5 days',season:'',highlights:'Ancient Rome, Vatican City, the historic centre and Trastevere',board:'Rome Travel Planning',link:'',listingId:''},
-{id:'salem',name:'Salem Halloween Itinerary Planner',keyword:'Salem Halloween itinerary',routes:'1, 2 and 3 days',season:'2026',highlights:'witch-trial history, haunted attractions, October events and essential planning',board:'Halloween Travel Ideas',link:'',listingId:''},
-{id:'new-england',name:'New England Fall Foliage Road Trip Planner',keyword:'New England fall foliage road trip',routes:'5, 7 and 10 days',season:'2026',highlights:'Massachusetts, Vermont, New Hampshire and Maine fall foliage routes',board:'Fall Travel & Road Trips',link:'',listingId:''},
-{id:'nyc-christmas',name:'Christmas in New York Itinerary Planner',keyword:'New York Christmas itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Christmas lights, festive attractions, markets, seasonal experiences and Manhattan planning',board:'Christmas City Breaks',link:'',listingId:''},
-{id:'lapland',name:'Finnish Lapland Winter Itinerary Planner',keyword:'Finnish Lapland itinerary',routes:'3, 5 and 7 days',season:'2026–2027',highlights:'Rovaniemi, Levi, Northern Lights, Santa experiences and Arctic activities',board:'Lapland Winter Travel',link:'',listingId:''},
-{id:'europe-markets',name:'European Christmas Markets by Train',keyword:'European Christmas markets by train',routes:'7, 10 and 14 days',season:'2026',highlights:'Nuremberg, Prague, Vienna, Bratislava and Budapest by train',board:'European Christmas Markets',link:'',listingId:''},
-{id:'tromso',name:'Tromsø Winter Itinerary Planner',keyword:'Tromsø winter itinerary',routes:'3, 4 and 5 days',season:'2026–2027',highlights:'Tromsø, Northern Lights, Arctic winter activities and practical trip planning',board:'Norway Winter Travel',link:'',listingId:''},
-{id:'munich',name:'Munich Itinerary Planner',keyword:'Munich itinerary',routes:'3, 4 and 5 days',season:'',highlights:'Munich highlights, old town, food, culture and practical city-break planning',board:'Germany Travel Planning',link:'',listingId:''},
-{id:'oktoberfest',name:'Munich Oktoberfest Itinerary Planner',keyword:'Munich Oktoberfest itinerary',routes:'2, 3 and 4 days',season:'2026',highlights:'Oktoberfest, Munich sights, festival planning and practical trip logistics',board:'Oktoberfest Travel Planning',link:'',listingId:''},
-{id:'london-christmas',name:'Christmas in London Itinerary Planner',keyword:'London Christmas itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Christmas lights, markets, ice skating and seasonal London experiences',board:'Christmas City Breaks',link:'',listingId:''},
-{id:'iceland',name:'Iceland Ring Road Itinerary Planner',keyword:'Iceland Ring Road itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Iceland Ring Road, waterfalls, geothermal sights, scenic drives and practical route planning',board:'Iceland Road Trips',link:'',listingId:''},
-{id:'copenhagen',name:'Copenhagen Christmas & Tivoli Itinerary Guide',keyword:'Copenhagen Christmas itinerary',routes:'3, 4 and 5 days',season:'2026–2027',highlights:'Tivoli Gardens, Christmas markets, Nyhavn and festive Copenhagen experiences',board:'Christmas City Breaks',link:'',listingId:''},
-{id:'alsace',name:'Alsace Christmas Markets Itinerary Planner',keyword:'Alsace Christmas markets itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Strasbourg, Colmar, Alsace villages, Christmas markets and festive route planning',board:'European Christmas Markets',link:'',listingId:''},
-{id:'belgium',name:'Belgian Christmas Markets Itinerary Planner',keyword:'Belgium Christmas markets itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Brussels, Bruges, Ghent and Belgian Christmas market planning',board:'European Christmas Markets',link:'',listingId:''}
-];
-function migratePlanners(){
- const old=JSON.parse(localStorage.getItem('ptr_planners_v3')||'null');
- return JSON.parse(localStorage.getItem(KEYS.planners)||'null') || old || defaults;
-}
-let planners=migratePlanners();
-let pinQueue=JSON.parse(localStorage.getItem(KEYS.pins)||'[]');
-let tikQueue=JSON.parse(localStorage.getItem(KEYS.tiks)||'[]');
-let drafts=JSON.parse(localStorage.getItem(KEYS.drafts)||'[]');
-let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'null')||{pinSlots:'09:00,18:00',tikSlots:'12:00,20:00'};
-let variants=JSON.parse(localStorage.getItem(KEYS.variants)||'{}');
-let pinType='advert',tikType='shop',etsyMode='edit';
+'use strict';
 const SUPABASE_URL='https://wyoamcydkbblvujvyljs.supabase.co';
 const SUPABASE_KEY='sb_publishable_DApk1ZNyEUeBhpeBwHgM8g_uKaMnXzS';
-const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-const MEDIA_BUCKETS={pin:'pinterest-media',tik:'tiktok-media',etsy:'etsy-assets'};
-function safeFileName(name='file'){
- return String(name).normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/-+/g,'-').replace(/^[.-]+|[.-]+$/g,'').slice(-110)||'file';
-}
-function mediaPathFor(userId,kind,file){
- const token=(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
- return `${userId}/${kind}/${Date.now()}-${token}-${safeFileName(file.name)}`;
-}
-async function removeStoredMedia(bucket,paths){
- const clean=[...new Set((paths||[]).filter(Boolean))];if(!clean.length)return true;
- const {error}=await sb.storage.from(bucket).remove(clean);
- if(error){console.error('Media clean-up failed',error);return false}
- return true;
-}
-async function uploadSelectedFiles(bucket,kind,files){
- const chosen=[...(files||[])];if(!chosen.length)return [];
- const {data:{session}}=await sb.auth.getSession();
- if(!session)throw new Error('Sign in under Cloud Sync before uploading files');
- const uploaded=[];
- try{
-  for(const file of chosen){
-   const path=mediaPathFor(session.user.id,kind,file);
-   const {data,error}=await sb.storage.from(bucket).upload(path,file,{contentType:file.type||undefined,cacheControl:'3600',upsert:false});
-   if(error)throw error;
-   uploaded.push(data.path);
-  }
-  return uploaded;
- }catch(error){
-  await removeStoredMedia(bucket,uploaded);
-  throw error;
- }
-}
-function setMediaState(selector,message,state=''){
- const el=$(selector);if(!el)return;el.textContent=message;el.className='mediaList'+(state?' '+state:'');
-}
-function setBusy(button,busy,label){
- if(!button)return;button.disabled=busy;button.dataset.normalLabel||=button.textContent;button.textContent=busy?label:button.dataset.normalLabel;
-}
-async function removeCloudRow(table,id){
- if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(id||'')))return;
- const {data:{session}}=await sb.auth.getSession();if(session)await sb.from(table).delete().eq('id',id);
-}
-
-function cloudUi(session){
- const signed=!!session;
- $('#cloudSignedOut').style.display=signed?'none':'grid';
- $('#cloudSignedIn').style.display=signed?'grid':'none';
- $('#cloudState').textContent=signed?'Connected':'Signed out';
- $('#cloudState').className='linkstate '+(signed?'ready':'wait');
-}
-async function initCloud(){
- const {data:{session}}=await sb.auth.getSession();cloudUi(session);
- sb.auth.onAuthStateChange((_event,session)=>cloudUi(session));
-}
-async function sendCloudMagicLink(){
- const email=$('#cloudEmail').value.trim();if(!email)return toast('Enter your email');
- const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
- if(error)return toast(error.message);
- toast('Check your email for the sign-in link');
-}
-async function pushCloudData(){
- const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in first');
- const plannerRows=planners.map(p=>({slug:p.id,name:p.name,keyword:p.keyword||null,routes:p.routes||null,season:p.season||null,highlights:p.highlights||null,pinterest_board:p.board||null,etsy_listing_url:p.link||null,etsy_listing_id:p.listingId||null}));
- let {error}=await sb.from('planners').upsert(plannerRows,{onConflict:'slug'});if(error)return toast('Planner sync failed');
- await sb.from('pinterest_queue').delete().neq('status','__never__');
- if(pinQueue.length){
-   const rows=pinQueue.map(q=>({planner_slug:q.plannerId||null,pin_type:q.type,title:q.title,description:q.desc,alt_text:q.alt||null,board:q.board||null,destination_url:q.link||null,media_url:q.mediaPath||null,scheduled_for:q.when,status:q.status||'queued',creative_angle:q.angle||null,overlay_text:q.overlay||null,topic_tags:q.topics||[],performance:q.performance||{},published_at:q.publishedAt||null}));
-   ({error}=await sb.from('pinterest_queue').insert(rows));if(error)return toast('Pin queue sync failed');
- }
- await sb.from('tiktok_queue').delete().neq('status','__never__');
- if(tikQueue.length){
-   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,scenes:q.scenes||[],caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaPaths||[],scheduled_for:q.when,status:q.status||'queued',sound_plan:q.soundPlan||null,cover_text:q.coverText||null,voiceover_script:q.voiceoverScript||null,performance:q.performance||{},published_at:q.publishedAt||null}));
-   ({error}=await sb.from('tiktok_queue').insert(rows));if(error)return toast('TikTok queue sync failed');
- }
- await sb.from('etsy_drafts').delete().neq('status','__never__');
- if(drafts.length){
-   const rows=drafts.map(d=>({planner_slug:d.plannerId||null,mode:d.mode,title:d.title||null,description:d.desc||null,tags:d.tags||[],pdf_name:d.pdfName||null,image_names:d.imageNames||[],pdf_path:d.pdfPath||null,image_paths:d.imagePaths||[],status:d.status||'draft',image_plan:d.imagePlan||[],conversion_score:d.conversionScore||0,performance:d.performance||{},published_at:d.publishedAt||null}));
-   ({error}=await sb.from('etsy_drafts').insert(rows));if(error)return toast('Etsy draft sync failed');
- }
- toast('Cloud sync complete');
-}
-async function pullCloudData(){
- const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in first');
- const [pp,pq,tq,ed]=await Promise.all([
-   sb.from('planners').select('*').order('created_at'),
-   sb.from('pinterest_queue').select('*').order('scheduled_for'),
-   sb.from('tiktok_queue').select('*').order('scheduled_for'),
-   sb.from('etsy_drafts').select('*').order('updated_at')
- ]);
- if(pp.error||pq.error||tq.error||ed.error)return toast('Cloud pull failed');
- if(pp.data?.length)planners=pp.data.map(p=>({id:p.slug,name:p.name,keyword:p.keyword||'',routes:p.routes||'',season:p.season||'',highlights:p.highlights||'',board:p.pinterest_board||'',link:p.etsy_listing_url||'',listingId:p.etsy_listing_id||''}));
- pinQueue=(pq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.pin_type,board:q.board||'',link:q.destination_url||'',title:q.title,desc:q.description,alt:q.alt_text||'',mediaPath:q.media_url||'',mediaName:String(q.media_url||'').split('/').pop()||'',when:q.scheduled_for,status:q.status||'queued',angle:q.creative_angle||'',overlay:q.overlay_text||'',topics:Array.isArray(q.topic_tags)?q.topic_tags:[],performance:q.performance||{},publishedAt:q.published_at||''}));
- tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:Array.isArray(q.scenes)&&q.scenes.length?q.scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaPaths:Array.isArray(q.media_urls)?q.media_urls:[],mediaNames:(Array.isArray(q.media_urls)?q.media_urls:[]).map(x=>String(x).split('/').pop()),when:q.scheduled_for,status:q.status||'queued',soundPlan:q.sound_plan||'',coverText:q.cover_text||'',voiceoverScript:q.voiceover_script||'',performance:q.performance||{},publishedAt:q.published_at||''}));
- drafts=(ed.data||[]).map(d=>({id:d.id,plannerId:d.planner_slug,planner:planner(d.planner_slug)?.name||'',mode:d.mode,title:d.title||'',desc:d.description||'',tags:Array.isArray(d.tags)?d.tags:[],savedAt:d.updated_at,pdfName:d.pdf_name||'',imageNames:Array.isArray(d.image_names)?d.image_names:[],pdfPath:d.pdf_path||'',imagePaths:Array.isArray(d.image_paths)?d.image_paths:[],imagePlan:Array.isArray(d.image_plan)?d.image_plan:[],conversionScore:d.conversion_score||0,status:d.status||'draft',performance:d.performance||{},publishedAt:d.published_at||''}));
- persist();refreshAll();toast('Restored from cloud');
-}
-async function signOutCloud(){await sb.auth.signOut();toast('Signed out')}
-
-function persist(){localStorage.setItem(KEYS.planners,JSON.stringify(planners));localStorage.setItem(KEYS.pins,JSON.stringify(pinQueue));localStorage.setItem(KEYS.tiks,JSON.stringify(tikQueue));localStorage.setItem(KEYS.drafts,JSON.stringify(drafts));localStorage.setItem(KEYS.settings,JSON.stringify(settings));localStorage.setItem(KEYS.variants,JSON.stringify(variants))}
-function esc(v=''){return String(v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
-function clean(s=''){return String(s).replace(/\s+/g,' ').replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide').trim()}
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
-function planner(id){return planners.find(p=>p.id===id)}
-function shortName(n){return String(n).replace(/ Itinerary Planner| Road Trip Planner| Itinerary Guide| Planner| Guide| First-Timer/g,'').trim()}
-function localDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
-function nextVariant(key,len,advance=true){if(!(key in variants))variants[key]=0;else if(advance)variants[key]++;persist();return variants[key]%len}
-function updateHome(){const all=[...pinQueue.map(x=>({...x,channel:'Pinterest'})),...tikQueue.map(x=>({...x,channel:'TikTok'})),...drafts.map(x=>({...x,channel:'Etsy'}))],published=all.filter(x=>x.status==='published'),sales=all.reduce((n,x)=>n+Number(x.performance?.sales||0),0),clicks=all.reduce((n,x)=>n+Number(x.performance?.clicks||0),0),winner=[...all].sort((a,b)=>(Number(b.performance?.sales||0)*1000+Number(b.performance?.clicks||0)+Number(b.performance?.saves||0))-(Number(a.performance?.sales||0)*1000+Number(a.performance?.clicks||0)+Number(a.performance?.saves||0)))[0];$('#homePlannerCount').textContent=planners.length;$('#homePinCount').textContent=pinQueue.length;$('#homeTikCount').textContent=tikQueue.length;$('#homeDraftCount').textContent=drafts.length;$('#publishedCount').textContent=published.length;$('#trackedSales').textContent=sales;$('#trackedClicks').textContent=clicks;$('#winnerSummary').innerHTML=winner&&(Number(winner.performance?.sales||0)+Number(winner.performance?.clicks||0)+Number(winner.performance?.saves||0))?`<strong>Current winner:</strong> ${esc(winner.channel)} · ${esc(winner.planner||winner.title||'content')} — ${Number(winner.performance?.sales||0)} sales, ${Number(winner.performance?.clicks||0)} clicks, ${Number(winner.performance?.saves||0)} saves.`:'Publish content, then add its results in Queue. The strongest seller will be highlighted here.';$('#plannerBadge').textContent=`${planners.length} planners`;$('#pinQueueBadge').textContent=`${pinQueue.length} Pin${pinQueue.length===1?'':'s'}`;$('#tikQueueBadge').textContent=`${tikQueue.length} video${tikQueue.length===1?'':'s'}`}
-function fillSelects(){const opts=planners.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');const vals=[$('#pinPlanner').value,$('#tikPlanner').value,$('#etsyPlanner').value];$('#pinPlanner').innerHTML=opts;$('#tikPlanner').innerHTML=opts;$('#etsyPlanner').innerHTML=opts;if(planner(vals[0]))$('#pinPlanner').value=vals[0];if(planner(vals[1]))$('#tikPlanner').value=vals[1];if(planner(vals[2]))$('#etsyPlanner').value=vals[2]}
-
-/* Pinterest */
-function pinVariants(p,type){
- const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights,k=p.keyword;
- return {
-  advert:[
-   [`${place}${season} | ${r} Itinerary`,`Planning ${place}? Explore ${r} ready-planned route options covering ${h}. Start with a clear structure, then personalise the bookings and details around your own trip.`],
-   [`Plan ${place}${season} | ${r} Routes`,`Take the stress out of planning ${place}. Compare ${r} practical itinerary options featuring ${h}, organised to give the trip a clearer starting point.`],
-   [`${place} Travel Planner | ${r}`,`Build your ${place} trip around ${r} carefully structured routes, including ${h}. A practical PDF guide for turning saved ideas into a workable plan.`],
-   [`${place}${season}: Start With the Route`,`Too many tabs and no clear order? This ${k} brings together ${r} route options with ${h}, helping you move from research to a trip you can actually organise.`],
-   [`${place} Itinerary Guide | Plan Smarter`,`Spend less time piecing the route together. Use ${r} structured ${place} itineraries covering ${h}, then adjust the details to fit your travel style.`],
-   [`${r} Ways to Plan ${place}`,`One destination, different trip lengths. Compare ${r} ${place} routes featuring ${h} and choose the pace that works for you.`],
-   [`Your ${place}${season} Trip, Organised`,`A clearer way to plan ${place}: ${r} itinerary options, key highlights including ${h}, and practical guidance in one customer-ready PDF.`],
-   [`${place} Route Planner | Digital Guide`,`Start your ${place} planning with the route already structured. Explore ${r} options covering ${h} and build your own bookings around them.`]
-  ],
-  save:[
-   [`Save This ${k} | ${r}`,`Save this for your ${place} trip. Compare ${r} route options covering ${h}, with practical planning organised into an easy-to-follow itinerary.`],
-   [`${place}: Save These ${r} Route Ideas`,`Planning ${place} later? Save these ${r} itinerary options featuring ${h} so you have a useful starting point when you are ready to plan.`],
-   [`A Smarter Way to Plan ${place}`,`Save this ${k} idea for later: ${r} route options, ${h}, and a clear structure to help turn your ideas into a workable trip.`],
-   [`Save for Later: ${place}${season}`,`If ${place} is on your list, keep this planning shortcut. It compares ${r} routes and brings together ${h} in one structured guide.`],
-   [`${place} Planning Shortcut | Save This`,`Keep this Pin for the moment your ${place} plans become real. Start with ${r} routes covering ${h}, then personalise from there.`],
-   [`Do Not Lose These ${place} Route Ideas`,`Save ${r} different ways to structure a ${place} trip, with ${h} already organised into practical itinerary options.`],
-   [`${place} Trip Research, Simplified`,`Pin this before opening another dozen tabs. The guide gives you ${r} structured ${place} routes featuring ${h}.`],
-   [`Future ${place} Trip? Save This Guide`,`A useful starting point for a future ${place} trip: ${r} route choices, ${h}, and a clearer order for planning.`]
-  ],
-  factual:[
-   [`${place}: ${r} Route Ideas`,`Useful ${k} planning: choose from ${r} routes featuring ${h}. Save this Pin as a quick reference while comparing trip lengths.`],
-   [`How Long Do You Need in ${place}?`,`This planner includes ${r} route options covering ${h}. Save it while deciding how much time to allow for your trip.`],
-   [`${place} Trip Planning: ${r}`,`Quick planning reference for ${place}: ${r} itinerary options with ${h}. Save for later when comparing routes and trip length.`],
-   [`${place} Itinerary Options Compared`,`Not every ${place} trip needs the same pace. Compare ${r} route structures and see how ${h} can fit into your available time.`],
-   [`What to Include in a ${place} Trip`,`Start with the essentials: ${h}. The PDF guide organises them across ${r} practical itinerary options.`],
-   [`${place} Route First, Bookings Second`,`A simple planning principle: choose the route before locking the details. Compare ${r} ${place} itineraries covering ${h}.`],
-   [`${place} Planning Reference | ${r}`,`Use this as a quick ${place} planning reference: ${r} trip lengths, key stops including ${h}, and a structure you can adapt.`],
-   [`${place}: Choose the Right Trip Length`,`Shorter trip or slower pace? Review ${r} route options for ${place}, with ${h} included across the guide.`]
-  ]
- }[type]
-}
-const PIN_ALIASES={
- nc500:['nc500','north coast 500','scottish highlands','highlands road trip'],
- japan:['japan','tokyo','kyoto','osaka','hakone','mount fuji','nara','hiroshima'],
- 'south-korea':['south korea','seoul','busan','gyeongju','jeju'],
- rome:['rome','vatican','trastevere','colosseum','ancient rome'],
- salem:['salem halloween','salem massachusetts','witch trials','haunted happenings'],
- 'new-england':['new england fall foliage','new england road trip','fall foliage','autumn foliage','vermont','new hampshire'],
- 'nyc-christmas':['christmas in new york','new york christmas','nyc christmas','rockefeller centre','rockefeller center','bryant park christmas'],
- lapland:['finnish lapland','lapland winter','rovaniemi','levi finland','santa claus village'],
- 'europe-markets':['european christmas markets by train','christmas markets by train','nuremberg prague vienna','bratislava budapest'],
- tromso:['tromso winter','tromsø winter','tromso norway','tromsø norway','arctic norway'],
- munich:['munich itinerary','munich city break','marienplatz','munich old town'],
- oktoberfest:['oktoberfest','munich oktoberfest','wiesn','theresienwiese','oide wiesn','beer tents'],
- 'london-christmas':['christmas in london','london christmas','london festive','christmas lights london'],
- iceland:['iceland ring road','ring road iceland','iceland road trip','golden circle'],
- copenhagen:['copenhagen christmas','christmas in copenhagen','tivoli christmas','tivoli gardens','nyhavn christmas'],
- alsace:['alsace christmas markets','strasbourg christmas','colmar christmas','alsace markets'],
- belgium:['belgian christmas markets','belgium christmas markets','brussels christmas','bruges christmas','ghent christmas']
-};
-function normaliseRecognitionText(value=''){return String(value).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim()}
-function recognitionTerms(p){return [...new Set([...(PIN_ALIASES[p.id]||[]),p.keyword,shortName(p.name)].map(normaliseRecognitionText).filter(x=>x.length>3))]}
-function matchPlannerFromText(raw){
- const text=normaliseRecognitionText(raw);if(!text)return null;
- const ranked=planners.map(p=>{let score=0,matches=[];for(const term of recognitionTerms(p)){if(text.includes(term)){const words=term.split(' ').length,weight=words>=3?12:words===2?8:Math.min(7,Math.max(4,term.length/2));score+=weight;matches.push(term)}}return {p,score,matches}}).sort((a,b)=>b.score-a.score);
- const top=ranked[0],second=ranked[1]||{score:0};if(!top||top.score<4||top.score-second.score<2)return null;return {...top,confidence:top.score>=12?'High':'Likely'};
-}
-let pinOcrWorker=null,pinOcrRun=0;
-let pinImageInfo={width:0,height:0};
-function loadOcrLibrary(){if(window.Tesseract)return Promise.resolve();return new Promise((resolve,reject)=>{const old=document.querySelector('script[data-ocr]');if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return}const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js';script.dataset.ocr='true';script.onload=resolve;script.onerror=()=>reject(new Error('Text reader could not load'));document.head.appendChild(script)})}
-async function getPinOcrWorker(runId){await loadOcrLibrary();if(!pinOcrWorker)pinOcrWorker=await Tesseract.createWorker('eng',1,{logger:m=>{if(runId!==pinOcrRun)return;if(m.status==='recognizing text')$('#pinRecogniseState').innerHTML=`<strong>Reading Pin text:</strong> ${Math.round((m.progress||0)*100)}%`}});return pinOcrWorker}
-async function recognisePinPlanner(file){
- const runId=++pinOcrRun;$('#pinRecogniseState').innerHTML='<strong>Reading Pin text:</strong> starting…';
- try{const worker=await getPinOcrWorker(runId);if(runId!==pinOcrRun)return;const result=await worker.recognize(file);if(runId!==pinOcrRun)return;const text=`${file.name} ${result.data?.text||''}`,match=matchPlannerFromText(text);if(!match){$('#pinRecogniseState').innerHTML='<span class="warn">! I could not match this Pin confidently.</span> Choose the planner manually this time.';return}$('#pinPlanner').value=match.p.id;syncPin();genPin(true);$('#pinRecogniseState').innerHTML=`<span class="ok">✓ Matched: <strong>${esc(match.p.name)}</strong></span> · ${match.confidence} confidence. Board, Etsy link and fresh SEO copy filled automatically.`}
- catch(error){console.error('Pin recognition failed',error);$('#pinRecogniseState').innerHTML='<span class="warn">! Automatic reading was unavailable.</span> Choose the planner manually.'}
-}
-function pinAltVariants(p){const place=shortName(p.name),r=p.routes,h=p.highlights;return[
- `Pinterest travel Pin for ${place}, highlighting ${r} itinerary options and ${h}.`,
- `${place} itinerary guide Pin showing ${r} route choices with planning for ${h}.`,
- `Travel-planning graphic for ${place} featuring a PDF itinerary with ${r} routes and ${h}.`,
- `${place} trip-planning Pin promoting ${r} structured itinerary options covering ${h}.`,
- `Digital ${place} itinerary guide Pin with ${r} route lengths and practical planning for ${h}.`,
- `Save-worthy ${place} travel Pin featuring ${r} itinerary ideas and ${h}.`
-]}
-function syncPin(){const p=planner($('#pinPlanner').value);if(!p)return;$('#pinBoard').value=p.board||'';$('#pinLink').value=p.link||'';genPin(false);nextSlot('pin')}
-function pinTopicDefaults(p){return [...new Set([p.keyword,shortName(p.name)+' travel','travel planning',pinType==='save'?'travel tips':'digital itinerary'])].slice(0,5)}
-function genPin(advance=true){const p=planner($('#pinPlanner').value);if(!p)return;const arr=pinVariants(p,pinType),i=nextVariant(`pin_${p.id}_${pinType}`,arr.length,advance),pair=arr[i],alts=pinAltVariants(p),ai=nextVariant(`pinalt_${p.id}_${pinType}`,alts.length,advance);$('#pinTitle').value=clean(pair[0]).slice(0,100);$('#pinDesc').value=clean(pair[1]).slice(0,500);$('#pinAlt').value=clean(alts[ai]).slice(0,500);$('#pinOverlay').value=clean(pair[0]).replace(/\|.*/,'').slice(0,70);$('#pinTopics').value=pinTopicDefaults(p).join(', ');pinCount();pinCheck(p)}
-function pinCount(){$('#pinTitleCount').textContent=$('#pinTitle').value.length+'/100';$('#pinDescCount').textContent=$('#pinDesc').value.length+'/500'}
-function validHttpsUrl(value){try{return new URL(value).protocol==='https:'}catch{return false}}
-function renderScore(selector,score,label,missing){$(selector).style.setProperty('--score',score);$(selector).innerHTML=`<div class="scoreRing" style="--score:${score}"><b>${score}</b></div><div class="scoreText"><strong>${esc(label)}</strong>${missing.length?`Improve: ${esc(missing.join(' · '))}`:'Ready to publish.'}</div>`}
-function pinCheck(p){const t=($('#pinTitle').value+' '+$('#pinDesc').value).toLowerCase(),main=(shortName(p.name).split(' ')[0]||'').toLowerCase(),topics=$('#pinTopics').value.split(',').map(x=>x.trim()).filter(Boolean),ratio=pinImageInfo.width&&pinImageInfo.height?pinImageInfo.width/pinImageInfo.height:0;const checks=[['Destination/search phrase',t.includes(main)],['Route lengths',t.includes((p.routes.split(' ')[0]||'').toLowerCase())],['No price in copy',!(/£|14\.99/.test(t))],['PDF-only wording',!(/editable word|word document/.test(t))],['Board auto-filled',!!$('#pinBoard').value.trim()],['Valid destination link',validHttpsUrl($('#pinLink').value.trim())],['Readable overlay',$('#pinOverlay').value.trim().length>=8],['Topics added',topics.length>=3],['1000×1500-style 2:3 image',!!ratio&&Math.abs(ratio-(2/3))<.08&&pinImageInfo.width>=1000&&pinImageInfo.height>=1500]];$('#pinChecks').innerHTML=checks.map(([x,ok])=>`<div class="${ok?'ok':'bad'}">${ok?'✓':'!'} ${x}</div>`).join('');const score=Math.round(checks.filter(x=>x[1]).length/checks.length*100);renderScore('#pinScore',score,'Pin conversion readiness',checks.filter(x=>!x[1]).map(x=>x[0]));return score}
-function pinPackText(){return `PLANNER\n${$('#pinPlanner').selectedOptions[0]?.textContent||''}\n\nCREATIVE ANGLE\n${$('#pinAngle').selectedOptions[0]?.textContent||''}\n\nOVERLAY\n${$('#pinOverlay').value}\n\nTITLE\n${$('#pinTitle').value}\n\nDESCRIPTION\n${$('#pinDesc').value}\n\nALT TEXT\n${$('#pinAlt').value}\n\nBOARD\n${$('#pinBoard').value}\n\nTOPICS\n${$('#pinTopics').value}\n\nDESTINATION\n${$('#pinLink').value}`}
-function nextSlot(kind){const slots=(kind==='pin'?settings.pinSlots:settings.tikSlots).split(',').map(x=>x.trim()).filter(Boolean).sort();const q=kind==='pin'?pinQueue:tikQueue,ds=kind==='pin'?$('#pinDate'):$('#tikDate'),ts=kind==='pin'?$('#pinTime'):$('#tikTime');let now=new Date();now.setSeconds(0,0);for(let add=0;add<45;add++){const day=new Date(now);day.setDate(now.getDate()+add);for(const s of slots){const [h,m]=s.split(':').map(Number),c=new Date(day);c.setHours(h||0,m||0,0,0);if(c>now&&!q.some(x=>Math.abs(new Date(x.when)-c)<60000)){ds.value=localDate(c);ts.value=s;return}}}}
-async function addPin(postNow=false){
- const p=planner($('#pinPlanner').value),d=$('#pinDate').value,t=$('#pinTime').value,file=$('#pinImage').files[0],button=postNow?$('#postPinNow'):$('#addPinQueue');
- if(!p||(!postNow&&(!d||!t)))return toast('Choose a date and time');if(!file)return toast('Choose a Pin image');if(!validHttpsUrl($('#pinLink').value.trim()))return toast('Add the exact secure Etsy link before posting');
- setBusy(button,true,postNow?'Preparing…':'Uploading…');setMediaState('#pinMediaState','Uploading securely…','uploading');let paths=[],savedPin=null;
- try{
-  paths=await uploadSelectedFiles(MEDIA_BUCKETS.pin,'pins',[file]);
-  const when=postNow?new Date():new Date(`${d}T${t}:00`),q={id:'pq'+Date.now(),plannerId:p.id,planner:p.name,type:pinType,board:$('#pinBoard').value.trim(),link:$('#pinLink').value.trim(),title:clean($('#pinTitle').value),desc:clean($('#pinDesc').value),alt:clean($('#pinAlt').value),angle:$('#pinAngle').value,overlay:clean($('#pinOverlay').value),topics:$('#pinTopics').value.split(',').map(x=>clean(x)).filter(Boolean).slice(0,5),mediaPath:paths[0],mediaName:file.name,when:when.toISOString(),status:'queued',performance:{},conversionScore:pinCheck(p)};
-  pinQueue.push(q);pinQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));
-  try{persist()}catch(error){pinQueue=pinQueue.filter(x=>x.id!==q.id);throw error}
-  savedPin=q;renderQueues();updateHome();genPin(true);nextSlot('pin');$('#pinImage').value='';$('#pinPreview').style.display='none';setMediaState('#pinMediaState','Secure upload saved.','ready');toast(postNow?'Pin saved — opening phone sharing…':'Pin and image added to queue');
- }catch(error){await removeStoredMedia(MEDIA_BUCKETS.pin,paths);setMediaState('#pinMediaState',error.message||'Upload failed','error');toast(error.message||'Pin save failed')}
- finally{setBusy(button,false,'')}
- if(postNow&&savedPin)await sharePinNow(savedPin.id);
-}
-
-/* TikTok — goal × concept × hook-angle engine */
-const conceptNames={
- cinematic:'Cinematic destination montage',problem:'Problem → solution',route:'Route reveal',
- compare:'Trip-length comparison',reasons:'3 reasons / benefits',facts:'Fast fact stack',
- checklist:'Planning checklist',savecard:'Save-this reference',inside:'What you get',
- mistake:'Planning mistake → fix',beforeafter:'Before vs after planning',collection:'Collection showcase',
- seasonal:'Seasonal urgency',editorial:'Slow editorial / premium',punchy:'Fast punchy cuts'
-};
-const compatible={
- shop:['collection','problem','beforeafter','inside','cinematic','editorial','punchy','reasons'],
- planner:['cinematic','problem','route','compare','reasons','inside','mistake','beforeafter','editorial','punchy'],
- save:['savecard','route','compare','checklist','facts','cinematic','editorial','punchy'],
- factual:['facts','compare','checklist','route','mistake','savecard','punchy','editorial']
-};
-const anglesByConcept={
- cinematic:['aspiration','curiosity','identity'],problem:['pain','identity','utility'],
- route:['utility','curiosity','comparison'],compare:['comparison','utility','curiosity'],
- reasons:['utility','curiosity','aspiration'],facts:['utility','curiosity'],checklist:['utility','pain'],
- savecard:['utility','curiosity'],inside:['curiosity','utility'],mistake:['pain','curiosity','utility'],
- beforeafter:['pain','identity','aspiration'],collection:['curiosity','identity','aspiration'],
- seasonal:['urgency','curiosity','aspiration'],editorial:['aspiration','identity','curiosity'],
- punchy:['curiosity','pain','identity']
-};
-function slugWords(p){return shortName(p.name).toLowerCase().replace(/[&]/g,' ').replace(/[^\wÀ-ÿ ]/g,' ').split(/\s+/).filter(Boolean)}
-function tikHashtags(p,type){
- if(type==='shop')return '#travelplanning #travelitinerary #tripplanning #traveltips #etsyfinds';
- const words=slugWords(p),base=words[0]||'travel',two=(words.slice(0,2).join('')||base);
- return [...new Set([`#${base}`,`#${two}travel`,`#${two}itinerary`,'#travelplanning','#traveltips'])].slice(0,5).join(' ');
-}
-function recentConceptsKey(p){return `tik_recent_${p.id}_${tikType}`}
-function chooseConcept(p,advance=true){
- const manual=$('#tikConcept').value;if(manual!=='auto')return manual;
- const pool=compatible[tikType]||compatible.planner;
- let recent=variants[recentConceptsKey(p)]||[];
- if(!Array.isArray(recent))recent=[];
- let choices=pool.filter(c=>!recent.includes(c));
- if(!choices.length){recent=[];choices=[...pool]}
- const index=nextVariant(`tikconcept_${p.id}_${tikType}`,choices.length,advance);
- const chosen=choices[index%choices.length];
- if(advance){recent.push(chosen);if(recent.length>=Math.min(pool.length,6))recent=recent.slice(-5);variants[recentConceptsKey(p)]=recent;persist()}
- return chosen;
-}
-function chooseAngle(p,concept,advance=true){
- const manual=$('#tikAngle').value;if(manual!=='auto')return manual;
- const pool=anglesByConcept[concept]||['curiosity','utility','aspiration'];
- return pool[nextVariant(`tikangle_${p.id}_${tikType}_${concept}`,pool.length,advance)];
-}
-function durationFor(concept){
- const manual=$('#tikPace').value;
- if(manual==='fast')return 12;if(manual==='balanced')return 18;if(manual==='editorial')return 24;
- if(['punchy','facts','savecard'].includes(concept))return 12;
- if(['cinematic','editorial'].includes(concept))return 24;
- return 18;
-}
-function tikSceneValues(){return $$('#tikScenes textarea').map(x=>clean(x.value))}
-function sceneTimeLabel(index,count,duration){const start=duration*index/count,end=duration*(index+1)/count,fmt=n=>Number.isInteger(n)?String(n):n.toFixed(1);return `${fmt(start)}–${fmt(end)}s`}
-function renderTikScenes(scenes,duration){const count=scenes.length;$('#tikScenes').innerHTML=scenes.map((value,i)=>`<div class="scene"><div class="time">${sceneTimeLabel(i,count,duration)}</div><div class="field"><label>Scene ${i+1}${i===count-1?' / CTA':''}</label><textarea data-tik-scene="${i}" style="min-height:72px">${esc(value)}</textarea></div></div>`).join('');$$('#tikScenes textarea').forEach(x=>x.addEventListener('input',tikCheck))}
-function expandTikScenes(p,pack,count){const place=shortName(p.name),highlights=String(p.highlights||'').split(/,| and /).map(clean).filter(Boolean),shop=tikType==='shop';const extras=shop?[`${planners.length} completed itinerary guides`,`City breaks, road trips and seasonal escapes`,`Clear route options for different trip lengths`,`Practical planning details in one place`,`Choose the guide for your next trip`,`Start with the route, then make it yours`]:[`${p.routes} route options`,...highlights.slice(0,3),`A practical order for the trip`,`Use the route as your starting point`,`Personalise it around your own bookings`,`Save ${place} for later`];const final=pack.scenes.at(-1)||pack.cta,middle=[...pack.scenes.slice(1,-1),...extras].map(clean).filter(Boolean),unique=[];for(const line of middle)if(!unique.some(x=>x.toLowerCase()===line.toLowerCase()))unique.push(line);while(unique.length<count-2)unique.push(shop?'A clearer way to begin planning':`Make ${place} easier to organise`);return [clean(pack.hook),...unique.slice(0,count-2),clean(final)]}
-function angleHook(place,angle,type,p){
- const shopHooks={
-  pain:["Your next trip doesn't need 37 open tabs.","Planning the trip shouldn't become the trip.","Travel planning shouldn't feel like admin."],
-  curiosity:["What if the itinerary was already the easy part?","This is what I use instead of starting from a blank page.","The travel-planning shortcut nobody talks about."],
-  identity:["For people who love travel, not spreadsheets.","For the person who plans the whole trip in their head first.","If you save trips faster than you plan them, this is for you."],
-  utility:["A simpler way to turn a destination into an actual plan.","Start with the route, then book around it.","One place to start when the trip idea becomes real."],
-  aspiration:["Spend more time looking forward to the trip.","Make the planning part feel lighter.","Start the trip before you even leave."],
-  comparison:["Blank page vs ready-planned route.","Hours of tabs vs one structured starting point.","Planning from scratch vs planning from a route that already makes sense."],
-  urgency:["Planning a seasonal trip? Start with the route now.","The best seasonal trips get easier when the route comes first.","Before you book the festive bits, sort the route."]
- };
- if(type==='shop')return (shopHooks[angle]||shopHooks.curiosity);
- const hooks={
-  pain:[`${place} without the planning spiral.`,`Stop planning ${place} from 20 different tabs.`,`The hardest part of ${place} shouldn't be building the route.`],
-  curiosity:[`The ${place} plan I wish everyone started with.`,`Before you book ${place}, look at this.`,`This is the part of ${place} planning people usually overcomplicate.`],
-  utility:[`Start your ${place} trip with the route.`,`A practical way to plan ${place}.`,`How to make ${place} planning much easier.`],
-  aspiration:[`Make ${place} feel exciting before you even go.`,`A calmer way to plan ${place}.`,`Build a ${place} trip you'll actually look forward to.`],
-  identity:[`For people who want ${place}, not a planning project.`,`If ${place} is saved all over your phone, start here.`,`For the over-planner who still wants the trip to feel fun.`],
-  comparison:[`${p.routes}: which ${place} trip fits you?`,`How long do you really need in ${place}?`,`Shorter trip or slower trip? Start here.`],
-  urgency:[`${place} is coming up fast — sort the route first.`,`Planning ${place} this season? Don't leave the route until last.`,`Before the seasonal dates fill up, get the route clear.`]
- };
- return hooks[angle]||hooks.curiosity;
-}
-function conceptPack(p,concept,angle,advance=true){
- const place=shortName(p.name),r=p.routes,h=p.highlights,count=planners.length;
- const hookPool=angleHook(place,angle,tikType,p);
- const hook=hookPool[nextVariant(`tikhook_${p.id}_${tikType}_${concept}_${angle}`,hookPool.length,advance)];
- const shop=tikType==='shop';
- const shopLine=`${count} ready-planned travel guides`;
- const data={
-  cinematic:{
-   scenes:shop?[hook,shopLine,"City breaks • road trips • seasonal travel","Pick the trip. Start with a route that already makes sense."]:[hook,`${r} ways to shape the trip`,h,"Save the destination. Start with the route."],
-   caption:shop?`Travel planning, but without the spreadsheet spiral. ${count} ready-planned itinerary guides designed to give each trip a clearer starting point.`:`Planning ${place}? Start with ${r} structured route options covering ${h}.`,
-   cta:shop?'Browse the planner collection on Etsy':'See the full itinerary guide on Etsy',
-   direction:'Use 6–8 strong destination photographs. Open with the most arresting image, then move through elegant supporting scenes. Keep text minimal and let the destination sell the feeling.'
-  },
-  problem:{
-   scenes:shop?[hook,"Too many tabs. Too many notes. No actual route.",shopLine,"Start with the route instead of a blank page."]:[hook,"Too many tabs. Too many saved places. No clear order.",`${r} ready-planned route options`,"Use the structure. Personalise the details."],
-   caption:shop?`The fun part is choosing the trip. The exhausting part is turning it into a workable route. These planners give you a structured starting point.`:`If ${place} planning is turning into tabs, notes and screenshots, use a route that already has a sensible structure.`,
-   cta:shop?'Browse all travel planners on Etsy':'See the planner on Etsy',
-   direction:'Start with a visually busy planning photograph, then hard-cut to clean destination images and simpler typography. The contrast should make the solution feel calmer.'
-  },
-  route:{
-   scenes:[hook,`Option 1 → ${r.split(' and ')[0]||r}`,`Then compare the other route lengths`,h],
-   caption:`Start ${place} planning by comparing the route lengths first. The guide includes ${r} options with ${h}.`,
-   cta:'Save this, then compare the full routes on Etsy',
-   direction:'Reveal the trip progressively. Use one destination photograph per route beat. Text should feel like a route unfolding rather than an advert.'
-  },
-  compare:{
-   scenes:[hook,`${r}`,`Same destination. Different pace.`,h],
-   caption:`Not every ${place} trip needs the same number of days. Compare ${r} route options and choose the pace that fits your trip.`,
-   cta:'Save this comparison for later',
-   direction:'Use split-screen or alternating text cards. Make the day-count comparison the visual hero, not the product.'
-  },
-  reasons:{
-   scenes:[hook,shop?`1. ${shopLine}`:`1. ${r} route options`,shop?'2. Different trip styles and seasons':`2. ${h}`,"3. Less time starting from scratch"],
-   caption:shop?`Three reasons to start with a ready-planned itinerary: a clearer route, less research chaos and more time to personalise the parts that matter.`:`Three reasons this ${place} planner is useful: ${r} route options, ${h}, and a clearer starting point.`,
-   cta:shop?'Browse the collection':'See the full planner',
-   direction:'Count 1–2–3 on screen with a strong visual change for each point. Keep every reason short enough to read instantly.'
-  },
-  facts:{
-   scenes:[hook,`${r} route options`,h,"Save this as your quick planning reference."],
-   caption:`Quick ${place} planning reference: ${r} itinerary options covering ${h}.`,
-   cta:'Save for trip planning',
-   direction:'Fast, clean, information-first. Each scene should deliver one useful fact. Avoid sales language until the final frame.'
-  },
-  checklist:{
-   scenes:[hook,"✓ Choose the trip length","✓ Lock the route before the details",`✓ Use ${h}`],
-   caption:`A simple ${place} planning checklist: choose the trip length, get the route clear, then build bookings around it.`,
-   cta:'Save this checklist',
-   direction:'Checklist visual language. One tick per beat. Use readable text and calm photo movement so the viewer can absorb it.'
-  },
-  savecard:{
-   scenes:[hook,`Save: ${place}`,`Compare: ${r}`,`Remember: ${h}`],
-   caption:`Save this for later if ${place} is on your list. ${r} route options covering ${h}.`,
-   cta:'Save now — use it when the trip gets real',
-   direction:'Design this to be paused and saved. Use large text, slower cuts and a final frame that works like a reference card.'
-  },
-  inside:{
-   scenes:[hook,shop?shopLine:`Inside: ${r} route options`,shop?'Routes • highlights • practical planning':h,"A structured starting point you can personalise."],
-   caption:shop?`What you actually get: structured digital itinerary guides built to make the route clearer before you start booking.`:`Inside the ${place} guide: ${r} route options, ${h}, and practical planning structure.`,
-   cta:shop?'Browse the full collection':'See what is inside the planner',
-   direction:'Product-led but not mock-up heavy. Alternate destination photographs with clean feature text. Show value, not just a cover.'
-  },
-  mistake:{
-   scenes:[hook,"Mistake: booking everything before the route is clear.","Fix: choose the trip length and order first.",`${r} route options to compare`],
-   caption:`A common ${place} planning mistake is locking in details before the route makes sense. Start with the trip length and order first.`,
-   cta:'Save this before you book',
-   direction:'Use a red-flag/opening mistake frame, then switch to calm solution visuals. The educational angle should lead.'
-  },
-  beforeafter:{
-   scenes:[hook,"BEFORE: scattered notes and no clear route","AFTER: one clear route to work from",shop?shopLine:`${r} ways to structure ${place}`],
-   caption:shop?`Before: ideas everywhere. After: one route you can actually plan around.`:`Before: ${place} ideas everywhere. After: a route you can actually build the trip around.`,
-   cta:shop?'Browse the itinerary collection':'See the planner on Etsy',
-   direction:'Strong visual contrast. First half intentionally busy; second half clean and spacious. Make the relief visible.'
-  },
-  collection:{
-   scenes:[hook,shopLine,"Road trips • city breaks • seasonal itineraries","Choose the destination that is next for you."],
-   caption:`Where are you going next? Browse ${count} ready-planned itinerary guides across road trips, city breaks and seasonal travel.`,
-   cta:'Browse the whole PlanThenRoam collection',
-   direction:'Show 6–8 different destination photographs in succession. Every scene should feel like a new trip possibility. This is a range-selling video.'
-  },
-  seasonal:{
-   scenes:[hook,p.season?`${p.season} planning starts with the route.`:"Seasonal trips reward early planning.",h,"Sort the route before the dates get busy."],
-   caption:`Planning ${place}${p.season?' '+p.season:''}? Get the route clear early, then book the time-sensitive pieces around it.`,
-   cta:'Start the planning now',
-   direction:'Use unmistakably seasonal photographs and date or edition text. Create urgency without fake scarcity or countdown claims.'
-  },
-  editorial:{
-   scenes:[hook,shop?shopLine:`${place} • ${r}`,h,"A calmer way to plan the trip."],
-   caption:shop?`A more considered way to plan travel: clear routes, useful detail and space to make the trip your own.`:`A slower, clearer way to plan ${place}: ${r} route options with ${h}.`,
-   cta:shop?'Explore the planner collection':'Explore the full itinerary guide',
-   direction:'Slow premium pacing across 6–8 beautiful photographs, with subtle text and no frantic transitions. Let the destination carry the emotion.'
-  },
-  punchy:{
-   scenes:[hook,shop?`${count} planners`:`${r}`,shop?'Pick one. Plan it. Go.':h,"Save it. Plan it. Go."],
-   caption:shop?`Less planning drag. More trips that actually get planned.`:`${place} planning in one sentence: choose the route first, then build around it.`,
-   cta:shop?'Browse now':'Save this and see the planner',
-   direction:'Fast hard cuts, one short phrase per frame and the strongest photographs with programmed motion. No sentence-length on-screen text.'
-  }
- };
- const pack={...data[concept],hook};
- const captionEnds=shop?[
-  'Choose the destination that is next for you.',
-  'Start with the route, then make the trip your own.',
-  'A calmer starting point for the trip you keep meaning to plan.',
-  'Browse the collection and pick the guide that fits your next trip.',
-  'Clear routes first. Personal touches second.',
-  'Save this for the trip-planning stage.'
- ]:[
-  `Use it as the starting point, then personalise ${place} around your own bookings.`,
-  'Save this before the research tabs start multiplying.',
-  'Compare the route lengths first, then build the details around your choice.',
-  'A clearer route makes every later booking decision easier.',
-  'Keep this for the moment the trip moves from idea to plan.',
-  'Start with the structure and make the trip yours.'
- ];
- const ci=nextVariant(`tikcaption_${p.id}_${tikType}_${concept}`,captionEnds.length,advance);pack.caption=clean(`${pack.caption} ${captionEnds[ci]}`);
- const ctas=shop?['Browse the itinerary collection','Choose your next trip','See all planners on Etsy','Find your next itinerary','Explore the full collection','Pick a planner and start']:[
-  'See the full PDF guide','Save this and view the itinerary','Compare the routes on Etsy','Start planning with the full guide','Keep this, then explore the planner','View the itinerary guide'
- ];
- pack.cta=ctas[nextVariant(`tikcta_${p.id}_${tikType}_${concept}`,ctas.length,advance)];
- return pack;
-}
-function genTik(advance=true){
- const p=planner($('#tikPlanner').value);if(!p)return;
- const concept=chooseConcept(p,advance),angle=chooseAngle(p,concept,advance),x=conceptPack(p,concept,angle,advance),dur=durationFor(concept),sceneCount=Number($('#tikSceneCount').value)||6,scenes=expandTikScenes(p,x,sceneCount);
- $('#tikConceptTitle').textContent=`${conceptNames[concept]} · ${angle}`;
- $('#tikDirection').innerHTML=`<strong>Visual concept:</strong> ${esc(conceptNames[concept])}<br>${esc(x.direction)}<br><span class="badge">${sceneCount} scenes</span> <span class="badge">${dur}s target</span> <span class="badge">${esc(angle)} hook</span>`;
- $('#tikHook').value=clean(x.hook);renderTikScenes(scenes,dur);
- $('#tikCaption').value=x.caption.replace(/£14\.99/gi,'').replace(/editable word|word document/gi,'PDF guide');
- $('#tikCTA').value=x.cta;$('#tikHashtags').value=tikHashtags(p,tikType);
- const voiceConcepts=['problem','facts','checklist','mistake','compare','route','inside'];$('#tikSound').value=voiceConcepts.includes(concept)?'voiceover':'trending';$('#tikCover').value=clean(tikType==='shop'?'Plan the trip without the tab chaos':`${shortName(p.name)} · ${p.routes}`).slice(0,60);$('#tikVoiceover').value=voiceConcepts.includes(concept)?clean(`${x.hook} ${scenes.slice(1,-1).join(' ')} ${x.cta}.`).slice(0,700):'';
- $('#tikWhy').innerHTML=`<strong>Why this should stay fresh:</strong> concept, hook angle and pacing are separate. Auto-rotate avoids repeating the same concept for this planner until the usable pool has cycled.`;
- nextSlot('tik');tikCheck();
- // Persist generated meta for queue.
- $('#tikConceptTitle').dataset.concept=concept;$('#tikConceptTitle').dataset.angle=angle;$('#tikConceptTitle').dataset.duration=String(dur);
-}
-async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch{toast('Copy not available in this browser')}}
-function tikCheck(){const scenes=tikSceneValues(),expected=Number($('#tikSceneCount').value)||6,hashtags=$('#tikHashtags').value.trim().split(/\s+/).filter(x=>x.startsWith('#')),checks=[['Immediate hook',$('#tikHook').value.trim().length>=12],[`${expected}-scene structure`,scenes.length===expected&&scenes.every(Boolean)],['Clear CTA',$('#tikCTA').value.trim().length>=5],['Five focused hashtags',hashtags.length===5],['Sound plan',!!$('#tikSound').value],['Cover title',$('#tikCover').value.trim().length>=8],['No price claim',!(/£|14\.99/.test(tikPackText()))]];const score=Math.round(checks.filter(x=>x[1]).length/checks.length*100);renderScore('#tikScore',score,'TikTok conversion readiness',checks.filter(x=>!x[1]).map(x=>x[0]));return score}
-function tikPackText(){const scenes=tikSceneValues().map((x,i)=>`SCENE ${i+1}\n${x}`).join('\n\n');return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\n${scenes}\n\nSOUND PLAN\n${$('#tikSound').selectedOptions[0]?.textContent||''}\n\nCOVER TITLE\n${$('#tikCover').value}\n\nVOICEOVER\n${$('#tikVoiceover').value||'None — add sound in TikTok'}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}\n\nPOSTING CHECKLIST\n1. Add one photograph per scene in the Video Studio.\n2. Preview and download the finished video.\n3. Upload it in TikTok.\n4. Add the planned licensed sound.\n5. Set the cover title.\n6. Paste the caption and hashtags.\n7. Post, then record results in Seller Tools.`}
-function downloadText(name,content){const blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Downloaded to your phone')}
-function plannedWhen(d,t){return d&&t?new Date(`${d}T${t}:00`).toISOString():new Date().toISOString()}
-function openVideoStudio(){
- const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value;if(!p)return toast('Choose a planner');
- const concept=$('#tikConceptTitle').dataset.concept||'';
- const handoff={id:globalThis.crypto?.randomUUID?.()||('vh'+Date.now()),createdAt:new Date().toISOString(),planner:{...p},type:tikType,concept,conceptName:conceptNames[concept]||'TikTok video',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||18),direction:$('#tikDirection').innerText,hook:clean($('#tikHook').value),scenes:tikSceneValues(),caption:clean($('#tikCaption').value),cta:clean($('#tikCTA').value),hashtags:clean($('#tikHashtags').value),soundPlan:$('#tikSound').selectedOptions[0]?.textContent||'',coverText:clean($('#tikCover').value),voiceoverScript:clean($('#tikVoiceover').value),when:plannedWhen(d,t)};
- try{localStorage.setItem('ptr_video_handoff_v1',JSON.stringify(handoff));location.href=`./video-studio.html?handoff=${encodeURIComponent(handoff.id)}`}catch(error){toast('The video studio could not be opened on this device')}
-}
-/* Etsy */
-function makeTags(p,advance=true){
- const place=shortName(p.name),firstRoute=(p.routes.match(/\d+/)||[''])[0],season=p.season||'',pool=[
-  p.keyword,place,`${place} itinerary`,`${place} travel`,firstRoute?`${firstRoute} day itinerary`:'trip itinerary',
-  'travel itinerary','trip planner','travel planner','digital itinerary','vacation planner',season?`${season} travel`:'travel guide',
-  'city break planner','holiday planner','travel pdf','itinerary guide','printable itinerary','route planner','travel download',
-  'trip planning guide','digital travel guide','vacation itinerary','travel planning'
- ];
- const cleaned=[...new Set(pool.map(x=>String(x||'').toLowerCase().replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,20)).filter(Boolean))];
- const offset=nextVariant(`etsytags_${p.id}`,Math.max(1,cleaned.length),advance),rotated=[...cleaned.slice(offset),...cleaned.slice(0,offset)],out=rotated.slice(0,13);
- while(out.length<13)out.push(`travel planning ${out.length+1}`.slice(0,20));
- return out;
-}
-function makeEtsy(advance=true){
- const p=planner($('#etsyPlanner').value);if(!p)return;const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights;
- const titles=[
-  `${place}${season} Itinerary Guide | ${r} Routes | Digital Travel Planner PDF`,
-  `${place} Travel Planner${season} | ${r} Itineraries | Instant PDF Guide`,
-  `${place} Itinerary PDF${season} | ${r} Trip Plans | Digital Travel Guide`,
-  `Plan ${place}${season} | ${r} Route Options | Printable Itinerary PDF`,
-  `${place} Trip Planner${season} | ${r} Ready-Planned Routes | Travel PDF`,
-  `${place} Digital Itinerary${season} | ${r} Routes | Practical Trip Guide`,
-  `${place} Holiday Planner${season} | ${r} Itinerary Options | PDF Download`,
-  `${place} Route Planner${season} | ${r} Travel Itineraries | Digital PDF`
- ];
- const descriptions=[
-  `Plan your ${place} trip with a clear, practical PDF itinerary guide built around ${r} route options.\n\nWHAT'S INCLUDED\n• ${r} structured route options\n• ${h}\n• Practical planning guidance\n• Customer-ready PDF digital download\n\nUse the guide as a reliable starting point, then personalise your own bookings, timings and preferences.\n\nPlease check current opening times, transport information and booking requirements before travel. Digital product only; no physical item will be posted.`,
-  `Turn your saved ${place} ideas into a trip that has a sensible order. This digital PDF guide gives you ${r} complete itinerary options covering ${h}.\n\nYOU WILL RECEIVE\n• One customer-ready PDF itinerary guide\n• ${r} route choices for different trip lengths\n• Organised highlights and practical planning detail\n• A structure you can adapt to your own travel style\n\nNothing physical will be posted. Always confirm live opening, transport and booking details before travelling.`,
-  `Planning ${place} should feel exciting, not like managing dozens of tabs. Start with ${r} ready-planned routes featuring ${h}, then adjust the details around your own bookings.\n\nINSIDE THE PDF\n• Clear itinerary options for ${r}\n• Key destinations and experiences in a practical order\n• Useful planning guidance\n• A digital guide ready to download\n\nThis is a digital product. Please verify current times, availability and transport information before your trip.`,
-  `Choose the pace that suits your ${place} trip. The guide compares ${r} itinerary options and brings together ${h} in one organised PDF.\n\nTHE GUIDE HELPS YOU\n• Compare trip lengths before booking\n• Follow a clearer route\n• Keep key planning details together\n• Personalise the final trip around your preferences\n\nDigital PDF download only; no physical product will be sent. Check live travel information before departure.`,
-  `A route-first approach to planning ${place}. This practical digital itinerary includes ${r} structured options covering ${h}, so you can begin with a workable plan instead of a blank page.\n\nINCLUDED\n• ${r} complete itinerary structures\n• Destination highlights in a sensible sequence\n• Practical trip-planning information\n• Downloadable customer PDF\n\nPersonal bookings are not included. Confirm current prices, hours, transport and reservation requirements directly before travel.`,
-  `Make ${place} easier to organise with one focused PDF guide. Review ${r} itinerary routes, see how ${h} can fit together and choose the version that best matches your available time.\n\nWHAT YOU GET\n• A finished digital itinerary guide\n• ${r} route options\n• Practical structure and destination guidance\n• Space to adapt the trip to your own needs\n\nNo physical item will be delivered. Live details can change, so check official information before travelling.`
- ];
- const i=nextVariant(`etsycopy_${p.id}`,titles.length,advance);$('#etsyTitle').value=clean(titles[i]).slice(0,140);$('#etsyDesc').value=descriptions[i%descriptions.length];
- const tags=makeTags(p,advance);$$('#tagGrid input').forEach((el,n)=>el.value=tags[n]||'');renderEtsyPlan(p);etsyCheck(p);
-}
-function etsyGalleryPlan(p){const place=shortName(p.name);return [`Hero: ${place} itinerary + route lengths`,`Choose your route: ${p.routes}`,`Inside the PDF: clear page preview`,`Day-by-day route example`,`Highlights: ${p.highlights}`,`Practical planning information`,`What is included in the PDF`,`How the digital download works`,`Phone and print viewing preview`,`Final reminder: personalise and verify live details`]}
-function renderEtsyPlan(p){const plan=etsyGalleryPlan(p);$('#etsyImagePlan').innerHTML=`<strong>10-image conversion gallery</strong><br>${plan.map((x,i)=>`${i+1}. ${esc(x)}`).join('<br>')}`}
-function etsyCheck(p){const title=$('#etsyTitle').value.trim(),desc=$('#etsyDesc').value.trim(),tags=$$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean),selectedImages=$('#etsyImages').files?.length||0,old=drafts.find(x=>x.plannerId===p.id&&x.mode===etsyMode),imageCount=selectedImages||(old?.imagePaths?.length||0),hasPdf=!!$('#etsyPdf').files?.[0]||!!old?.pdfPath,keyword=(p.keyword||shortName(p.name)).toLowerCase().split(' ')[0];const checks=[['Keyword near title start',title.toLowerCase().slice(0,70).includes(keyword)],['Title length 70–140',title.length>=70&&title.length<=140],['Detailed description',desc.length>=400],['Route options explained',desc.toLowerCase().includes((p.routes.match(/\d+/)||[''])[0])],['13 unique tags',tags.length===13&&new Set(tags.map(x=>x.toLowerCase())).size===13],['Every tag 20 characters or fewer',tags.every(x=>x.length<=20)],['Customer PDF attached',hasPdf],['7–10 listing images',imageCount>=7&&imageCount<=10],['No price or editable-file wording',!(/£14\.99|editable\s+(microsoft\s+)?word|word document/i.test(title+' '+desc))]];const score=Math.round(checks.filter(x=>x[1]).length/checks.length*100);renderScore('#etsyScore',score,'Etsy conversion readiness',checks.filter(x=>!x[1]).map(x=>x[0]));$('#etsyTitleCount').textContent=`${title.length}/140`;$('#etsyDescCount').textContent=`${desc.length} characters`;return score}
-function etsyPackText(){const p=planner($('#etsyPlanner').value);return `TITLE\n${$('#etsyTitle').value}\n\nDESCRIPTION\n${$('#etsyDesc').value}\n\n13 TAGS\n${$$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean).join(', ')}\n\nLISTING IMAGE PLAN\n${p?etsyGalleryPlan(p).map((x,i)=>`${i+1}. ${x}`).join('\n'):''}`}
-function syncEtsy(){const p=planner($('#etsyPlanner').value);makeEtsy(false);$('#etsyState').innerHTML=p&&p.link?`<span class="ok">✓ Exact Etsy link saved.</span> This becomes a live editor after API approval.`:`<span class="warn">! Exact listing data will auto-sync after Etsy approval.</span> Draft creation works now.`}
-async function saveDraft(){
- const p=planner($('#etsyPlanner').value);if(!p)return;
- const pdf=$('#etsyPdf').files[0],images=[...$('#etsyImages').files],button=$('#saveEtsyDraft'),old=drafts.find(x=>x.plannerId===p.id&&x.mode===etsyMode);let pdfPaths=[],imagePaths=[];
- setBusy(button,true,'Uploading…');if(pdf)setMediaState('#etsyPdfState','Uploading PDF securely…','uploading');if(images.length)setMediaState('#etsyImagesState',`Uploading ${images.length} image${images.length===1?'':'s'} securely…`,'uploading');
- try{
-  if(pdf)pdfPaths=await uploadSelectedFiles(MEDIA_BUCKETS.etsy,'pdfs',[pdf]);
-  if(images.length)imagePaths=await uploadSelectedFiles(MEDIA_BUCKETS.etsy,'listing-images',images);
-  const d={id:old?.id||('d'+Date.now()),plannerId:p.id,planner:p.name,mode:etsyMode,title:clean($('#etsyTitle').value),desc:$('#etsyDesc').value.replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide'),tags:$$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean),savedAt:new Date().toISOString(),pdfName:pdf?.name||old?.pdfName||'',imageNames:images.length?images.map(f=>f.name):(old?.imageNames||[]),pdfPath:pdfPaths[0]||old?.pdfPath||'',imagePaths:imagePaths.length?imagePaths:(old?.imagePaths||[]),imagePlan:etsyGalleryPlan(p),conversionScore:etsyCheck(p),status:old?.status||'draft',performance:old?.performance||{},publishedAt:old?.publishedAt||''};
-  const previous=[...drafts];drafts=drafts.filter(x=>!(x.plannerId===p.id&&x.mode===etsyMode));drafts.push(d);
-  try{persist()}catch(error){drafts=previous;throw error}
-  const replaced=[];if(pdf&&old?.pdfPath)replaced.push(old.pdfPath);if(images.length&&old?.imagePaths?.length)replaced.push(...old.imagePaths);await removeStoredMedia(MEDIA_BUCKETS.etsy,replaced);
-  renderQueues();updateHome();$('#etsyPdf').value='';$('#etsyImages').value='';setMediaState('#etsyPdfState',d.pdfPath?'Secure PDF saved.':'No PDF selected.',d.pdfPath?'ready':'');setMediaState('#etsyImagesState',d.imagePaths.length?`${d.imagePaths.length} secure image${d.imagePaths.length===1?'':'s'} saved.`:'No images selected.',d.imagePaths.length?'ready':'');toast('Etsy draft and files saved');
- }catch(error){await removeStoredMedia(MEDIA_BUCKETS.etsy,[...pdfPaths,...imagePaths]);setMediaState('#etsyPdfState',error.message||'Save failed','error');setMediaState('#etsyImagesState',error.message||'Save failed','error');toast(error.message||'Etsy save failed')}
- finally{setBusy(button,false,'')}
-}
-function loadDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;$('#etsyPlanner').value=d.plannerId;etsyMode=d.mode;$$('.modeSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.etsyMode===etsyMode));$('#etsyTitle').value=d.title;$('#etsyDesc').value=d.desc;$$('#tagGrid input').forEach((el,i)=>el.value=d.tags[i]||'');setMediaState('#etsyPdfState',d.pdfPath?'Secure PDF already saved.':'Choose a PDF to add. ',d.pdfPath?'ready':'');setMediaState('#etsyImagesState',d.imagePaths?.length?`${d.imagePaths.length} secure listing image${d.imagePaths.length===1?'':'s'} already saved.`:'Choose listing images to add.',d.imagePaths?.length?'ready':'');const p=planner(d.plannerId);if(p){renderEtsyPlan(p);etsyCheck(p)}navigate('etsy');toast('Draft opened')}
-
-/* Library */
-function renderLibrary(){$('#plannerList').innerHTML=planners.map(p=>`<div class="item"><div class="itemtop"><div><h3>${esc(p.name)}</h3><span class="badge">${esc(p.routes||'Routes not set')}</span></div><span class="linkstate ${p.link?'ready':'wait'}">${p.link?'Etsy linked':'Awaiting Etsy'}</span></div><p>${esc(p.board||'Board not set')}<br>${esc(p.keyword||'Keyword not set')}</p><div class="productActions"><button class="smallBtn" onclick="editPlanner('${p.id}')">Edit</button><button class="smallBtn" onclick="deletePlanner('${p.id}')">Delete</button></div></div>`).join('')}
-function editPlanner(id){const p=planner(id);if(!p)return;$('#editPlannerId').value=p.id;$('#libName').value=p.name||'';$('#libKeyword').value=p.keyword||'';$('#libRoutes').value=p.routes||'';$('#libSeason').value=p.season||'';$('#libHighlights').value=p.highlights||'';$('#libBoard').value=p.board||'';$('#libLink').value=p.link||'';$('#libListingId').value=p.listingId||'';$('#plannerFormTitle').textContent='Edit planner';$('#plannerFormTitle').closest('details').open=true;window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})}
-function deletePlanner(id){if(!confirm('Delete this planner from the local library?'))return;planners=planners.filter(p=>p.id!==id);persist();refreshAll();toast('Planner deleted')}
-function savePlanner(){const name=$('#libName').value.trim();if(!name)return toast('Enter a planner name');const id=$('#editPlannerId').value||('p'+Date.now()),p={id,name,keyword:$('#libKeyword').value.trim(),routes:$('#libRoutes').value.trim(),season:$('#libSeason').value.trim(),highlights:$('#libHighlights').value.trim(),board:$('#libBoard').value.trim(),link:$('#libLink').value.trim(),listingId:$('#libListingId').value.trim()},i=planners.findIndex(x=>x.id===id);if(i>=0)planners[i]=p;else planners.push(p);['#editPlannerId','#libName','#libKeyword','#libRoutes','#libSeason','#libHighlights','#libBoard','#libLink','#libListingId'].forEach(s=>$(s).value='');$('#plannerFormTitle').textContent='Add planner';persist();refreshAll();toast(i>=0?'Planner updated':'Planner added')}
-
-/* Queues */
-function renderQueues(){
- $('#pinQueueList').innerHTML=pinQueue.length?pinQueue.map(q=>{const readyNow=q.status!=='published'&&new Date(q.when).getTime()<=Date.now()+300000;return `<div class="item"><div class="itemtop"><div><h3>${esc(q.planner)}</h3><span class="badge">${esc(q.type)}</span> <span class="statusBadge ${q.status==='published'?'published':''}">${q.status==='published'?'Published':readyNow?'Ready now':'Scheduled'}</span></div></div><p><b>${formatWhen(q.when)}</b><br>${esc(q.title)}<br>${esc(q.board||'Board not set')}${q.mediaPath?'<br>✓ Secure Pin image saved':''}${resultLine(q)}</p><div class="queueActions">${q.status==='published'?'':`<button class="smallBtn" onclick="sharePinNow('${q.id}')">Post now</button>`}<button class="smallBtn" onclick="copyQueued('pin','${q.id}')">Copy</button><button class="smallBtn" onclick="markPosted('pin','${q.id}')">${q.status==='published'?'Posted ✓':'Mark posted'}</button><button class="smallBtn" onclick="openResults('pin','${q.id}')">Results</button><button class="smallBtn" onclick="removePin('${q.id}')">Remove</button></div></div>`}).join(''):'<div class="empty">No Pins queued.</div>';
- $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>{const hasVideo=(q.mediaPaths||[]).some(isVideoPath),mediaCount=(q.mediaPaths||[]).length||(q.mediaNames||[]).length;return `<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span> <span class="statusBadge ${q.status==='published'?'published':''}">${q.status==='published'?'Published':'Ready to download'}</span></div></div><p><b>${formatWhen(q.when)}</b><br>${esc(q.hook)}${q.soundPlan?`<br>Sound: ${esc(q.soundPlan)}`:''}${mediaCount?`<br>${mediaCount} secure media file(s) saved`:''}${resultLine(q)}</p><div class="queueActions">${hasVideo?`<button class="smallBtn" onclick="previewTik('${q.id}')">Preview</button><button class="smallBtn" onclick="downloadTikVideo('${q.id}')">Download</button>`:''}<button class="smallBtn" onclick="copyQueued('tik','${q.id}')">Copy pack</button><button class="smallBtn" onclick="markPosted('tik','${q.id}')">${q.status==='published'?'Posted ✓':'Mark posted'}</button><button class="smallBtn" onclick="openResults('tik','${q.id}')">Results</button><button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div></div>`}).join(''):'<div class="empty">No TikToks queued.</div>';
- $('#etsyDraftList').innerHTML=drafts.length?drafts.map(d=>`<div class="item"><div class="itemtop"><div><h3>${esc(d.planner)}</h3><span class="badge">${esc(d.mode)}</span> <span class="statusBadge ${d.status==='published'?'published':''}">${d.status==='published'?'Live':'Draft'}</span></div></div><p>${esc(d.title||'Untitled')}<br>Readiness ${Number(d.conversionScore||0)}/100 · saved ${new Date(d.savedAt).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}${d.pdfPath?'<br>✓ Secure PDF saved':''}${d.imagePaths?.length?`<br>✓ ${d.imagePaths.length} secure listing image${d.imagePaths.length===1?'':'s'} saved`:''}${resultLine(d)}</p><div class="queueActions"><button class="smallBtn" onclick="loadDraft('${d.id}')">Open</button><button class="smallBtn" onclick="copyQueued('etsy','${d.id}')">Copy</button><button class="smallBtn" onclick="markPosted('etsy','${d.id}')">${d.status==='published'?'Live ✓':'Mark live'}</button><button class="smallBtn" onclick="openResults('etsy','${d.id}')">Results</button><button class="smallBtn" onclick="removeDraft('${d.id}')">Remove</button></div></div>`).join(''):'<div class="empty">No Etsy drafts.</div>';
-}
-function formatWhen(value){if(!value)return 'No posting reminder';const d=new Date(value);return Number.isNaN(d.getTime())?'No posting reminder':d.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}
-function resultLine(q){const p=q.performance||{},total=Number(p.views||0)+Number(p.saves||0)+Number(p.clicks||0)+Number(p.sales||0);return total?`<br>Results: ${Number(p.views||0)} views · ${Number(p.saves||0)} saves · ${Number(p.clicks||0)} clicks · ${Number(p.sales||0)} sales`:''}
-function queued(kind,id){return (kind==='pin'?pinQueue:kind==='tik'?tikQueue:drafts).find(x=>x.id===id)}
-function copyQueued(kind,id){const q=queued(kind,id);if(!q)return;const text=kind==='pin'?`OVERLAY\n${q.overlay||''}\n\nTITLE\n${q.title}\n\nDESCRIPTION\n${q.desc}\n\nALT TEXT\n${q.alt}\n\nBOARD\n${q.board}\n\nTOPICS\n${(q.topics||[]).join(', ')}\n\nLINK\n${q.link}`:kind==='tik'?`HOOK\n${q.hook}\n\nSCENES\n${(q.scenes||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}\n\nSOUND\n${q.soundPlan||''}\n\nCOVER\n${q.coverText||''}\n\nVOICEOVER\n${q.voiceoverScript||''}\n\nCAPTION\n${q.caption}\n\nCTA\n${q.cta}\n\nHASHTAGS\n${q.hashtags}`:`TITLE\n${q.title}\n\nDESCRIPTION\n${q.desc}\n\nTAGS\n${(q.tags||[]).join(', ')}\n\nIMAGE PLAN\n${(q.imagePlan||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}`;copyText(text)}
-function markPosted(kind,id){const q=queued(kind,id);if(!q)return;q.status='published';q.publishedAt=q.publishedAt||new Date().toISOString();persist();renderQueues();updateHome();toast(kind==='etsy'?'Listing marked live':'Content marked posted')}
-function openResults(kind,id){const q=queued(kind,id);if(!q)return;const p=q.performance||{};$('#resultKind').value=kind;$('#resultId').value=id;$('#resultViews').value=p.views||'';$('#resultSaves').value=p.saves||'';$('#resultClicks').value=p.clicks||'';$('#resultSales').value=p.sales||'';$('#resultsTitle').textContent=`Add ${kind==='etsy'?'Etsy':kind==='tik'?'TikTok':'Pinterest'} results`;$('#resultsModal').classList.add('open')}
-function closeResults(){ $('#resultsModal').classList.remove('open') }
-function saveResults(){const q=queued($('#resultKind').value,$('#resultId').value);if(!q)return;q.performance={views:Number($('#resultViews').value||0),saves:Number($('#resultSaves').value||0),clicks:Number($('#resultClicks').value||0),sales:Number($('#resultSales').value||0)};persist();closeResults();renderQueues();updateHome();toast('Results saved')}
-function isVideoPath(path=''){return /\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(String(path))}
-function closeVideoPreview(){const modal=$('#videoModal'),video=$('#queuedVideo');video.pause();video.removeAttribute('src');video.load();modal.classList.remove('open')}
-async function previewTik(id){
- const q=tikQueue.find(x=>x.id===id),path=(q?.mediaPaths||[]).find(isVideoPath);if(!path)return toast('No finished video is attached');
- const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in under Cloud Sync to preview it');
- $('#videoModalTitle').textContent=q.planner||'Queued TikTok preview';$('#queuedVideoState').textContent='Preparing secure preview…';$('#videoModal').classList.add('open');
- const {data,error}=await sb.storage.from(MEDIA_BUCKETS.tik).createSignedUrl(path,900);if(error||!data?.signedUrl){$('#queuedVideoState').textContent=error?.message||'The preview could not be opened.';return}
- $('#queuedVideo').src=data.signedUrl;$('#queuedVideoState').textContent='Private 15-minute preview link. The stored video remains owner-only.';
-}
-async function downloadTikVideo(id){const q=tikQueue.find(x=>x.id===id),path=(q?.mediaPaths||[]).find(isVideoPath);if(!path)return toast('No finished video is attached');const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in under Cloud Sync to download it');toast('Preparing private download…');const {data,error}=await sb.storage.from(MEDIA_BUCKETS.tik).download(path);if(error||!data)return toast(error?.message||'Download failed');const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=String(path).split('/').pop()||'PlanThenRoam-TikTok.mp4';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);toast('Video downloaded')}
-async function sharePinNow(id){
- const q=pinQueue.find(x=>x.id===id);if(!q?.mediaPath)return toast('No Pin image is attached');
- const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in under Cloud Sync to post this Pin');
- toast('Preparing your Pin…');const {data,error}=await sb.storage.from(MEDIA_BUCKETS.pin).download(q.mediaPath);if(error||!data)return toast(error?.message||'The Pin image could not be opened');
- const name=safeFileName(q.mediaName||String(q.mediaPath).split('/').pop()||'PlanThenRoam-Pin.png'),file=new File([data],name,{type:data.type||'image/png'}),text=`${q.title}\n\n${q.desc}\n\n${q.link}`;
- if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-  try{await navigator.share({files:[file],title:q.title,text});toast('Choose Pinterest, then confirm the Pin there')}catch(shareError){if(shareError?.name!=='AbortError')toast('Sharing was unavailable — use Post now again')}
-  return;
- }
- const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);try{await navigator.clipboard.writeText(text);toast('Image downloaded and Pin copy copied')}catch{toast('Image downloaded — copy the Pin text from Queue')}
-}
-async function removePin(id){const q=pinQueue.find(x=>x.id===id);if(!q)return;const removed=await removeStoredMedia(MEDIA_BUCKETS.pin,[q.mediaPath]);if(!removed)return toast('Sign in and try removing the Pin again');await removeCloudRow('pinterest_queue',id);pinQueue=pinQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Pin and stored image removed')}
-async function removeTik(id){const q=tikQueue.find(x=>x.id===id);if(!q)return;const removed=await removeStoredMedia(MEDIA_BUCKETS.tik,q.mediaPaths||[]);if(!removed)return toast('Sign in and try removing the TikTok again');await removeCloudRow('tiktok_queue',id);tikQueue=tikQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('TikTok and stored media removed')}
-async function removeDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;if(!confirm('Remove this Etsy draft and its stored files?'))return;const removed=await removeStoredMedia(MEDIA_BUCKETS.etsy,[d.pdfPath,...(d.imagePaths||[])]);if(!removed)return toast('Sign in and try removing the draft again');await removeCloudRow('etsy_drafts',id);drafts=drafts.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Draft and stored files removed')}
-
-function navigate(id){$$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));window.scrollTo(0,0)}
-function buildTags(){let s='';for(let i=1;i<=13;i++)s+=`<input maxlength="20" aria-label="Tag ${i}" placeholder="Tag ${i}">`;$('#tagGrid').innerHTML=s}
-function refreshAll(){fillSelects();renderLibrary();renderQueues();updateHome();syncPin();genTik(false);syncEtsy()}
-
-/* Events */
-$$('.nav button').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.screen)));
-$$('#pinTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#pinTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');pinType=b.dataset.type;genPin(true);nextSlot('pin')}));
-$$('#tikTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#tikTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');tikType=b.dataset.type;genTik(true)}));
-$('#tikConcept').addEventListener('change',()=>genTik(true));$('#tikAngle').addEventListener('change',()=>genTik(true));$('#tikPace').addEventListener('change',()=>genTik(false));$('#tikSceneCount').addEventListener('change',()=>genTik(false));
-$$('.modeSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.modeSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');etsyMode=b.dataset.etsyMode;syncEtsy()}));
-$('#pinPlanner').addEventListener('change',syncPin);$('#tikPlanner').addEventListener('change',()=>genTik(true));$('#etsyPlanner').addEventListener('change',syncEtsy);
-$('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot').addEventListener('click',()=>nextSlot('pin'));$('#addPinQueue').addEventListener('click',()=>addPin(false));$('#postPinNow').addEventListener('click',()=>addPin(true));
-$('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));
-$('#openVideoStudio').addEventListener('click',openVideoStudio);$('#closeVideoModal').addEventListener('click',closeVideoPreview);$('#videoModal').addEventListener('click',event=>{if(event.target===$('#videoModal'))closeVideoPreview()});
-$('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
-$('#downloadTikPack').addEventListener('click',()=>downloadText(`PlanThenRoam-${shortName(planner($('#tikPlanner').value)?.name||'TikTok').replace(/\s+/g,'-')}-posting-notes.txt`,tikPackText()));
-$('#copyPin').addEventListener('click',()=>copyText(pinPackText()));$('#copyEtsy').addEventListener('click',()=>copyText(etsyPackText()));
-$('#closeResults').addEventListener('click',closeResults);$('#saveResults').addEventListener('click',saveResults);$('#resultsModal').addEventListener('click',event=>{if(event.target===$('#resultsModal'))closeResults()});
-$('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
-['#pinBoard','#pinLink','#pinOverlay','#pinTopics','#pinAlt'].forEach(s=>$(s).addEventListener('input',()=>{const p=planner($('#pinPlanner').value);if(p)pinCheck(p)}));
-['#tikHook','#tikCaption','#tikCTA','#tikHashtags','#tikSound','#tikCover','#tikVoiceover'].forEach(s=>$(s).addEventListener('input',tikCheck));
-['#etsyTitle','#etsyDesc'].forEach(s=>$(s).addEventListener('input',()=>{const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)}));$('#tagGrid').addEventListener('input',()=>{const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});
-$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const url=URL.createObjectURL(f);$('#pinPreviewImg').src=url;$('#pinPreview').style.display='block';const probe=new Image();probe.onload=()=>{pinImageInfo={width:probe.naturalWidth,height:probe.naturalHeight};setMediaState('#pinMediaState',`${f.name} · ${pinImageInfo.width}×${pinImageInfo.height} ready to upload.`);const p=planner($('#pinPlanner').value);if(p)pinCheck(p);URL.revokeObjectURL(url)};probe.src=url;recognisePinPlanner(f)});
-$('#etsyPdf').addEventListener('change',()=>{const f=$('#etsyPdf').files[0];setMediaState('#etsyPdfState',f?`${f.name} ready to upload.`:'Choose a PDF to upload.');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});$('#etsyImages').addEventListener('change',()=>{const fs=[...$('#etsyImages').files];setMediaState('#etsyImagesState',fs.length?`${fs.length} image${fs.length===1?'':'s'} ready to upload.`:'Choose listing images to upload.');$('#etsyImagePreviews').innerHTML=fs.slice(0,10).map(f=>`<img src="${URL.createObjectURL(f)}" alt="Listing image preview">`).join('');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});
-$('#regenEtsy').addEventListener('click',()=>makeEtsy(true));$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
-$('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
-$('#sendMagicLink').addEventListener('click',sendCloudMagicLink);
-$('#pushCloud').addEventListener('click',pushCloudData);
-$('#pullCloud').addEventListener('click',pullCloudData);
-$('#cloudSignOut').addEventListener('click',signOutCloud);
-let installPrompt=null;
-function standaloneMode(){return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true}
-function initAppInstall(){
- const card=$('#installCard'),button=$('#installApp'),state=$('#installState');
- if(standaloneMode()){card.style.display='none';return}
- window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;state.textContent='Ready to install';state.className='linkstate ready'});
- window.addEventListener('appinstalled',()=>{installPrompt=null;card.style.display='none';toast('Seller Tools installed')});
- button.addEventListener('click',async()=>{
-  if(!installPrompt){toast('Chrome menu → Add to Home screen');return}
-  installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice.outcome==='accepted')card.style.display='none';installPrompt=null;
- });
-}
-function initPwa(){
- if(!('serviceWorker' in navigator))return;
- let reloadingForUpdate=false;
- navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloadingForUpdate)return;reloadingForUpdate=true;location.reload()});
- navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>{
-  registration.update().catch(()=>{});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')registration.update().catch(()=>{})});
- }).catch(error=>console.error('App install support failed',error));
-}
-$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');initCloud();initAppInstall();initPwa();
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const BUCKET={tiktok:'tiktok-media',etsy:'etsy-assets',pinterest:'pinterest-media'};
+let session=null,projects=[],connections=[],editingId=null,scheduleTarget=null,realtime=null;
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeName=v=>String(v||'file').normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-120)||'file';
+function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),2800)}
+function showScreen(id){if(!document.getElementById(id))id='tiktok';$$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));$$('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.screen===id));history.replaceState(null,'','#'+id);window.scrollTo({top:0,behavior:'smooth'})}
+function formatDate(v){if(!v)return 'Not scheduled';const d=new Date(v);return Number.isNaN(d.getTime())?'Not scheduled':d.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}
+function conn(platform){return connections.find(c=>String(c.platform).toLowerCase()===platform)}
+function isConnected(platform){return ['connected','active','approved'].includes(String(conn(platform)?.status||'').toLowerCase())}
+function publishEnabled(platform){return isConnected(platform)&&conn(platform)?.metadata?.publish_enabled===true}
+function statusLabel(v){return String(v||'ready').replace(/_/g,' ')}
+function mediaPath(project,role){if(role==='preview'&&project.preview_path)return project.preview_path;return (Array.isArray(project.media)?project.media:[]).find(x=>x.role===role)?.path||''}
+async function signed(bucket,path,expires=3600){if(!path)return '';const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,expires);if(error)throw error;return data.signedUrl}
+async function signedMedia(project,role){const path=mediaPath(project,role);return path?signed(BUCKET[project.kind],path):''}
+function empty(kind){const text={tiktok:['No videos waiting','Tell ChatGPT “Send this TikTok project to Seller Tools” or import its project ZIP in Settings.'],etsy:['No listings waiting','Complete Etsy packs will appear here for your review.'],pinterest:['No Pin batches waiting','Your next set of 10 Pins will appear here together.']}[kind];return `<div class="card empty"><div class="emptyicon">${kind==='tiktok'?'♪':kind==='etsy'?'✦':'●'}</div><h2>${text[0]}</h2><p>${text[1]}</p></div>`}
+async function hydrateMedia(){for(const p of projects){p._urls={};const roles=['preview',...(p.media||[]).map(m=>m.role)];for(const role of [...new Set(roles)]){try{p._urls[role]=await signedMedia(p,role)}catch{p._urls[role]=''}}}}
+function render(){['tiktok','etsy','pinterest'].forEach(kind=>{const list=projects.filter(p=>p.kind===kind&&!['published'].includes(p.status));$(`#${kind}List`).innerHTML=list.length?list.map(projectCard).join(''):empty(kind);const c=$( `#${kind==='pinterest'?'pin':kind==='tiktok'?'tik':'etsy'}Count`);c.textContent=list.length;c.classList.toggle('hidden',!list.length)});renderQueue();renderConnections()}
+function projectCard(p){const body=p.kind==='tiktok'?tiktokBody(p):p.kind==='etsy'?etsyBody(p):pinterestBody(p);return `<article class="card project" data-id="${p.id}"><div class="projecthead"><div><div class="platform"><span class="platformicon ${p.kind}">${p.kind==='tiktok'?'♪':p.kind==='etsy'?'E':'P'}</span><div><div class="projecttitle">${esc(p.title)}</div><div class="source">${p.source==='chatgpt'?'Sent by ChatGPT':'Imported pack'} · revision ${p.revision}</div></div></div></div><span class="badge ${p.status}">${esc(statusLabel(p.status))}</span></div><div class="projectbody">${body}</div></article>`}
+function tiktokBody(p){const m=p.manifest||{},scenes=Array.isArray(m.scenes)?m.scenes:[],video=p._urls?.preview||p._urls?.video||'';return `<div class="mediaframe">${video?`<video controls playsinline preload="metadata" src="${esc(video)}"></video>`:`<div class="placeholder"><div><b>▶</b>Preview is being prepared</div></div>`}</div><div class="facts"><div class="fact"><b>${scenes.length}</b><span>scenes</span></div><div class="fact"><b>${esc(m.duration||'—')}s</b><span>duration</span></div><div class="fact"><b>${esc(m.style||'Set')}</b><span>style</span></div></div><div class="copy"><strong>${esc(m.coverTitle||m.concept||'Cover')}</strong>\n${esc(m.caption||'')}</div><div class="scenes">${scenes.map((s,i)=>`<div class="scene"><b>${i+1}</b><span>${esc(typeof s==='string'?s:s.text)}</span></div>`).join('')}</div><div class="notice"><strong>Sound:</strong> ${esc(m.soundRecommendation||m.sound||'Choose a licensed sound in TikTok before posting.')}</div><div class="actions three"><button class="btn primary" onclick="downloadVideo('${p.id}')" ${video?'':'disabled'}>Approve & download</button><button class="btn secondary" onclick="openEdit('${p.id}')">Edit</button><button class="btn danger" onclick="clearProject('${p.id}')">Clear</button></div>`}
+function etsyBody(p){const m=p.manifest||{},imgs=(p.media||[]).filter(x=>String(x.role).startsWith('listing-image')).map(x=>p._urls?.[x.role]).filter(Boolean),thumb=p._urls?.thumbnail,tags=Array.isArray(m.tags)?m.tags:[];return `<div class="gallery">${thumb?`<img src="${esc(thumb)}" alt="Listing thumbnail" loading="lazy">`:''}${imgs.length?imgs.map((u,i)=>`<img src="${esc(u)}" alt="Listing image ${i+1}" loading="lazy">`).join(''):'<div class="placeholder" style="grid-column:1/-1;min-height:130px"><div>Listing images being prepared</div></div>'}</div><div class="copy"><strong>${esc(m.title||p.title)}</strong>\n\n${esc(m.description||'')}</div><div class="tags">${tags.map(x=>`<span class="tag">${esc(x)}</span>`).join('')}</div><div class="facts"><div class="fact"><b>${tags.length}/13</b><span>tags</span></div><div class="fact"><b>${imgs.length}</b><span>listing images</span></div><div class="fact"><b>${mediaPath(p,'customer-pdf')?'Ready':'Missing'}</b><span>customer PDF</span></div></div>${!publishEnabled('etsy')?'<div class="notice"><strong>Publishing locked:</strong> Etsy API approval is still pending. Your pack is safe and editable.</div>':''}<div class="actions"><button class="btn secondary" onclick="openAsset('${p.id}','customer-pdf')" ${mediaPath(p,'customer-pdf')?'':'disabled'}>Open customer PDF</button><button class="btn primary" onclick="publishEtsy('${p.id}')" ${publishEnabled('etsy')?'':'disabled'}>Publish listing</button></div><div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')">Edit</button><button class="btn danger" onclick="clearProject('${p.id}')">Clear</button></div>`}
+function pinterestBody(p){const pins=Array.isArray(p.manifest?.pins)?p.manifest.pins:[];return `<div class="pins">${pins.map((pin,i)=>{const role=pin.imageRole||`pin-${i+1}`,u=p._urls?.[role]||'';return `<div class="pin"><div>${u?`<img src="${esc(u)}" alt="${esc(pin.altText||pin.title||`Pin ${i+1}`)}" loading="lazy">`:'<div class="placeholder" style="min-height:118px;padding:8px">Image</div>'}</div><div><h3>${i+1}. ${esc(pin.title||'Untitled Pin')}</h3><p>${esc(pin.description||'')}</p><p><strong>${esc(pin.board||'Board not set')}</strong> · ${esc(pin.link||'Link not set')}</p><span class="badge ${pin.status||'ready'}">${esc(statusLabel(pin.status||'ready'))}</span><div class="pinbuttons"><button class="btn warm" onclick="postPinNow('${p.id}',${i})">Post now</button><button class="btn secondary" onclick="openSchedule('${p.id}',${i})">Schedule</button></div></div></div>`}).join('')}</div><div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')">Edit all Pins</button><button class="btn danger" onclick="clearProject('${p.id}')">Clear batch</button></div>${!isConnected('pinterest')?'<div class="notice" style="margin-top:9px"><strong>Trial access pending:</strong> Post now downloads/shares the image and copies its text, then you confirm it inside Pinterest.</div>':''}`}
+function renderQueue(){const sorted=[...projects].sort((a,b)=>new Date(b.updated_at)-new Date(a.updated_at));$('#queueList').innerHTML=sorted.length?sorted.map(p=>`<div class="card"><div class="projecthead" style="padding:0 0 11px"><div><div class="projecttitle">${esc(p.title)}</div><div class="source">${esc(p.kind)} · updated ${formatDate(p.updated_at)}</div></div><span class="badge ${p.status}">${esc(statusLabel(p.status))}</span></div>${p.scheduled_for?`<div class="notice"><strong>Scheduled:</strong> ${formatDate(p.scheduled_for)}</div>`:''}${p.last_error?`<div class="notice" style="color:var(--bad)">${esc(p.last_error)}</div>`:''}<button class="btn secondary" style="width:100%;margin-top:9px" onclick="openProject('${p.id}')">Open project</button></div>`).join(''):'<div class="card empty"><div class="emptyicon">☷</div><h2>No activity yet</h2><p>Reviewed and scheduled projects will stay visible here.</p></div>'}
+function renderConnections(){const statuses={etsy:'API approval pending',pinterest:'Trial access pending',tiktok:'Manual download ready'};$('#connections').innerHTML=['tiktok','etsy','pinterest'].map(x=>{const c=conn(x),ready=isConnected(x)||(x==='tiktok');return `<div class="connection"><div><b>${x[0].toUpperCase()+x.slice(1)}</b><br><span>${esc(c?.note||statuses[x])}</span></div><span class="badge ${ready?'ready':'editing'}">${ready?(x==='tiktok'?'Download ready':'Connected'):'Pending'}</span></div>`}).join('')}
+async function loadData(showToast=false){$('#syncState').textContent='Refreshing…';const [a,b]=await Promise.all([sb.from('review_projects').select('*').order('updated_at',{ascending:false}),sb.from('platform_connections').select('*')]);if(a.error)throw a.error;if(b.error)throw b.error;projects=a.data||[];connections=b.data||[];await hydrateMedia();render();$('#syncState').textContent=`Private · updated ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;if(showToast)toast('Inbox refreshed')}
+async function openAsset(id,role){const p=projects.find(x=>x.id===id),path=mediaPath(p,role);if(!path)return toast('That file is not attached');try{window.open(await signed(BUCKET[p.kind],path,180),'_blank','noopener')}catch(e){toast(e.message||'File could not be opened')}}
+async function downloadVideo(id){const p=projects.find(x=>x.id===id),path=mediaPath(p,'preview')||mediaPath(p,'video');if(!path)return toast('The finished video is not attached yet');try{const {data,error}=await sb.storage.from(BUCKET.tiktok).download(path);if(error)throw error;const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=safeName((p.title||'tiktok-video')+'.mp4');a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);await updateProject(id,{status:'approved'});toast('Video approved — download started')}catch(e){toast(e.message||'Download failed')}}
+async function publishEtsy(id){if(!publishEnabled('etsy'))return toast('Etsy publishing is waiting for API approval');if(!confirm('Publish this listing to Etsy now?'))return;await updateProject(id,{status:'publishing',last_error:null});toast('Listing sent for publishing')}
+async function postPinNow(id,index){const p=projects.find(x=>x.id===id),pin=p?.manifest?.pins?.[index];if(!pin)return;const role=pin.imageRole||`pin-${index+1}`,path=mediaPath(p,role);try{const text=`${pin.title}\n\n${pin.description}\n\n${pin.link||''}`;await navigator.clipboard?.writeText(text);if(publishEnabled('pinterest')){await setPinState(p,index,'publishing');toast('Pin sent for publishing');return}if(path){const {data,error}=await sb.storage.from(BUCKET.pinterest).download(path);if(error)throw error;const file=new File([data],safeName((pin.title||'pin')+'.'+(data.type.includes('png')?'png':'jpg')),{type:data.type});if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:pin.title,text,files:[file]})}else{const url=URL.createObjectURL(data),a=document.createElement('a');a.href=url;a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000)}}await setPinState(p,index,'approved');toast('Pin image ready and text copied')}catch(e){if(e.name!=='AbortError')toast(e.message||'Could not prepare Pin')}}
+function openSchedule(id,index=null){scheduleTarget={id,index};const next=new Date(Date.now()+86400000);next.setHours(19,0,0,0);$('#scheduleWhen').value=new Date(next-next.getTimezoneOffset()*60000).toISOString().slice(0,16);$('#scheduleModal').classList.add('open')}
+async function saveSchedule(){if(!scheduleTarget)return;const raw=$('#scheduleWhen').value;if(!raw)return toast('Choose a date and time');const p=projects.find(x=>x.id===scheduleTarget.id);if(scheduleTarget.index===null){await updateProject(p.id,{status:'scheduled',scheduled_for:new Date(raw).toISOString()})}else{const pins=structuredClone(p.manifest.pins);pins[scheduleTarget.index].status='scheduled';pins[scheduleTarget.index].scheduledFor=new Date(raw).toISOString();await updateProject(p.id,{status:pins.every(x=>x.status==='scheduled')?'scheduled':'ready',manifest:{...p.manifest,pins},scheduled_for:new Date(raw).toISOString()})}$('#scheduleModal').classList.remove('open');toast('Schedule saved')}
+async function setPinState(p,index,status){const pins=structuredClone(p.manifest.pins);pins[index].status=status;await updateProject(p.id,{manifest:{...p.manifest,pins},status:pins.every(x=>['published','approved'].includes(x.status))?'approved':p.status})}
+function openProject(id){const p=projects.find(x=>x.id===id);if(p)showScreen(p.kind)}
+function openEdit(id){const p=projects.find(x=>x.id===id);if(!p)return;editingId=id;$('#editTitle').textContent=`Edit ${p.kind==='pinterest'?'Pinterest batch':p.kind[0].toUpperCase()+p.kind.slice(1)+' project'}`;$('#editForm').innerHTML=p.kind==='tiktok'?tiktokForm(p):p.kind==='etsy'?etsyForm(p):pinForm(p);$('#editModal').classList.add('open')}
+function input(name,label,value,type='text'){return `<div class="field"><label>${label}</label>${type==='textarea'?`<textarea name="${name}">${esc(value)}</textarea>`:`<input name="${name}" value="${esc(value)}">`}</div>`}
+function tiktokForm(p){const m=p.manifest||{},scenes=Array.isArray(m.scenes)?m.scenes:[];return `${input('coverTitle','Cover title',m.coverTitle||'')}${input('caption','Caption',m.caption||'','textarea')}<div class="formgrid">${input('style','Style',m.style||'')}${input('movement','Movement',m.movement||'')}${input('duration','Duration in seconds',m.duration||'')}</div><div class="field"><label>Scenes (6–8) · use arrows to reorder</label><div id="editScenes">${scenes.map((s,i)=>`<div class="scene" style="margin-bottom:6px"><b>${i+1}</b><div><textarea name="scene" style="min-height:64px">${esc(typeof s==='string'?s:s.text)}</textarea><div class="pinbuttons"><button class="btn secondary" type="button" onclick="moveEditScene(this,-1)">↑ Earlier</button><button class="btn secondary" type="button" onclick="moveEditScene(this,1)">↓ Later</button></div></div></div>`).join('')}</div></div>${input('soundRecommendation','Sound recommendation',m.soundRecommendation||m.sound||'')}${input('revisionRequest','Photo, timing or rerender changes for ChatGPT','', 'textarea')}<div class="actions"><button class="btn primary" type="submit">Save edits</button><button class="btn secondary" type="button" onclick="requestRevision()">Request rerender</button></div>`}
+function moveEditScene(button,direction){const scene=button.closest('.scene'),parent=scene.parentElement,target=direction<0?scene.previousElementSibling:scene.nextElementSibling;if(!target)return;if(direction<0)parent.insertBefore(scene,target);else parent.insertBefore(target,scene);[...parent.children].forEach((x,i)=>x.querySelector('b').textContent=i+1)}
+function etsyForm(p){const m=p.manifest||{};return `${input('title','Listing title',m.title||p.title)}${input('description','Description',m.description||'','textarea')}${input('tags','13 tags — one per line',(m.tags||[]).join('\n'),'textarea')}${input('altText','Image alt text — one per line',(m.altText||[]).join('\n'),'textarea')}<button class="btn primary" type="submit" style="width:100%;margin-top:11px">Save edits</button>`}
+function pinForm(p){const pins=p.manifest?.pins||[];return `${pins.map((pin,i)=>`<div class="card" style="box-shadow:none"><h3>Pin ${i+1}</h3>${input(`title_${i}`,'SEO title',pin.title||'')}${input(`description_${i}`,'Description',pin.description||'','textarea')}${input(`link_${i}`,'Destination link',pin.link||'')}${input(`board_${i}`,'Board',pin.board||'')}${input(`alt_${i}`,'Alt text',pin.altText||'','textarea')}</div>`).join('')}<button class="btn primary" type="submit" style="width:100%">Save all Pins</button>`}
+async function saveEdit(event){event.preventDefault();const p=projects.find(x=>x.id===editingId),fd=new FormData(event.currentTarget),m=structuredClone(p.manifest||{});if(p.kind==='tiktok'){const scenes=[...event.currentTarget.querySelectorAll('[name=scene]')].map((x,i)=>({...(m.scenes?.[i]&&typeof m.scenes[i]==='object'?m.scenes[i]:{}),text:x.value.trim()})).filter(x=>x.text);if(scenes.length<6||scenes.length>8)return toast('TikTok projects must contain 6–8 scenes');m.scenes=scenes;['coverTitle','caption','style','movement','soundRecommendation'].forEach(k=>m[k]=String(fd.get(k)||'').trim());m.duration=Number(fd.get('duration'))||m.duration}else if(p.kind==='etsy'){m.title=String(fd.get('title')||'').trim();m.description=String(fd.get('description')||'').trim();m.tags=String(fd.get('tags')||'').split('\n').map(x=>x.trim()).filter(Boolean);m.altText=String(fd.get('altText')||'').split('\n').map(x=>x.trim()).filter(Boolean);if(m.tags.length!==13)return toast('Etsy needs exactly 13 tags')}else{m.pins=m.pins.map((pin,i)=>({...pin,title:String(fd.get(`title_${i}`)||'').trim(),description:String(fd.get(`description_${i}`)||'').trim(),link:String(fd.get(`link_${i}`)||'').trim(),board:String(fd.get(`board_${i}`)||'').trim(),altText:String(fd.get(`alt_${i}`)||'').trim()}))}await updateProject(p.id,{manifest:m,title:p.kind==='etsy'?m.title:p.title,status:'ready',revision:p.revision+1});$('#editModal').classList.remove('open');toast('Edits saved')}
+async function requestRevision(){const p=projects.find(x=>x.id===editingId),note=$('#editForm [name=revisionRequest]')?.value.trim();if(!note)return toast('Add the change you want ChatGPT to make');await updateProject(p.id,{status:'editing',revision_request:note,revision:p.revision+1});$('#editModal').classList.remove('open');toast('Revision request saved for ChatGPT')}
+async function updateProject(id,changes){const {error}=await sb.from('review_projects').update(changes).eq('id',id);if(error)throw error;await loadData()}
+async function clearProject(id){const p=projects.find(x=>x.id===id);if(!p||!confirm(`Clear “${p.title}” and permanently remove its stored media?`))return;const paths=[...new Set([p.preview_path,...(p.media||[]).map(x=>x.path)].filter(Boolean))];try{if(paths.length){const {error}=await sb.storage.from(BUCKET[p.kind]).remove(paths);if(error)throw error}const {error}=await sb.from('review_projects').delete().eq('id',id);if(error)throw error;await loadData();toast('Project and media cleared')}catch(e){toast(e.message||'Clear failed')}}
+function validateManifest(m){if(!m||!['tiktok','etsy','pinterest'].includes(m.kind))throw new Error('Pack type must be tiktok, etsy or pinterest');if(!m.title)throw new Error('Pack needs a project title');if(m.kind==='tiktok'&&(!Array.isArray(m.scenes)||m.scenes.length<6||m.scenes.length>8))throw new Error('TikTok packs need 6–8 scenes');if(m.kind==='etsy'&&(!Array.isArray(m.tags)||m.tags.length!==13))throw new Error('Etsy packs need exactly 13 tags');if(m.kind==='pinterest'&&(!Array.isArray(m.pins)||m.pins.length!==10))throw new Error('Pinterest packs need exactly 10 Pins')}
+function mimeFor(name){const ext=String(name).split('.').pop().toLowerCase();return {png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',pdf:'application/pdf',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm'}[ext]||'application/octet-stream'}
+async function importPack(file){const state=$('#importState');state.className='notice';state.style.color='';state.textContent='Reading and checking pack…';let manifest,assets=[];if(file.name.toLowerCase().endsWith('.zip')){if(!window.JSZip)throw new Error('ZIP reader could not load');const zip=await JSZip.loadAsync(file),entry=zip.file('manifest.json')||Object.values(zip.files).find(x=>x.name.endsWith('/manifest.json'));if(!entry)throw new Error('ZIP must contain manifest.json');manifest=JSON.parse(await entry.async('text'));for(const [name,item] of Object.entries(zip.files))if(!item.dir&&!name.endsWith('manifest.json'))assets.push({name:name.split('/').pop(),blob:await item.async('blob')})}else manifest=JSON.parse(await file.text());validateManifest(manifest);const id=crypto.randomUUID(),bucket=BUCKET[manifest.kind],uploaded=[],media=[];try{for(let i=0;i<assets.length;i++){const a=assets[i],path=`${session.user.id}/${id}/${i+1}-${safeName(a.name)}`,mime=a.blob.type||mimeFor(a.name);state.textContent=`Uploading ${i+1} of ${assets.length}…`;const {error}=await sb.storage.from(bucket).upload(path,a.blob,{contentType:mime,upsert:false});if(error)throw error;uploaded.push(path);const role=findRole(manifest,a.name,i);media.push({role,path,name:a.name,mime})}const previewFile=manifest.previewFile||manifest.videoFile,preview=previewFile?media.find(x=>x.name===previewFile)?.path||null:null;const record={id,kind:manifest.kind,title:manifest.title,status:'ready',source:'manual',manifest,media,preview_path:preview};const {error}=await sb.from('review_projects').insert(record);if(error)throw error;state.textContent='Pack imported successfully.';await loadData();showScreen(manifest.kind);toast('Project ready for review')}catch(e){if(uploaded.length)await sb.storage.from(bucket).remove(uploaded);throw e}}
+function findRole(m,name,index){if(name===m.previewFile||name===m.videoFile)return 'video';if(name===m.customerPdf)return 'customer-pdf';if(name===m.thumbnail)return 'thumbnail';const img=(m.listingImages||[]).indexOf(name);if(img>=0)return `listing-image-${img+1}`;const pin=(m.pins||[]).findIndex(x=>x.imageFile===name);if(pin>=0){m.pins[pin].imageRole=`pin-${pin+1}`;return `pin-${pin+1}`}const scene=(m.scenes||[]).findIndex(x=>typeof x==='object'&&x.imageFile===name);return scene>=0?`scene-${scene+1}`:`asset-${index+1}`}
+async function authChanged(s){session=s;$('#authScreen').classList.toggle('active',!s);$('#nav').classList.toggle('hidden',!s);if(!s){$$('.screen').forEach(x=>{if(x.id!=='authScreen')x.classList.remove('active')});return}$('#accountEmail').textContent=s.user.email||'Signed in owner';showScreen((location.hash||'#tiktok').slice(1));try{await loadData();subscribe()}catch(e){toast(e.message||'Could not load workspace')}}
+function subscribe(){if(realtime)sb.removeChannel(realtime);realtime=sb.channel('review-projects-live').on('postgres_changes',{event:'*',schema:'public',table:'review_projects'},()=>loadData()).subscribe()}
+$('#signIn').onclick=async()=>{const email=$('#email').value.trim();if(!email)return toast('Enter your email');const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split('#')[0]}});toast(error?error.message:'Check your email for the secure link')};
+$('#signOut').onclick=()=>sb.auth.signOut();$('#refreshData').onclick=()=>loadData(true);$('#packFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{await importPack(f)}catch(err){$('#importState').className='notice';$('#importState').style.color='var(--bad)';$('#importState').textContent=err.message||'Import failed';toast('Pack was not imported')}finally{e.target.value=''}};
+$('#editForm').onsubmit=saveEdit;$('#confirmSchedule').onclick=saveSchedule;$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).classList.remove('open'));$$('#nav button').forEach(b=>b.onclick=()=>showScreen(b.dataset.screen));$('#reloadApp').onclick=()=>location.reload();
+sb.auth.onAuthStateChange((_event,s)=>setTimeout(()=>authChanged(s),0));sb.auth.getSession().then(({data})=>authChanged(data.session));
+if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{reg.update();setInterval(()=>reg.update(),60*60*1000);reg.addEventListener('updatefound',()=>{const w=reg.installing;w?.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)$('#updateBar').classList.add('show')})})});let reloading=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!reloading){reloading=true;location.reload()}})}
 </script>
 </body>
 </html>

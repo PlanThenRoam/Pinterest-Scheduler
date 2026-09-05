@@ -1,5 +1,5 @@
-const CACHE_NAME='ptr-seller-tools-v7';
-const APP_SHELL=['./','./index.html','./video-studio.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE_NAME='ptr-seller-tools-v8';
+const APP_SHELL=['./','./index.html','./video-studio.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
  self.skipWaiting();
@@ -9,6 +9,8 @@ self.addEventListener('install',event=>{
 self.addEventListener('activate',event=>{
  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
 });
+
+self.addEventListener('message',event=>{if(event.data==='SKIP_WAITING')self.skipWaiting()});
 
 self.addEventListener('fetch',event=>{
  const request=event.request;
@@ -21,7 +23,7 @@ self.addEventListener('fetch',event=>{
   }).catch(async()=>await caches.match(request)||await caches.match(url.pathname.endsWith('/video-studio.html')?'./video-studio.html':'./index.html')));
   return;
  }
- event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
+ event.respondWith(fetch(request).then(response=>{
   const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
- })));
+ }).catch(()=>caches.match(request)));
 });
