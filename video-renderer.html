@@ -789,9 +789,13 @@ window.PTRRenderer={
   await restore(portable,true);
   for(let i=0;i<images.length;i++){
    onProgress?.(i/sourceScenes.length*.08,'Loading scene '+(i+1)+' of '+sourceScenes.length);
-   const response=await fetch(images[i].url,{cache:'no-store'});
-   if(!response.ok)throw new Error('Scene '+(i+1)+' image could not be loaded.');
-   const blob=await response.blob();
+   let blob=images[i]?.blob;
+   if(!blob){
+    const response=await fetch(images[i]?.url,{cache:'no-store'});
+    if(!response.ok)throw new Error('Scene '+(i+1)+' image could not be loaded.');
+    blob=await response.blob();
+   }
+   if(typeof blob.arrayBuffer!=='function')throw new Error('Scene '+(i+1)+' image data is unavailable.');
    await loadPhoto(state.scenes[i],new File([blob],images[i].name||('scene-'+(i+1)+'.jpg'),{type:blob.type||'image/jpeg'}));
    state.scenes[i].duration=allTimed?durations[i]:total/sourceScenes.length;
   }
