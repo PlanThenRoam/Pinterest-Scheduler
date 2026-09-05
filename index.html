@@ -884,7 +884,15 @@ function initAppInstall(){
   installPrompt.prompt();const choice=await installPrompt.userChoice;if(choice.outcome==='accepted')card.style.display='none';installPrompt=null;
  });
 }
-function initPwa(){if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(error=>console.error('App install support failed',error))}
+function initPwa(){
+ if(!('serviceWorker' in navigator))return;
+ let reloadingForUpdate=false;
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloadingForUpdate)return;reloadingForUpdate=true;location.reload()});
+ navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>{
+  registration.update().catch(()=>{});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')registration.update().catch(()=>{})});
+ }).catch(error=>console.error('App install support failed',error));
+}
 $('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');initCloud();initAppInstall();initPwa();
 </script>
 </body>
