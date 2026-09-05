@@ -36,7 +36,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 .sectionHead{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px}.sectionHead h2{margin:0}.linkstate{font-size:10px;font-weight:800}.linkstate.ready{color:var(--ok)}.linkstate.wait{color:var(--warn)}
 .modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fff;padding:9px;border-radius:11px;font-weight:780}.modeSwitch button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .taggrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.taggrid input{font-size:12px}.scenegrid{display:grid;grid-template-columns:1fr;gap:8px}.scene{display:grid;grid-template-columns:72px 1fr;gap:7px;align-items:start}.scene .time{font-size:11px;font-weight:800;color:var(--navy);background:var(--soft);border-radius:10px;padding:10px 8px;text-align:center}
-.mediaList{font-size:11px;color:var(--muted);margin-top:7px}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
+.mediaList{font-size:11px;color:var(--muted);margin-top:7px}.mediaList.uploading{color:var(--warn);font-weight:760}.mediaList.ready{color:var(--ok);font-weight:760}.mediaList.error{color:var(--bad);font-weight:760}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
 .nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,255,255,.98);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:5px 1px calc(5px + env(safe-area-inset-bottom))}
 .nav button{border:0;background:transparent;color:#687386;padding:6px 0;font-size:9px;font-weight:770}.nav button.active{color:var(--navy)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
 .toast{position:fixed;z-index:50;left:50%;bottom:91px;transform:translateX(-50%) translateY(18px);background:#172033;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:760;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -62,7 +62,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  </div>
  <div class="card">
   <h2>Built for your actual workflow</h2>
-  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> TikTok hook, on-screen scenes, caption, CTA and 5 hashtags auto-fill<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
+  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> TikTok hook, on-screen scenes, caption, CTA and 5 hashtags auto-fill<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Private owner-only media uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
  </div>
  <div class="card">
   <h2>Connections</h2>
@@ -86,7 +86,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 <section id="pin" class="screen">
  <div class="card"><div class="sectionHead"><h2>New Pinterest Pin</h2><span class="linkstate wait">Not publishing yet</span></div>
   <div class="grid">
-   <div class="upload"><input id="pinImage" type="file" accept="image/png,image/jpeg,image/webp"><label for="pinImage">Tap to choose your Pin</label><small>1000 × 1500 PNG recommended</small><div id="pinPreview" class="preview"><img id="pinPreviewImg" alt="Pin preview"></div></div>
+   <div class="upload"><input id="pinImage" type="file" accept="image/png,image/jpeg,image/webp"><label for="pinImage">Tap to choose your Pin</label><small>1000 × 1500 PNG recommended</small><div id="pinMediaState" class="mediaList">Uploads securely when you add the Pin.</div><div id="pinPreview" class="preview"><img id="pinPreviewImg" alt="Pin preview"></div></div>
    <div class="field"><label>Planner</label><select id="pinPlanner"></select></div>
    <div class="field"><label>Pin type</label><div class="chips" id="pinTypes"><button class="chip active" data-type="advert">Advert</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
    <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
@@ -149,7 +149,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
      <option value="editorial">Editorial — 13–16 seconds</option>
     </select>
    </div>
-   <div class="upload"><input id="tikMedia" type="file" accept="video/*,image/png,image/jpeg,image/webp" multiple><label for="tikMedia">Choose clips / images</label><small>Destination footage, planner visuals or shop-promo assets</small><div id="tikMediaList" class="mediaList">No media selected yet.</div></div>
+   <div class="upload"><input id="tikMedia" type="file" accept="video/*,image/png,image/jpeg,image/webp" multiple><label for="tikMedia">Choose clips / images</label><small>Destination footage, planner visuals or shop-promo assets</small><div id="tikMediaList" class="mediaList">Uploads securely when you add the TikTok.</div></div>
   </div>
  </div>
 
@@ -184,8 +184,8 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   <div class="field"><label>Etsy title</label><textarea id="etsyTitle" style="min-height:76px"></textarea></div>
   <div class="field"><label>Description</label><textarea id="etsyDesc" style="min-height:190px"></textarea></div>
   <div class="field"><label>13 tags</label><div id="tagGrid" class="taggrid"></div></div>
-  <div class="field"><label>Customer PDF</label><input id="etsyPdf" type="file" accept="application/pdf"></div>
-  <div class="field"><label>Listing images</label><input id="etsyImages" type="file" accept="image/png,image/jpeg" multiple></div>
+  <div class="field"><label>Customer PDF</label><input id="etsyPdf" type="file" accept="application/pdf"><div id="etsyPdfState" class="mediaList">Uploads securely when you save the draft.</div></div>
+  <div class="field"><label>Listing images</label><input id="etsyImages" type="file" accept="image/png,image/jpeg,image/webp" multiple><div id="etsyImagesState" class="mediaList">Uploads securely when you save the draft.</div></div>
   <div class="helper">Customer-file rule: PDF only. Generated copy excludes editable Word-document wording and does not write £14.99 into the listing copy.</div>
   <div class="actions"><button class="secondary" id="regenEtsy">Regenerate copy</button><button class="primary" id="saveEtsyDraft">Save draft</button></div>
  </div></div>
@@ -263,6 +263,49 @@ const SUPABASE_URL='https://wyoamcydkbblvujvyljs.supabase.co';
 const SUPABASE_KEY='sb_publishable_DApk1ZNyEUeBhpeBwHgM8g_uKaMnXzS';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
+const MEDIA_BUCKETS={pin:'pinterest-media',tik:'tiktok-media',etsy:'etsy-assets'};
+function safeFileName(name='file'){
+ return String(name).normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/-+/g,'-').replace(/^[.-]+|[.-]+$/g,'').slice(-110)||'file';
+}
+function mediaPathFor(userId,kind,file){
+ const token=(globalThis.crypto?.randomUUID?.()||Math.random().toString(36).slice(2));
+ return `${userId}/${kind}/${Date.now()}-${token}-${safeFileName(file.name)}`;
+}
+async function removeStoredMedia(bucket,paths){
+ const clean=[...new Set((paths||[]).filter(Boolean))];if(!clean.length)return true;
+ const {error}=await sb.storage.from(bucket).remove(clean);
+ if(error){console.error('Media clean-up failed',error);return false}
+ return true;
+}
+async function uploadSelectedFiles(bucket,kind,files){
+ const chosen=[...(files||[])];if(!chosen.length)return [];
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session)throw new Error('Sign in under Cloud Sync before uploading files');
+ const uploaded=[];
+ try{
+  for(const file of chosen){
+   const path=mediaPathFor(session.user.id,kind,file);
+   const {data,error}=await sb.storage.from(bucket).upload(path,file,{contentType:file.type||undefined,cacheControl:'3600',upsert:false});
+   if(error)throw error;
+   uploaded.push(data.path);
+  }
+  return uploaded;
+ }catch(error){
+  await removeStoredMedia(bucket,uploaded);
+  throw error;
+ }
+}
+function setMediaState(selector,message,state=''){
+ const el=$(selector);if(!el)return;el.textContent=message;el.className='mediaList'+(state?' '+state:'');
+}
+function setBusy(button,busy,label){
+ if(!button)return;button.disabled=busy;button.dataset.normalLabel||=button.textContent;button.textContent=busy?label:button.dataset.normalLabel;
+}
+async function removeCloudRow(table,id){
+ if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(id||'')))return;
+ const {data:{session}}=await sb.auth.getSession();if(session)await sb.from(table).delete().eq('id',id);
+}
+
 function cloudUi(session){
  const signed=!!session;
  $('#cloudSignedOut').style.display=signed?'none':'grid';
@@ -286,17 +329,17 @@ async function pushCloudData(){
  let {error}=await sb.from('planners').upsert(plannerRows,{onConflict:'slug'});if(error)return toast('Planner sync failed');
  await sb.from('pinterest_queue').delete().neq('status','__never__');
  if(pinQueue.length){
-   const rows=pinQueue.map(q=>({planner_slug:q.plannerId||null,pin_type:q.type,title:q.title,description:q.desc,alt_text:q.alt||null,board:q.board||null,destination_url:q.link||null,scheduled_for:q.when,status:'queued'}));
+   const rows=pinQueue.map(q=>({planner_slug:q.plannerId||null,pin_type:q.type,title:q.title,description:q.desc,alt_text:q.alt||null,board:q.board||null,destination_url:q.link||null,media_url:q.mediaPath||null,scheduled_for:q.when,status:'queued'}));
    ({error}=await sb.from('pinterest_queue').insert(rows));if(error)return toast('Pin queue sync failed');
  }
  await sb.from('tiktok_queue').delete().neq('status','__never__');
  if(tikQueue.length){
-   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaNames||[],scheduled_for:q.when,status:'queued'}));
+   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaPaths||[],scheduled_for:q.when,status:'queued'}));
    ({error}=await sb.from('tiktok_queue').insert(rows));if(error)return toast('TikTok queue sync failed');
  }
  await sb.from('etsy_drafts').delete().neq('status','__never__');
  if(drafts.length){
-   const rows=drafts.map(d=>({planner_slug:d.plannerId||null,mode:d.mode,title:d.title||null,description:d.desc||null,tags:d.tags||[],pdf_name:d.pdfName||null,image_names:d.imageNames||[],status:'draft'}));
+   const rows=drafts.map(d=>({planner_slug:d.plannerId||null,mode:d.mode,title:d.title||null,description:d.desc||null,tags:d.tags||[],pdf_name:d.pdfName||null,image_names:d.imageNames||[],pdf_path:d.pdfPath||null,image_paths:d.imagePaths||[],status:'draft'}));
    ({error}=await sb.from('etsy_drafts').insert(rows));if(error)return toast('Etsy draft sync failed');
  }
  toast('Cloud sync complete');
@@ -311,9 +354,9 @@ async function pullCloudData(){
  ]);
  if(pp.error||pq.error||tq.error||ed.error)return toast('Cloud pull failed');
  if(pp.data?.length)planners=pp.data.map(p=>({id:p.slug,name:p.name,keyword:p.keyword||'',routes:p.routes||'',season:p.season||'',highlights:p.highlights||'',board:p.pinterest_board||'',link:p.etsy_listing_url||'',listingId:p.etsy_listing_id||''}));
- pinQueue=(pq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.pin_type,board:q.board||'',link:q.destination_url||'',title:q.title,desc:q.description,alt:q.alt_text||'',when:q.scheduled_for}));
- tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaNames:Array.isArray(q.media_urls)?q.media_urls:[],when:q.scheduled_for}));
- drafts=(ed.data||[]).map(d=>({id:d.id,plannerId:d.planner_slug,planner:planner(d.planner_slug)?.name||'',mode:d.mode,title:d.title||'',desc:d.description||'',tags:Array.isArray(d.tags)?d.tags:[],savedAt:d.updated_at,pdfName:d.pdf_name||'',imageNames:Array.isArray(d.image_names)?d.image_names:[]}));
+ pinQueue=(pq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.pin_type,board:q.board||'',link:q.destination_url||'',title:q.title,desc:q.description,alt:q.alt_text||'',mediaPath:q.media_url||'',mediaName:String(q.media_url||'').split('/').pop()||'',when:q.scheduled_for}));
+ tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaPaths:Array.isArray(q.media_urls)?q.media_urls:[],mediaNames:(Array.isArray(q.media_urls)?q.media_urls:[]).map(x=>String(x).split('/').pop()),when:q.scheduled_for}));
+ drafts=(ed.data||[]).map(d=>({id:d.id,plannerId:d.planner_slug,planner:planner(d.planner_slug)?.name||'',mode:d.mode,title:d.title||'',desc:d.description||'',tags:Array.isArray(d.tags)?d.tags:[],savedAt:d.updated_at,pdfName:d.pdf_name||'',imageNames:Array.isArray(d.image_names)?d.image_names:[],pdfPath:d.pdf_path||'',imagePaths:Array.isArray(d.image_paths)?d.image_paths:[]}));
  persist();refreshAll();toast('Restored from cloud');
 }
 async function signOutCloud(){await sb.auth.signOut();toast('Signed out')}
@@ -351,7 +394,19 @@ function genPin(advance=true){const p=planner($('#pinPlanner').value);if(!p)retu
 function pinCount(){$('#pinTitleCount').textContent=$('#pinTitle').value.length+'/100';$('#pinDescCount').textContent=$('#pinDesc').value.length+'/500'}
 function pinCheck(p){const t=($('#pinTitle').value+' '+$('#pinDesc').value).toLowerCase(),main=(shortName(p.name).split(' ')[0]||'').toLowerCase();const checks=[['Destination/search phrase',t.includes(main)],['Route lengths',t.includes((p.routes.split(' ')[0]||'').toLowerCase())],['No price in copy',!(/£|14\.99/.test(t))],['No editable Word wording',!(/editable word|word document/.test(t))],['Board auto-filled',!!$('#pinBoard').value.trim()],['Exact Etsy link',!!$('#pinLink').value.trim()]];$('#pinChecks').innerHTML=checks.map(([x,ok],i)=>`<div class="${ok?'ok':(i===5?'warn':'bad')}">${ok?'✓':'!'} ${x}${i===5&&!ok?' — awaiting Etsy sync':''}</div>`).join('')}
 function nextSlot(kind){const slots=(kind==='pin'?settings.pinSlots:settings.tikSlots).split(',').map(x=>x.trim()).filter(Boolean).sort();const q=kind==='pin'?pinQueue:tikQueue,ds=kind==='pin'?$('#pinDate'):$('#tikDate'),ts=kind==='pin'?$('#pinTime'):$('#tikTime');let now=new Date();now.setSeconds(0,0);for(let add=0;add<45;add++){const day=new Date(now);day.setDate(now.getDate()+add);for(const s of slots){const [h,m]=s.split(':').map(Number),c=new Date(day);c.setHours(h||0,m||0,0,0);if(c>now&&!q.some(x=>Math.abs(new Date(x.when)-c)<60000)){ds.value=localDate(c);ts.value=s;return}}}}
-function addPin(){const p=planner($('#pinPlanner').value),d=$('#pinDate').value,t=$('#pinTime').value;if(!p||!d||!t)return toast('Choose a date and time');pinQueue.push({id:'pq'+Date.now(),plannerId:p.id,planner:p.name,type:pinType,board:$('#pinBoard').value.trim(),link:$('#pinLink').value.trim(),title:clean($('#pinTitle').value),desc:clean($('#pinDesc').value),alt:clean($('#pinAlt').value),when:new Date(`${d}T${t}:00`).toISOString()});pinQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));persist();renderQueues();updateHome();genPin(true);nextSlot('pin');toast('Pin added')}
+async function addPin(){
+ const p=planner($('#pinPlanner').value),d=$('#pinDate').value,t=$('#pinTime').value,file=$('#pinImage').files[0],button=$('#addPinQueue');
+ if(!p||!d||!t)return toast('Choose a date and time');if(!file)return toast('Choose a Pin image');
+ setBusy(button,true,'Uploading…');setMediaState('#pinMediaState','Uploading securely…','uploading');let paths=[];
+ try{
+  paths=await uploadSelectedFiles(MEDIA_BUCKETS.pin,'pins',[file]);
+  const q={id:'pq'+Date.now(),plannerId:p.id,planner:p.name,type:pinType,board:$('#pinBoard').value.trim(),link:$('#pinLink').value.trim(),title:clean($('#pinTitle').value),desc:clean($('#pinDesc').value),alt:clean($('#pinAlt').value),mediaPath:paths[0],mediaName:file.name,when:new Date(`${d}T${t}:00`).toISOString()};
+  pinQueue.push(q);pinQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));
+  try{persist()}catch(error){pinQueue=pinQueue.filter(x=>x.id!==q.id);throw error}
+  renderQueues();updateHome();genPin(true);nextSlot('pin');$('#pinImage').value='';$('#pinPreview').style.display='none';setMediaState('#pinMediaState','Secure upload saved.','ready');toast('Pin and image added');
+ }catch(error){await removeStoredMedia(MEDIA_BUCKETS.pin,paths);setMediaState('#pinMediaState',error.message||'Upload failed','error');toast(error.message||'Pin save failed')}
+ finally{setBusy(button,false,'')}
+}
 
 /* TikTok — goal × concept × hook-angle engine */
 const conceptNames={
@@ -548,10 +603,18 @@ function genTik(advance=true){
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch{toast('Copy not available in this browser')}}
 function tikPackText(){return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\nSCENE 1\n${$('#scene1').value}\n\nSCENE 2\n${$('#scene2').value}\n\nSCENE 3\n${$('#scene3').value}\n\nSCENE 4\n${$('#scene4').value}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}`}
-function addTik(){
- const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value;if(!p||!d||!t)return toast('Choose a date and time');
- tikQueue.push({id:'tq'+Date.now(),plannerId:p.id,planner:p.name,type:tikType,concept:$('#tikConceptTitle').dataset.concept||'',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||0),hook:$('#tikHook').value,scenes:[1,2,3,4].map(i=>$('#scene'+i).value),caption:$('#tikCaption').value,cta:$('#tikCTA').value,hashtags:$('#tikHashtags').value,mediaNames:[...$('#tikMedia').files].map(f=>f.name),when:new Date(`${d}T${t}:00`).toISOString()});
- tikQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));persist();renderQueues();updateHome();genTik(true);nextSlot('tik');toast('TikTok added');
+async function addTik(){
+ const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value,files=[...$('#tikMedia').files],button=$('#addTikQueue');
+ if(!p||!d||!t)return toast('Choose a date and time');if(!files.length)return toast('Choose TikTok clips or images');
+ setBusy(button,true,'Uploading…');setMediaState('#tikMediaList',`Uploading ${files.length} file${files.length===1?'':'s'} securely…`,'uploading');let paths=[];
+ try{
+  paths=await uploadSelectedFiles(MEDIA_BUCKETS.tik,'videos',files);
+  const q={id:'tq'+Date.now(),plannerId:p.id,planner:p.name,type:tikType,concept:$('#tikConceptTitle').dataset.concept||'',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||0),hook:$('#tikHook').value,scenes:[1,2,3,4].map(i=>$('#scene'+i).value),caption:$('#tikCaption').value,cta:$('#tikCTA').value,hashtags:$('#tikHashtags').value,mediaNames:files.map(f=>f.name),mediaPaths:paths,when:new Date(`${d}T${t}:00`).toISOString()};
+  tikQueue.push(q);tikQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));
+  try{persist()}catch(error){tikQueue=tikQueue.filter(x=>x.id!==q.id);throw error}
+  renderQueues();updateHome();genTik(true);nextSlot('tik');$('#tikMedia').value='';setMediaState('#tikMediaList',`${paths.length} secure upload${paths.length===1?'':'s'} saved.`,'ready');toast('TikTok and media added');
+ }catch(error){await removeStoredMedia(MEDIA_BUCKETS.tik,paths);setMediaState('#tikMediaList',error.message||'Upload failed','error');toast(error.message||'TikTok save failed')}
+ finally{setBusy(button,false,'')}
 }
 
 /* Etsy */
@@ -568,8 +631,22 @@ This guide is designed to help you organise the trip more quickly while still le
 
 Please check current opening times, transport information and booking requirements before travel. Digital product only; no physical item will be posted.`;const tags=makeTags(p);$$('#tagGrid input').forEach((el,i)=>el.value=tags[i]||'')}
 function syncEtsy(){const p=planner($('#etsyPlanner').value);makeEtsy();$('#etsyState').innerHTML=p&&p.link?`<span class="ok">✓ Exact Etsy link saved.</span> This becomes a live editor after API approval.`:`<span class="warn">! Exact listing data will auto-sync after Etsy approval.</span> Draft creation works now.`}
-function saveDraft(){const p=planner($('#etsyPlanner').value);if(!p)return;const d={id:'d'+Date.now(),plannerId:p.id,planner:p.name,mode:etsyMode,title:clean($('#etsyTitle').value),desc:$('#etsyDesc').value.replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide'),tags:$$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean),savedAt:new Date().toISOString(),pdfName:$('#etsyPdf').files[0]?.name||'',imageNames:[...$('#etsyImages').files].map(f=>f.name)};drafts=drafts.filter(x=>!(x.plannerId===p.id&&x.mode===etsyMode));drafts.push(d);persist();renderQueues();updateHome();toast('Etsy draft saved')}
-function loadDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;$('#etsyPlanner').value=d.plannerId;etsyMode=d.mode;$$('.modeSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.etsyMode===etsyMode));$('#etsyTitle').value=d.title;$('#etsyDesc').value=d.desc;$$('#tagGrid input').forEach((el,i)=>el.value=d.tags[i]||'');navigate('etsy');toast('Draft opened')}
+async function saveDraft(){
+ const p=planner($('#etsyPlanner').value);if(!p)return;
+ const pdf=$('#etsyPdf').files[0],images=[...$('#etsyImages').files],button=$('#saveEtsyDraft'),old=drafts.find(x=>x.plannerId===p.id&&x.mode===etsyMode);let pdfPaths=[],imagePaths=[];
+ setBusy(button,true,'Uploading…');if(pdf)setMediaState('#etsyPdfState','Uploading PDF securely…','uploading');if(images.length)setMediaState('#etsyImagesState',`Uploading ${images.length} image${images.length===1?'':'s'} securely…`,'uploading');
+ try{
+  if(pdf)pdfPaths=await uploadSelectedFiles(MEDIA_BUCKETS.etsy,'pdfs',[pdf]);
+  if(images.length)imagePaths=await uploadSelectedFiles(MEDIA_BUCKETS.etsy,'listing-images',images);
+  const d={id:old?.id||('d'+Date.now()),plannerId:p.id,planner:p.name,mode:etsyMode,title:clean($('#etsyTitle').value),desc:$('#etsyDesc').value.replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide'),tags:$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean),savedAt:new Date().toISOString(),pdfName:pdf?.name||old?.pdfName||'',imageNames:images.length?images.map(f=>f.name):(old?.imageNames||[]),pdfPath:pdfPaths[0]||old?.pdfPath||'',imagePaths:imagePaths.length?imagePaths:(old?.imagePaths||[])};
+  const previous=[...drafts];drafts=drafts.filter(x=>!(x.plannerId===p.id&&x.mode===etsyMode));drafts.push(d);
+  try{persist()}catch(error){drafts=previous;throw error}
+  const replaced=[];if(pdf&&old?.pdfPath)replaced.push(old.pdfPath);if(images.length&&old?.imagePaths?.length)replaced.push(...old.imagePaths);await removeStoredMedia(MEDIA_BUCKETS.etsy,replaced);
+  renderQueues();updateHome();$('#etsyPdf').value='';$('#etsyImages').value='';setMediaState('#etsyPdfState',d.pdfPath?'Secure PDF saved.':'No PDF selected.',d.pdfPath?'ready':'');setMediaState('#etsyImagesState',d.imagePaths.length?`${d.imagePaths.length} secure image${d.imagePaths.length===1?'':'s'} saved.`:'No images selected.',d.imagePaths.length?'ready':'');toast('Etsy draft and files saved');
+ }catch(error){await removeStoredMedia(MEDIA_BUCKETS.etsy,[...pdfPaths,...imagePaths]);setMediaState('#etsyPdfState',error.message||'Save failed','error');setMediaState('#etsyImagesState',error.message||'Save failed','error');toast(error.message||'Etsy save failed')}
+ finally{setBusy(button,false,'')}
+}
+function loadDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;$('#etsyPlanner').value=d.plannerId;etsyMode=d.mode;$('.modeSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.etsyMode===etsyMode));$('#etsyTitle').value=d.title;$('#etsyDesc').value=d.desc;$('#tagGrid input').forEach((el,i)=>el.value=d.tags[i]||'');setMediaState('#etsyPdfState',d.pdfPath?'Secure PDF already saved.':'Choose a PDF to add. ',d.pdfPath?'ready':'');setMediaState('#etsyImagesState',d.imagePaths?.length?`${d.imagePaths.length} secure listing image${d.imagePaths.length===1?'':'s'} already saved.`:'Choose listing images to add.',d.imagePaths?.length?'ready':'');navigate('etsy');toast('Draft opened')}
 
 /* Library */
 function renderLibrary(){$('#plannerList').innerHTML=planners.map(p=>`<div class="item"><div class="itemtop"><div><h3>${esc(p.name)}</h3><span class="badge">${esc(p.routes||'Routes not set')}</span></div><span class="linkstate ${p.link?'ready':'wait'}">${p.link?'Etsy linked':'Awaiting Etsy'}</span></div><p>${esc(p.board||'Board not set')}<br>${esc(p.keyword||'Keyword not set')}</p><div class="productActions"><button class="smallBtn" onclick="editPlanner('${p.id}')">Edit</button><button class="smallBtn" onclick="deletePlanner('${p.id}')">Delete</button></div></div>`).join('')}
@@ -579,12 +656,13 @@ function savePlanner(){const name=$('#libName').value.trim();if(!name)return toa
 
 /* Queues */
 function renderQueues(){
- $('#pinQueueList').innerHTML=pinQueue.length?pinQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.planner)}</h3><span class="badge">${esc(q.type)}</span></div><button class="smallBtn" onclick="removePin('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.title)}<br>${esc(q.board||'Board not set')}</p></div>`).join(''):'<div class="empty">No Pins queued.</div>';
- $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(q.type)}</span><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span></div><button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.hook)}${q.mediaNames.length?`<br>${q.mediaNames.length} media file(s) selected`:''}</p></div>`).join(''):'<div class="empty">No TikToks queued.</div>';
- $('#etsyDraftList').innerHTML=drafts.length?drafts.map(d=>`<div class="item"><div class="itemtop"><div><h3>${esc(d.planner)}</h3><span class="badge">${esc(d.mode)}</span></div><button class="smallBtn" onclick="loadDraft('${d.id}')">Open</button></div><p>${esc(d.title||'Untitled')}<br>Saved ${new Date(d.savedAt).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</p></div>`).join(''):'<div class="empty">No Etsy drafts.</div>';
+ $('#pinQueueList').innerHTML=pinQueue.length?pinQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.planner)}</h3><span class="badge">${esc(q.type)}</span></div><button class="smallBtn" onclick="removePin('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.title)}<br>${esc(q.board||'Board not set')}${q.mediaPath?'<br>✓ Secure Pin image saved':''}</p></div>`).join(''):'<div class="empty">No Pins queued.</div>';
+ $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(q.type)}</span><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span></div><button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.hook)}${q.mediaNames.length?`<br>${(q.mediaPaths||[]).length||q.mediaNames.length} secure media file(s) saved`:''}</p></div>`).join(''):'<div class="empty">No TikToks queued.</div>';
+ $('#etsyDraftList').innerHTML=drafts.length?drafts.map(d=>`<div class="item"><div class="itemtop"><div><h3>${esc(d.planner)}</h3><span class="badge">${esc(d.mode)}</span></div><div><button class="smallBtn" onclick="loadDraft('${d.id}')">Open</button> <button class="smallBtn" onclick="removeDraft('${d.id}')">Remove</button></div></div><p>${esc(d.title||'Untitled')}<br>Saved ${new Date(d.savedAt).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}${d.pdfPath?'<br>✓ Secure PDF saved':''}${d.imagePaths?.length?`<br>✓ ${d.imagePaths.length} secure listing image${d.imagePaths.length===1?'':'s'} saved`:''}</p></div>`).join(''):'<div class="empty">No Etsy drafts.</div>';
 }
-function removePin(id){pinQueue=pinQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Removed')}
-function removeTik(id){tikQueue=tikQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Removed')}
+async function removePin(id){const q=pinQueue.find(x=>x.id===id);if(!q)return;await removeStoredMedia(MEDIA_BUCKETS.pin,[q.mediaPath]);await removeCloudRow('pinterest_queue',id);pinQueue=pinQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Pin and stored image removed')}
+async function removeTik(id){const q=tikQueue.find(x=>x.id===id);if(!q)return;await removeStoredMedia(MEDIA_BUCKETS.tik,q.mediaPaths||[]);await removeCloudRow('tiktok_queue',id);tikQueue=tikQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('TikTok and stored media removed')}
+async function removeDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;if(!confirm('Remove this Etsy draft and its stored files?'))return;await removeStoredMedia(MEDIA_BUCKETS.etsy,[d.pdfPath,...(d.imagePaths||[])]);await removeCloudRow('etsy_drafts',id);drafts=drafts.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Draft and stored files removed')}
 
 function navigate(id){$$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));window.scrollTo(0,0)}
 function buildTags(){let s='';for(let i=1;i<=13;i++)s+=`<input maxlength="20" aria-label="Tag ${i}" placeholder="Tag ${i}">`;$('#tagGrid').innerHTML=s}
@@ -601,8 +679,8 @@ $('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot')
 $('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));$('#addTikQueue').addEventListener('click',addTik);
 $('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
 $('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
-$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block'});
-$('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];$('#tikMediaList').textContent=fs.length?fs.map(f=>f.name).join(' • '):'No media selected yet.'});
+$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block';setMediaState('#pinMediaState',`${f.name} ready to upload.`)});
+$('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];setMediaState('#tikMediaList',fs.length?fs.map(f=>f.name).join(' • '):'Choose clips or images to upload.')});$('#etsyPdf').addEventListener('change',()=>{const f=$('#etsyPdf').files[0];setMediaState('#etsyPdfState',f?`${f.name} ready to upload.`:'Choose a PDF to upload.')});$('#etsyImages').addEventListener('change',()=>{const fs=[...$('#etsyImages').files];setMediaState('#etsyImagesState',fs.length?`${fs.length} image${fs.length===1?'':'s'} ready to upload.`:'Choose listing images to upload.')});
 $('#regenEtsy').addEventListener('click',makeEtsy);$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
 $('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
 $('#sendMagicLink').addEventListener('click',sendCloudMagicLink);
