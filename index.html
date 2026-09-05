@@ -40,7 +40,7 @@
  <section id="settings" class="screen"><div class="hero"><div class="eyebrow">Settings</div><h1>Quiet controls. Nothing extra.</h1><p>Import a pack manually when needed and check the genuine status of each connection.</p></div>
   <div class="card"><div class="sectionhead"><h2>Import project pack</h2><span class="badge">Fallback</span></div><p class="muted">Choose a ChatGPT ZIP containing <strong>manifest.json</strong> and its media. JSON-only packs are also accepted.</p><label class="upload"><input id="packFile" type="file" accept=".zip,.json,application/zip,application/json"><b>Choose project pack</b><span>TikTok, Etsy or a 10-Pin Pinterest batch</span></label><div id="importState" class="notice hidden" style="margin-top:10px"></div></div>
   <div class="card"><h2>Connections</h2><div id="connections"></div></div>
-  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version 11 · secure owner-only storage</p></div>
+  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version 12 · secure owner-only storage</p></div>
  </section>
 </main>
 <nav id="nav" class="nav hidden">
@@ -54,7 +54,7 @@
 <div id="editModal" class="modal"><div class="modalcard"><div class="modalhead"><h2 id="editTitle">Edit project</h2><button class="iconbtn" data-close="editModal">×</button></div><form id="editForm"></form></div></div>
 <div id="scheduleModal" class="modal"><div class="modalcard"><div class="modalhead"><h2>Schedule</h2><button class="iconbtn" data-close="scheduleModal">×</button></div><div class="field"><label>Date and time</label><input id="scheduleWhen" type="datetime-local"></div><button id="confirmSchedule" class="btn primary" style="width:100%;margin-top:11px">Save schedule</button></div></div>
 <div id="toast" class="toast"></div>
-<iframe id="videoRenderer" src="./video-renderer.html?v=11" title="TikTok video renderer" aria-hidden="true" tabindex="-1" style="position:fixed;left:-10000px;top:0;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
+<iframe id="videoRenderer" src="./video-renderer.html?v=12" title="TikTok video renderer" aria-hidden="true" tabindex="-1" style="position:fixed;left:-10000px;top:0;width:2px;height:2px;opacity:0;pointer-events:none;border:0"></iframe>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
