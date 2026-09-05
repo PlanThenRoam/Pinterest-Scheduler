@@ -66,7 +66,20 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  </div>
  <div class="card">
   <h2>Connections</h2>
-  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> registration still to do.<br><br><strong>TikTok:</strong> control engine is built; posting/render connection still to wire. The first real workflow remains the shop-promo video.</div>
+  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> control engine is built; posting/render connection still to wire. The first real workflow remains the shop-promo video.</div>
+ </div>
+ <div class="card">
+  <div class="sectionHead"><h2>Cloud Sync</h2><span id="cloudState" class="linkstate wait">Signed out</span></div>
+  <div id="cloudSignedOut" class="grid">
+   <div class="helper">Sign in with your own email to sync the planner library, Pinterest queue, TikTok queue and Etsy drafts to the private backend. The publishable browser key cannot access this data unless you are authenticated.</div>
+   <div class="field"><label>Your email</label><input id="cloudEmail" type="email" autocomplete="email" placeholder="you@example.com"></div>
+   <button class="primary" id="sendMagicLink">Send sign-in link</button>
+  </div>
+  <div id="cloudSignedIn" class="grid" style="display:none">
+   <div class="helper"><span class="ok">✓ Secure backend connected.</span> Local changes can now be pushed to the cloud and restored on this phone later.</div>
+   <div class="actions"><button class="secondary" id="pullCloud">Pull from cloud</button><button class="primary" id="pushCloud">Push local data</button></div>
+   <button class="danger" id="cloudSignOut">Sign out</button>
+  </div>
  </div>
 </section>
 
@@ -212,6 +225,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 <div id="toast" class="toast"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const KEYS={planners:'ptr_planners_master_v4',pins:'ptr_pin_queue_v4',tiks:'ptr_tik_queue_v4',drafts:'ptr_etsy_drafts_v4',settings:'ptr_settings_master_v4',variants:'ptr_variants_v4'};
@@ -245,6 +259,65 @@ let drafts=JSON.parse(localStorage.getItem(KEYS.drafts)||'[]');
 let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'null')||{pinSlots:'09:00,18:00',tikSlots:'12:00,20:00'};
 let variants=JSON.parse(localStorage.getItem(KEYS.variants)||'{}');
 let pinType='advert',tikType='shop',etsyMode='edit';
+const SUPABASE_URL='https://wyoamcydkbblvujvyljs.supabase.co';
+const SUPABASE_KEY='sb_publishable_DApk1ZNyEUeBhpeBwHgM8g_uKaMnXzS';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+function cloudUi(session){
+ const signed=!!session;
+ $('#cloudSignedOut').style.display=signed?'none':'grid';
+ $('#cloudSignedIn').style.display=signed?'grid':'none';
+ $('#cloudState').textContent=signed?'Connected':'Signed out';
+ $('#cloudState').className='linkstate '+(signed?'ready':'wait');
+}
+async function initCloud(){
+ const {data:{session}}=await sb.auth.getSession();cloudUi(session);
+ sb.auth.onAuthStateChange((_event,session)=>cloudUi(session));
+}
+async function sendCloudMagicLink(){
+ const email=$('#cloudEmail').value.trim();if(!email)return toast('Enter your email');
+ const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+ if(error)return toast(error.message);
+ toast('Check your email for the sign-in link');
+}
+async function pushCloudData(){
+ const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in first');
+ const plannerRows=planners.map(p=>({slug:p.id,name:p.name,keyword:p.keyword||null,routes:p.routes||null,season:p.season||null,highlights:p.highlights||null,pinterest_board:p.board||null,etsy_listing_url:p.link||null,etsy_listing_id:p.listingId||null}));
+ let {error}=await sb.from('planners').upsert(plannerRows,{onConflict:'slug'});if(error)return toast('Planner sync failed');
+ await sb.from('pinterest_queue').delete().neq('status','__never__');
+ if(pinQueue.length){
+   const rows=pinQueue.map(q=>({planner_slug:q.plannerId||null,pin_type:q.type,title:q.title,description:q.desc,alt_text:q.alt||null,board:q.board||null,destination_url:q.link||null,scheduled_for:q.when,status:'queued'}));
+   ({error}=await sb.from('pinterest_queue').insert(rows));if(error)return toast('Pin queue sync failed');
+ }
+ await sb.from('tiktok_queue').delete().neq('status','__never__');
+ if(tikQueue.length){
+   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaNames||[],scheduled_for:q.when,status:'queued'}));
+   ({error}=await sb.from('tiktok_queue').insert(rows));if(error)return toast('TikTok queue sync failed');
+ }
+ await sb.from('etsy_drafts').delete().neq('status','__never__');
+ if(drafts.length){
+   const rows=drafts.map(d=>({planner_slug:d.plannerId||null,mode:d.mode,title:d.title||null,description:d.desc||null,tags:d.tags||[],pdf_name:d.pdfName||null,image_names:d.imageNames||[],status:'draft'}));
+   ({error}=await sb.from('etsy_drafts').insert(rows));if(error)return toast('Etsy draft sync failed');
+ }
+ toast('Cloud sync complete');
+}
+async function pullCloudData(){
+ const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in first');
+ const [pp,pq,tq,ed]=await Promise.all([
+   sb.from('planners').select('*').order('created_at'),
+   sb.from('pinterest_queue').select('*').order('scheduled_for'),
+   sb.from('tiktok_queue').select('*').order('scheduled_for'),
+   sb.from('etsy_drafts').select('*').order('updated_at')
+ ]);
+ if(pp.error||pq.error||tq.error||ed.error)return toast('Cloud pull failed');
+ if(pp.data?.length)planners=pp.data.map(p=>({id:p.slug,name:p.name,keyword:p.keyword||'',routes:p.routes||'',season:p.season||'',highlights:p.highlights||'',board:p.pinterest_board||'',link:p.etsy_listing_url||'',listingId:p.etsy_listing_id||''}));
+ pinQueue=(pq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.pin_type,board:q.board||'',link:q.destination_url||'',title:q.title,desc:q.description,alt:q.alt_text||'',when:q.scheduled_for}));
+ tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaNames:Array.isArray(q.media_urls)?q.media_urls:[],when:q.scheduled_for}));
+ drafts=(ed.data||[]).map(d=>({id:d.id,plannerId:d.planner_slug,planner:planner(d.planner_slug)?.name||'',mode:d.mode,title:d.title||'',desc:d.description||'',tags:Array.isArray(d.tags)?d.tags:[],savedAt:d.updated_at,pdfName:d.pdf_name||'',imageNames:Array.isArray(d.image_names)?d.image_names:[]}));
+ persist();refreshAll();toast('Restored from cloud');
+}
+async function signOutCloud(){await sb.auth.signOut();toast('Signed out')}
+
 function persist(){localStorage.setItem(KEYS.planners,JSON.stringify(planners));localStorage.setItem(KEYS.pins,JSON.stringify(pinQueue));localStorage.setItem(KEYS.tiks,JSON.stringify(tikQueue));localStorage.setItem(KEYS.drafts,JSON.stringify(drafts));localStorage.setItem(KEYS.settings,JSON.stringify(settings));localStorage.setItem(KEYS.variants,JSON.stringify(variants))}
 function esc(v=''){return String(v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function clean(s=''){return String(s).replace(/\s+/g,' ').replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide').trim()}
@@ -532,7 +605,11 @@ $('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)ret
 $('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];$('#tikMediaList').textContent=fs.length?fs.map(f=>f.name).join(' • '):'No media selected yet.'});
 $('#regenEtsy').addEventListener('click',makeEtsy);$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
 $('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
-$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');
+$('#sendMagicLink').addEventListener('click',sendCloudMagicLink);
+$('#pushCloud').addEventListener('click',pushCloudData);
+$('#pullCloud').addEventListener('click',pullCloudData);
+$('#cloudSignOut').addEventListener('click',signOutCloud);
+$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');initCloud();
 </script>
 </body>
 </html>
