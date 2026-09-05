@@ -82,7 +82,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  </div>
  <div class="card">
   <h2>Built for your actual workflow</h2>
-  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest image recognition, SEO, creative angle and destination checks<br><span class="ok">✓</span> TikTok goals + 15 rotating concepts + sound, cover and voiceover plans<br><span class="ok">✓</span> Integrated 28-style video studio with full preview and local MP4 rendering<br><span class="ok">✓</span> Secure finished-video queue, private previews and download packs<br><span class="ok">✓</span> Etsy titles, descriptions, tags, gallery plan, PDFs and listing images<br><span class="ok">✓</span> Conversion scoring and results tracking across all three channels<br><span class="ok">✓</span> Private owner-only uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners</div>
+  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest image recognition, SEO, creative angle and destination checks<br><span class="ok">✓</span> TikTok goals + 15 rotating concepts + 6–8 generated scenes<br><span class="ok">✓</span> Sound, cover and optional voiceover plans<br><span class="ok">✓</span> Integrated 28-style video studio with one-time photo selection, full preview and local MP4 rendering<br><span class="ok">✓</span> Secure finished-video queue, private previews and download packs<br><span class="ok">✓</span> Etsy titles, descriptions, tags, gallery plan, PDFs and listing images<br><span class="ok">✓</span> Conversion scoring and results tracking across all three channels<br><span class="ok">✓</span> Private owner-only uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners</div>
  </div>
  <div class="card">
   <h2>Connections</h2>
@@ -173,7 +173,8 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
      <option value="editorial">Editorial — 13–16 seconds</option>
     </select>
    </div>
-   <div class="upload"><input id="tikMedia" type="file" accept="video/*,image/png,image/jpeg,image/webp" multiple><label for="tikMedia">Choose clips / images</label><small>Destination footage, planner visuals or shop-promo assets</small><div id="tikMediaList" class="mediaList">Uploads securely when you add the TikTok.</div></div>
+   <div class="field"><label>Number of scenes / photos</label><select id="tikSceneCount"><option value="6" selected>6 scenes — concise</option><option value="7">7 scenes — detailed</option><option value="8">8 scenes — full story</option></select></div>
+   <div class="helper"><strong>Photos are added once, in the Video Studio.</strong> Select exactly one text-free photograph per scene there, where you can check its crop, order, movement and full preview before rendering.</div>
   </div>
  </div>
 
@@ -182,27 +183,22 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   <div class="grid">
    <div class="helper" id="tikDirection"></div>
    <div class="field"><label>Hook</label><input id="tikHook" maxlength="90"></div>
-   <div class="scenegrid">
-    <div class="scene"><div class="time" id="time1">0–2s</div><div class="field"><label>Scene 1</label><textarea id="scene1" style="min-height:72px"></textarea></div></div>
-    <div class="scene"><div class="time" id="time2">2–5s</div><div class="field"><label>Scene 2</label><textarea id="scene2" style="min-height:72px"></textarea></div></div>
-    <div class="scene"><div class="time" id="time3">5–8s</div><div class="field"><label>Scene 3</label><textarea id="scene3" style="min-height:72px"></textarea></div></div>
-    <div class="scene"><div class="time" id="time4">8–11s</div><div class="field"><label>Scene 4 / CTA</label><textarea id="scene4" style="min-height:72px"></textarea></div></div>
-   </div>
+   <div class="scenegrid" id="tikScenes"></div>
    <div class="field"><label>Caption</label><textarea id="tikCaption"></textarea></div>
    <div class="field"><label>CTA</label><input id="tikCTA"></div>
    <div class="field"><label>5 SEO hashtags</label><input id="tikHashtags"></div>
-   <div class="field"><label>Sound plan</label><select id="tikSound"><option value="trending">Add a relevant trending sound in TikTok</option><option value="voiceover">Record voiceover, then add low music in TikTok</option><option value="music">Add suitable music in TikTok</option><option value="original">Use original clip sound</option></select></div>
+   <div class="field"><label>Sound plan</label><select id="tikSound"><option value="trending">Add a relevant trending sound in TikTok</option><option value="voiceover">Record voiceover, then add low music in TikTok</option><option value="music">Add suitable music in TikTok</option><option value="silent">Publish without added sound</option></select></div>
    <div class="field"><label>Cover title</label><input id="tikCover" maxlength="60"></div>
    <div class="field"><label>Optional voiceover script</label><textarea id="tikVoiceover" maxlength="700"></textarea></div>
    <div class="helper" id="tikWhy"></div>
    <div id="tikScore" class="scoreCard"></div>
    <div class="copyRow"><button class="secondary" id="copyTik">Copy full video pack</button><button class="secondary" id="downloadTikPack">Download posting notes</button></div>
    <button class="secondary" id="copyTikCaption">Copy caption only</button>
-   <div class="studioCallout"><h3>Turn this concept into a finished video</h3><p>Your planner, hook, scenes, caption and schedule will open in the integrated studio. Add photos, play the full preview, then render and securely add the finished file to this queue.</p><button class="primary" id="openVideoStudio">Build &amp; preview video</button></div>
+   <div class="studioCallout"><h3>Turn this concept into a finished video</h3><p>All 6–8 scenes, copy, style direction, caption, sound and cover plan transfer automatically. Add the photos once in the studio, preview every scene, then render and download the finished video.</p><button class="primary" id="openVideoStudio">Choose photos &amp; build video</button></div>
   </div>
  </div>
 
- <div class="card"><h2>Optional posting plan</h2><div class="helper">Your finished video downloads to your phone. Add licensed sound inside TikTok, paste the prepared caption, choose the cover, then post. Date and time are optional reminders.</div><div class="grid two" style="margin-top:9px"><div class="field"><label>Date (optional)</label><input id="tikDate" type="date"></div><div class="field"><label>Time (optional)</label><input id="tikTime" type="time"></div></div><div class="actions" style="margin-top:9px"><button class="secondary" id="nextTikSlot">Suggest a slot</button><button class="primary" id="addTikQueue">Save posting pack</button></div></div>
+ <div class="card"><h2>Optional posting reminder</h2><div class="helper">Your finished video downloads to your phone and can be saved to the private queue from the studio. Add licensed sound inside TikTok, set the prepared cover, paste the caption, then post.</div><div class="grid two" style="margin-top:9px"><div class="field"><label>Date (optional)</label><input id="tikDate" type="date"></div><div class="field"><label>Time (optional)</label><input id="tikTime" type="time"></div></div><button class="secondary" id="nextTikSlot" style="margin-top:9px">Suggest a posting slot</button></div>
 </section>
 
 <section id="etsy" class="screen">
@@ -370,7 +366,7 @@ async function pushCloudData(){
  }
  await sb.from('tiktok_queue').delete().neq('status','__never__');
  if(tikQueue.length){
-   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaPaths||[],scheduled_for:q.when,status:q.status||'queued',sound_plan:q.soundPlan||null,cover_text:q.coverText||null,voiceover_script:q.voiceoverScript||null,performance:q.performance||{},published_at:q.publishedAt||null}));
+   const rows=tikQueue.map(q=>({planner_slug:q.plannerId||null,content_goal:q.type,concept:q.concept||null,hook_angle:q.angle||null,duration_seconds:q.duration||null,hook:q.hook||null,scene_1:q.scenes?.[0]||null,scene_2:q.scenes?.[1]||null,scene_3:q.scenes?.[2]||null,scene_4:q.scenes?.[3]||null,scenes:q.scenes||[],caption:q.caption||null,cta:q.cta||null,hashtags:q.hashtags||null,media_urls:q.mediaPaths||[],scheduled_for:q.when,status:q.status||'queued',sound_plan:q.soundPlan||null,cover_text:q.coverText||null,voiceover_script:q.voiceoverScript||null,performance:q.performance||{},published_at:q.publishedAt||null}));
    ({error}=await sb.from('tiktok_queue').insert(rows));if(error)return toast('TikTok queue sync failed');
  }
  await sb.from('etsy_drafts').delete().neq('status','__never__');
@@ -391,7 +387,7 @@ async function pullCloudData(){
  if(pp.error||pq.error||tq.error||ed.error)return toast('Cloud pull failed');
  if(pp.data?.length)planners=pp.data.map(p=>({id:p.slug,name:p.name,keyword:p.keyword||'',routes:p.routes||'',season:p.season||'',highlights:p.highlights||'',board:p.pinterest_board||'',link:p.etsy_listing_url||'',listingId:p.etsy_listing_id||''}));
  pinQueue=(pq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.pin_type,board:q.board||'',link:q.destination_url||'',title:q.title,desc:q.description,alt:q.alt_text||'',mediaPath:q.media_url||'',mediaName:String(q.media_url||'').split('/').pop()||'',when:q.scheduled_for,status:q.status||'queued',angle:q.creative_angle||'',overlay:q.overlay_text||'',topics:Array.isArray(q.topic_tags)?q.topic_tags:[],performance:q.performance||{},publishedAt:q.published_at||''}));
- tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaPaths:Array.isArray(q.media_urls)?q.media_urls:[],mediaNames:(Array.isArray(q.media_urls)?q.media_urls:[]).map(x=>String(x).split('/').pop()),when:q.scheduled_for,status:q.status||'queued',soundPlan:q.sound_plan||'',coverText:q.cover_text||'',voiceoverScript:q.voiceover_script||'',performance:q.performance||{},publishedAt:q.published_at||''}));
+ tikQueue=(tq.data||[]).map(q=>({id:q.id,plannerId:q.planner_slug,planner:planner(q.planner_slug)?.name||'',type:q.content_goal,concept:q.concept||'',angle:q.hook_angle||'',duration:q.duration_seconds||0,hook:q.hook||'',scenes:Array.isArray(q.scenes)&&q.scenes.length?q.scenes:[q.scene_1||'',q.scene_2||'',q.scene_3||'',q.scene_4||''],caption:q.caption||'',cta:q.cta||'',hashtags:q.hashtags||'',mediaPaths:Array.isArray(q.media_urls)?q.media_urls:[],mediaNames:(Array.isArray(q.media_urls)?q.media_urls:[]).map(x=>String(x).split('/').pop()),when:q.scheduled_for,status:q.status||'queued',soundPlan:q.sound_plan||'',coverText:q.cover_text||'',voiceoverScript:q.voiceover_script||'',performance:q.performance||{},publishedAt:q.published_at||''}));
  drafts=(ed.data||[]).map(d=>({id:d.id,plannerId:d.planner_slug,planner:planner(d.planner_slug)?.name||'',mode:d.mode,title:d.title||'',desc:d.description||'',tags:Array.isArray(d.tags)?d.tags:[],savedAt:d.updated_at,pdfName:d.pdf_name||'',imageNames:Array.isArray(d.image_names)?d.image_names:[],pdfPath:d.pdf_path||'',imagePaths:Array.isArray(d.image_paths)?d.image_paths:[],imagePlan:Array.isArray(d.image_plan)?d.image_plan:[],conversionScore:d.conversion_score||0,status:d.status||'draft',performance:d.performance||{},publishedAt:d.published_at||''}));
  persist();refreshAll();toast('Restored from cloud');
 }
@@ -559,15 +555,15 @@ function chooseAngle(p,concept,advance=true){
 }
 function durationFor(concept){
  const manual=$('#tikPace').value;
- if(manual==='fast')return 8;if(manual==='balanced')return 11;if(manual==='editorial')return 15;
- if(['punchy','facts','savecard'].includes(concept))return 8;
- if(['cinematic','editorial'].includes(concept))return 15;
- return 11;
+ if(manual==='fast')return 12;if(manual==='balanced')return 18;if(manual==='editorial')return 24;
+ if(['punchy','facts','savecard'].includes(concept))return 12;
+ if(['cinematic','editorial'].includes(concept))return 24;
+ return 18;
 }
-function setTikTimes(d){
- let cuts=d<=8?['0–1.5s','1.5–3s','3–5s','5–8s']:d>=14?['0–3s','3–7s','7–11s','11–15s']:['0–2s','2–5s','5–8s','8–11s'];
- ['#time1','#time2','#time3','#time4'].forEach((s,i)=>$(s).textContent=cuts[i])
-}
+function tikSceneValues(){return $$('#tikScenes textarea').map(x=>clean(x.value))}
+function sceneTimeLabel(index,count,duration){const start=duration*index/count,end=duration*(index+1)/count,fmt=n=>Number.isInteger(n)?String(n):n.toFixed(1);return `${fmt(start)}–${fmt(end)}s`}
+function renderTikScenes(scenes,duration){const count=scenes.length;$('#tikScenes').innerHTML=scenes.map((value,i)=>`<div class="scene"><div class="time">${sceneTimeLabel(i,count,duration)}</div><div class="field"><label>Scene ${i+1}${i===count-1?' / CTA':''}</label><textarea data-tik-scene="${i}" style="min-height:72px">${esc(value)}</textarea></div></div>`).join('');$$('#tikScenes textarea').forEach(x=>x.addEventListener('input',tikCheck))}
+function expandTikScenes(p,pack,count){const place=shortName(p.name),highlights=String(p.highlights||'').split(/,| and /).map(clean).filter(Boolean),shop=tikType==='shop';const extras=shop?[`${planners.length} completed itinerary guides`,`City breaks, road trips and seasonal escapes`,`Clear route options for different trip lengths`,`Practical planning details in one place`,`Choose the guide for your next trip`,`Start with the route, then make it yours`]:[`${p.routes} route options`,...highlights.slice(0,3),`A practical order for the trip`,`Use the route as your starting point`,`Personalise it around your own bookings`,`Save ${place} for later`];const final=pack.scenes.at(-1)||pack.cta,middle=[...pack.scenes.slice(1,-1),...extras].map(clean).filter(Boolean),unique=[];for(const line of middle)if(!unique.some(x=>x.toLowerCase()===line.toLowerCase()))unique.push(line);while(unique.length<count-2)unique.push(shop?'A clearer way to begin planning':`Make ${place} easier to organise`);return [clean(pack.hook),...unique.slice(0,count-2),clean(final)]}
 function angleHook(place,angle,type,p){
  const shopHooks={
   pain:["Your next trip doesn't need 37 open tabs.","Planning the trip shouldn't become the trip.","Travel planning shouldn't feel like admin."],
@@ -590,10 +586,10 @@ function angleHook(place,angle,type,p){
  };
  return hooks[angle]||hooks.curiosity;
 }
-function conceptPack(p,concept,angle){
+function conceptPack(p,concept,angle,advance=true){
  const place=shortName(p.name),r=p.routes,h=p.highlights,count=planners.length;
  const hookPool=angleHook(place,angle,tikType,p);
- const hook=hookPool[nextVariant(`tikhook_${p.id}_${tikType}_${concept}_${angle}`,hookPool.length,true)];
+ const hook=hookPool[nextVariant(`tikhook_${p.id}_${tikType}_${concept}_${angle}`,hookPool.length,advance)];
  const shop=tikType==='shop';
  const shopLine=`${count} ready-planned travel guides`;
  const data={
@@ -601,19 +597,19 @@ function conceptPack(p,concept,angle){
    scenes:shop?[hook,shopLine,"City breaks • road trips • seasonal travel","Pick the trip. Start with a route that already makes sense."]:[hook,`${r} ways to shape the trip`,h,"Save the destination. Start with the route."],
    caption:shop?`Travel planning, but without the spreadsheet spiral. ${count} ready-planned itinerary guides designed to give each trip a clearer starting point.`:`Planning ${place}? Start with ${r} structured route options covering ${h}.`,
    cta:shop?'Browse the planner collection on Etsy':'See the full itinerary guide on Etsy',
-   direction:'Use your strongest destination footage. Open with the single most visually arresting clip, then 2–3 elegant cutaways. Keep text minimal and let the visuals sell the feeling.'
+   direction:'Use 6–8 strong destination photographs. Open with the most arresting image, then move through elegant supporting scenes. Keep text minimal and let the destination sell the feeling.'
   },
   problem:{
    scenes:shop?[hook,"Too many tabs. Too many notes. No actual route.",shopLine,"Start with the route instead of a blank page."]:[hook,"Too many tabs. Too many saved places. No clear order.",`${r} ready-planned route options`,"Use the structure. Personalise the details."],
    caption:shop?`The fun part is choosing the trip. The exhausting part is turning it into a workable route. These planners give you a structured starting point.`:`If ${place} planning is turning into tabs, notes and screenshots, use a route that already has a sensible structure.`,
    cta:shop?'Browse all travel planners on Etsy':'See the planner on Etsy',
-   direction:'Start messy: rapid clips/screenshots/tabs. Then hard-cut to one clean, calm visual and simpler typography. The visual contrast is the concept.'
+   direction:'Start with a visually busy planning photograph, then hard-cut to clean destination images and simpler typography. The contrast should make the solution feel calmer.'
   },
   route:{
    scenes:[hook,`Option 1 → ${r.split(' and ')[0]||r}`,`Then compare the other route lengths`,h],
    caption:`Start ${place} planning by comparing the route lengths first. The guide includes ${r} options with ${h}.`,
    cta:'Save this, then compare the full routes on Etsy',
-   direction:'Reveal the trip progressively. Use one destination clip per route beat. Text should feel like a route unfolding rather than an advert.'
+   direction:'Reveal the trip progressively. Use one destination photograph per route beat. Text should feel like a route unfolding rather than an advert.'
   },
   compare:{
    scenes:[hook,`${r}`,`Same destination. Different pace.`,h],
@@ -637,7 +633,7 @@ function conceptPack(p,concept,angle){
    scenes:[hook,"✓ Choose the trip length","✓ Lock the route before the details",`✓ Use ${h}`],
    caption:`A simple ${place} planning checklist: choose the trip length, get the route clear, then build bookings around it.`,
    cta:'Save this checklist',
-   direction:'Checklist visual language. One tick per beat. Use readable text and steady footage so the viewer can actually absorb it.'
+   direction:'Checklist visual language. One tick per beat. Use readable text and calm photo movement so the viewer can absorb it.'
   },
   savecard:{
    scenes:[hook,`Save: ${place}`,`Compare: ${r}`,`Remember: ${h}`],
@@ -649,7 +645,7 @@ function conceptPack(p,concept,angle){
    scenes:[hook,shop?shopLine:`Inside: ${r} route options`,shop?'Routes • highlights • practical planning':h,"A structured starting point you can personalise."],
    caption:shop?`What you actually get: structured digital itinerary guides built to make the route clearer before you start booking.`:`Inside the ${place} guide: ${r} route options, ${h}, and practical planning structure.`,
    cta:shop?'Browse the full collection':'See what is inside the planner',
-   direction:'Product-led but not mock-up heavy. Alternate destination footage with clean feature text. Show value, not just a cover.'
+   direction:'Product-led but not mock-up heavy. Alternate destination photographs with clean feature text. Show value, not just a cover.'
   },
   mistake:{
    scenes:[hook,"Mistake: booking everything before the route is clear.","Fix: choose the trip length and order first.",`${r} route options to compare`],
@@ -658,7 +654,7 @@ function conceptPack(p,concept,angle){
    direction:'Use a red-flag/opening mistake frame, then switch to calm solution visuals. The educational angle should lead.'
   },
   beforeafter:{
-   scenes:[hook,"BEFORE: tabs, screenshots, random saved places","AFTER: one clear route to work from",shop?shopLine:`${r} ways to structure ${place}`],
+   scenes:[hook,"BEFORE: scattered notes and no clear route","AFTER: one clear route to work from",shop?shopLine:`${r} ways to structure ${place}`],
    caption:shop?`Before: ideas everywhere. After: one route you can actually plan around.`:`Before: ${place} ideas everywhere. After: a route you can actually build the trip around.`,
    cta:shop?'Browse the itinerary collection':'See the planner on Etsy',
    direction:'Strong visual contrast. First half intentionally busy; second half clean and spacious. Make the relief visible.'
@@ -667,25 +663,25 @@ function conceptPack(p,concept,angle){
    scenes:[hook,shopLine,"Road trips • city breaks • seasonal itineraries","Choose the destination that is next for you."],
    caption:`Where are you going next? Browse ${count} ready-planned itinerary guides across road trips, city breaks and seasonal travel.`,
    cta:'Browse the whole PlanThenRoam collection',
-   direction:'Show 4–6 different destinations in quick succession. Every cut should feel like a new trip possibility. This is a range-selling video.'
+   direction:'Show 6–8 different destination photographs in succession. Every scene should feel like a new trip possibility. This is a range-selling video.'
   },
   seasonal:{
    scenes:[hook,p.season?`${p.season} planning starts with the route.`:"Seasonal trips reward early planning.",h,"Sort the route before the dates get busy."],
    caption:`Planning ${place}${p.season?' '+p.season:''}? Get the route clear early, then book the time-sensitive pieces around it.`,
    cta:'Start the planning now',
-   direction:'Use obvious seasonal footage and date/edition text. Create urgency without fake scarcity or countdown claims.'
+   direction:'Use unmistakably seasonal photographs and date or edition text. Create urgency without fake scarcity or countdown claims.'
   },
   editorial:{
    scenes:[hook,shop?shopLine:`${place} • ${r}`,h,"A calmer way to plan the trip."],
    caption:shop?`A more considered way to plan travel: clear routes, useful detail and space to make the trip your own.`:`A slower, clearer way to plan ${place}: ${r} route options with ${h}.`,
    cta:shop?'Explore the planner collection':'Explore the full itinerary guide',
-   direction:'Slow premium pacing, 3–4 beautiful shots, subtle text, no frantic transitions. Let the destination carry the emotion.'
+   direction:'Slow premium pacing across 6–8 beautiful photographs, with subtle text and no frantic transitions. Let the destination carry the emotion.'
   },
   punchy:{
    scenes:[hook,shop?`${count} planners`:`${r}`,shop?'Pick one. Plan it. Go.':h,"Save it. Plan it. Go."],
    caption:shop?`Less planning drag. More trips that actually get planned.`:`${place} planning in one sentence: choose the route first, then build around it.`,
    cta:shop?'Browse now':'Save this and see the planner',
-   direction:'Fast hard cuts, one short phrase per frame, strongest motion clips only. No sentence-length on-screen text.'
+   direction:'Fast hard cuts, one short phrase per frame and the strongest photographs with programmed motion. No sentence-length on-screen text.'
   }
  };
  const pack={...data[concept],hook};
@@ -704,52 +700,38 @@ function conceptPack(p,concept,angle){
   'Keep this for the moment the trip moves from idea to plan.',
   'Start with the structure and make the trip yours.'
  ];
- const ci=nextVariant(`tikcaption_${p.id}_${tikType}_${concept}`,captionEnds.length,true);pack.caption=clean(`${pack.caption} ${captionEnds[ci]}`);
+ const ci=nextVariant(`tikcaption_${p.id}_${tikType}_${concept}`,captionEnds.length,advance);pack.caption=clean(`${pack.caption} ${captionEnds[ci]}`);
  const ctas=shop?['Browse the itinerary collection','Choose your next trip','See all planners on Etsy','Find your next itinerary','Explore the full collection','Pick a planner and start']:[
   'See the full PDF guide','Save this and view the itinerary','Compare the routes on Etsy','Start planning with the full guide','Keep this, then explore the planner','View the itinerary guide'
  ];
- pack.cta=ctas[nextVariant(`tikcta_${p.id}_${tikType}_${concept}`,ctas.length,true)];
+ pack.cta=ctas[nextVariant(`tikcta_${p.id}_${tikType}_${concept}`,ctas.length,advance)];
  return pack;
 }
 function genTik(advance=true){
  const p=planner($('#tikPlanner').value);if(!p)return;
- const concept=chooseConcept(p,advance),angle=chooseAngle(p,concept,advance),x=conceptPack(p,concept,angle),dur=durationFor(concept);
+ const concept=chooseConcept(p,advance),angle=chooseAngle(p,concept,advance),x=conceptPack(p,concept,angle,advance),dur=durationFor(concept),sceneCount=Number($('#tikSceneCount').value)||6,scenes=expandTikScenes(p,x,sceneCount);
  $('#tikConceptTitle').textContent=`${conceptNames[concept]} · ${angle}`;
- $('#tikDirection').innerHTML=`<strong>Visual concept:</strong> ${esc(conceptNames[concept])}<br>${esc(x.direction)}<br><span class="badge">${dur}s target</span> <span class="badge">${esc(angle)} hook</span>`;
- $('#tikHook').value=clean(x.hook);x.scenes.forEach((v,i)=>$('#scene'+(i+1)).value=v);
+ $('#tikDirection').innerHTML=`<strong>Visual concept:</strong> ${esc(conceptNames[concept])}<br>${esc(x.direction)}<br><span class="badge">${sceneCount} scenes</span> <span class="badge">${dur}s target</span> <span class="badge">${esc(angle)} hook</span>`;
+ $('#tikHook').value=clean(x.hook);renderTikScenes(scenes,dur);
  $('#tikCaption').value=x.caption.replace(/£14\.99/gi,'').replace(/editable word|word document/gi,'PDF guide');
  $('#tikCTA').value=x.cta;$('#tikHashtags').value=tikHashtags(p,tikType);
- const voiceConcepts=['problem','facts','checklist','mistake','compare','route','inside'];$('#tikSound').value=voiceConcepts.includes(concept)?'voiceover':'trending';$('#tikCover').value=clean(tikType==='shop'?'Plan the trip without the tab chaos':`${shortName(p.name)} · ${p.routes}`).slice(0,60);$('#tikVoiceover').value=voiceConcepts.includes(concept)?clean(`${x.hook} ${x.scenes.slice(1,3).join(' ')} ${x.cta}.`).slice(0,700):'';
+ const voiceConcepts=['problem','facts','checklist','mistake','compare','route','inside'];$('#tikSound').value=voiceConcepts.includes(concept)?'voiceover':'trending';$('#tikCover').value=clean(tikType==='shop'?'Plan the trip without the tab chaos':`${shortName(p.name)} · ${p.routes}`).slice(0,60);$('#tikVoiceover').value=voiceConcepts.includes(concept)?clean(`${x.hook} ${scenes.slice(1,-1).join(' ')} ${x.cta}.`).slice(0,700):'';
  $('#tikWhy').innerHTML=`<strong>Why this should stay fresh:</strong> concept, hook angle and pacing are separate. Auto-rotate avoids repeating the same concept for this planner until the usable pool has cycled.`;
- setTikTimes(dur);nextSlot('tik');tikCheck();
+ nextSlot('tik');tikCheck();
  // Persist generated meta for queue.
  $('#tikConceptTitle').dataset.concept=concept;$('#tikConceptTitle').dataset.angle=angle;$('#tikConceptTitle').dataset.duration=String(dur);
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch{toast('Copy not available in this browser')}}
-function tikCheck(){const hashtags=$('#tikHashtags').value.trim().split(/\s+/).filter(x=>x.startsWith('#')),checks=[['Immediate hook',$('#tikHook').value.trim().length>=12],['Four-scene structure',[1,2,3,4].every(i=>$('#scene'+i).value.trim())],['Clear CTA',$('#tikCTA').value.trim().length>=5],['Five focused hashtags',hashtags.length===5],['Sound plan',!!$('#tikSound').value],['Cover title',$('#tikCover').value.trim().length>=8],['No price claim',!(/£|14\.99/.test(tikPackText(false)))]];const score=Math.round(checks.filter(x=>x[1]).length/checks.length*100);renderScore('#tikScore',score,'TikTok conversion readiness',checks.filter(x=>!x[1]).map(x=>x[0]));return score}
-function tikPackText(){return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\nSCENE 1\n${$('#scene1').value}\n\nSCENE 2\n${$('#scene2').value}\n\nSCENE 3\n${$('#scene3').value}\n\nSCENE 4\n${$('#scene4').value}\n\nSOUND PLAN\n${$('#tikSound').selectedOptions[0]?.textContent||''}\n\nCOVER TITLE\n${$('#tikCover').value}\n\nVOICEOVER\n${$('#tikVoiceover').value||'None — add sound in TikTok'}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}\n\nPOSTING CHECKLIST\n1. Download the finished video to your phone.\n2. Upload it in TikTok.\n3. Add the planned licensed sound.\n4. Set the cover title.\n5. Paste the caption and hashtags.\n6. Post, then record results in Seller Tools.`}
+function tikCheck(){const scenes=tikSceneValues(),expected=Number($('#tikSceneCount').value)||6,hashtags=$('#tikHashtags').value.trim().split(/\s+/).filter(x=>x.startsWith('#')),checks=[['Immediate hook',$('#tikHook').value.trim().length>=12],[`${expected}-scene structure`,scenes.length===expected&&scenes.every(Boolean)],['Clear CTA',$('#tikCTA').value.trim().length>=5],['Five focused hashtags',hashtags.length===5],['Sound plan',!!$('#tikSound').value],['Cover title',$('#tikCover').value.trim().length>=8],['No price claim',!(/£|14\.99/.test(tikPackText()))]];const score=Math.round(checks.filter(x=>x[1]).length/checks.length*100);renderScore('#tikScore',score,'TikTok conversion readiness',checks.filter(x=>!x[1]).map(x=>x[0]));return score}
+function tikPackText(){const scenes=tikSceneValues().map((x,i)=>`SCENE ${i+1}\n${x}`).join('\n\n');return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\n${scenes}\n\nSOUND PLAN\n${$('#tikSound').selectedOptions[0]?.textContent||''}\n\nCOVER TITLE\n${$('#tikCover').value}\n\nVOICEOVER\n${$('#tikVoiceover').value||'None — add sound in TikTok'}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}\n\nPOSTING CHECKLIST\n1. Add one photograph per scene in the Video Studio.\n2. Preview and download the finished video.\n3. Upload it in TikTok.\n4. Add the planned licensed sound.\n5. Set the cover title.\n6. Paste the caption and hashtags.\n7. Post, then record results in Seller Tools.`}
 function downloadText(name,content){const blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Downloaded to your phone')}
 function plannedWhen(d,t){return d&&t?new Date(`${d}T${t}:00`).toISOString():new Date().toISOString()}
 function openVideoStudio(){
  const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value;if(!p)return toast('Choose a planner');
  const concept=$('#tikConceptTitle').dataset.concept||'';
- const handoff={id:globalThis.crypto?.randomUUID?.()||('vh'+Date.now()),createdAt:new Date().toISOString(),planner:{...p},type:tikType,concept,conceptName:conceptNames[concept]||'TikTok video',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||11),direction:$('#tikDirection').innerText,hook:clean($('#tikHook').value),scenes:[1,2,3,4].map(i=>clean($('#scene'+i).value)),caption:clean($('#tikCaption').value),cta:clean($('#tikCTA').value),hashtags:clean($('#tikHashtags').value),soundPlan:$('#tikSound').selectedOptions[0]?.textContent||'',coverText:clean($('#tikCover').value),voiceoverScript:clean($('#tikVoiceover').value),when:plannedWhen(d,t)};
+ const handoff={id:globalThis.crypto?.randomUUID?.()||('vh'+Date.now()),createdAt:new Date().toISOString(),planner:{...p},type:tikType,concept,conceptName:conceptNames[concept]||'TikTok video',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||18),direction:$('#tikDirection').innerText,hook:clean($('#tikHook').value),scenes:tikSceneValues(),caption:clean($('#tikCaption').value),cta:clean($('#tikCTA').value),hashtags:clean($('#tikHashtags').value),soundPlan:$('#tikSound').selectedOptions[0]?.textContent||'',coverText:clean($('#tikCover').value),voiceoverScript:clean($('#tikVoiceover').value),when:plannedWhen(d,t)};
  try{localStorage.setItem('ptr_video_handoff_v1',JSON.stringify(handoff));location.href=`./video-studio.html?handoff=${encodeURIComponent(handoff.id)}`}catch(error){toast('The video studio could not be opened on this device')}
 }
-async function addTik(){
- const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value,files=[...$('#tikMedia').files],button=$('#addTikQueue');
- if(!p)return toast('Choose a planner');if(!files.length)return toast('Choose TikTok clips or images');
- setBusy(button,true,'Uploading…');setMediaState('#tikMediaList',`Uploading ${files.length} file${files.length===1?'':'s'} securely…`,'uploading');let paths=[];
- try{
-  paths=await uploadSelectedFiles(MEDIA_BUCKETS.tik,'videos',files);
-  const q={id:'tq'+Date.now(),plannerId:p.id,planner:p.name,type:tikType,concept:$('#tikConceptTitle').dataset.concept||'',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||0),hook:$('#tikHook').value,scenes:[1,2,3,4].map(i=>$('#scene'+i).value),caption:$('#tikCaption').value,cta:$('#tikCTA').value,hashtags:$('#tikHashtags').value,soundPlan:$('#tikSound').selectedOptions[0]?.textContent||'',coverText:clean($('#tikCover').value),voiceoverScript:clean($('#tikVoiceover').value),mediaNames:files.map(f=>f.name),mediaPaths:paths,when:plannedWhen(d,t),status:'queued',performance:{},conversionScore:tikCheck()};
-  tikQueue.push(q);tikQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));
-  try{persist()}catch(error){tikQueue=tikQueue.filter(x=>x.id!==q.id);throw error}
-  renderQueues();updateHome();genTik(true);nextSlot('tik');$('#tikMedia').value='';setMediaState('#tikMediaList',`${paths.length} secure upload${paths.length===1?'':'s'} saved.`,'ready');toast('TikTok and media added');
- }catch(error){await removeStoredMedia(MEDIA_BUCKETS.tik,paths);setMediaState('#tikMediaList',error.message||'Upload failed','error');toast(error.message||'TikTok save failed')}
- finally{setBusy(button,false,'')}
-}
-
 /* Etsy */
 function makeTags(p,advance=true){
  const place=shortName(p.name),firstRoute=(p.routes.match(/\d+/)||[''])[0],season=p.season||'',pool=[
@@ -850,11 +832,11 @@ function refreshAll(){fillSelects();renderLibrary();renderQueues();updateHome();
 $$('.nav button').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.screen)));
 $$('#pinTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#pinTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');pinType=b.dataset.type;genPin(true);nextSlot('pin')}));
 $$('#tikTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#tikTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');tikType=b.dataset.type;genTik(true)}));
-$('#tikConcept').addEventListener('change',()=>genTik(true));$('#tikAngle').addEventListener('change',()=>genTik(true));$('#tikPace').addEventListener('change',()=>genTik(false));
+$('#tikConcept').addEventListener('change',()=>genTik(true));$('#tikAngle').addEventListener('change',()=>genTik(true));$('#tikPace').addEventListener('change',()=>genTik(false));$('#tikSceneCount').addEventListener('change',()=>genTik(false));
 $$('.modeSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.modeSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');etsyMode=b.dataset.etsyMode;syncEtsy()}));
 $('#pinPlanner').addEventListener('change',syncPin);$('#tikPlanner').addEventListener('change',()=>genTik(true));$('#etsyPlanner').addEventListener('change',syncEtsy);
 $('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot').addEventListener('click',()=>nextSlot('pin'));$('#addPinQueue').addEventListener('click',addPin);
-$('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));$('#addTikQueue').addEventListener('click',addTik);
+$('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));
 $('#openVideoStudio').addEventListener('click',openVideoStudio);$('#closeVideoModal').addEventListener('click',closeVideoPreview);$('#videoModal').addEventListener('click',event=>{if(event.target===$('#videoModal'))closeVideoPreview()});
 $('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
 $('#downloadTikPack').addEventListener('click',()=>downloadText(`PlanThenRoam-${shortName(planner($('#tikPlanner').value)?.name||'TikTok').replace(/\s+/g,'-')}-posting-notes.txt`,tikPackText()));
@@ -862,10 +844,10 @@ $('#copyPin').addEventListener('click',()=>copyText(pinPackText()));$('#copyEtsy
 $('#closeResults').addEventListener('click',closeResults);$('#saveResults').addEventListener('click',saveResults);$('#resultsModal').addEventListener('click',event=>{if(event.target===$('#resultsModal'))closeResults()});
 $('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
 ['#pinBoard','#pinLink','#pinOverlay','#pinTopics','#pinAlt'].forEach(s=>$(s).addEventListener('input',()=>{const p=planner($('#pinPlanner').value);if(p)pinCheck(p)}));
-['#tikHook','#scene1','#scene2','#scene3','#scene4','#tikCaption','#tikCTA','#tikHashtags','#tikSound','#tikCover','#tikVoiceover'].forEach(s=>$(s).addEventListener('input',tikCheck));
+['#tikHook','#tikCaption','#tikCTA','#tikHashtags','#tikSound','#tikCover','#tikVoiceover'].forEach(s=>$(s).addEventListener('input',tikCheck));
 ['#etsyTitle','#etsyDesc'].forEach(s=>$(s).addEventListener('input',()=>{const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)}));$('#tagGrid').addEventListener('input',()=>{const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});
 $('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const url=URL.createObjectURL(f);$('#pinPreviewImg').src=url;$('#pinPreview').style.display='block';const probe=new Image();probe.onload=()=>{pinImageInfo={width:probe.naturalWidth,height:probe.naturalHeight};setMediaState('#pinMediaState',`${f.name} · ${pinImageInfo.width}×${pinImageInfo.height} ready to upload.`);const p=planner($('#pinPlanner').value);if(p)pinCheck(p);URL.revokeObjectURL(url)};probe.src=url;recognisePinPlanner(f)});
-$('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];setMediaState('#tikMediaList',fs.length?fs.map(f=>f.name).join(' • '):'Choose clips or images to upload.')});$('#etsyPdf').addEventListener('change',()=>{const f=$('#etsyPdf').files[0];setMediaState('#etsyPdfState',f?`${f.name} ready to upload.`:'Choose a PDF to upload.');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});$('#etsyImages').addEventListener('change',()=>{const fs=[...$('#etsyImages').files];setMediaState('#etsyImagesState',fs.length?`${fs.length} image${fs.length===1?'':'s'} ready to upload.`:'Choose listing images to upload.');$('#etsyImagePreviews').innerHTML=fs.slice(0,10).map(f=>`<img src="${URL.createObjectURL(f)}" alt="Listing image preview">`).join('');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});
+$('#etsyPdf').addEventListener('change',()=>{const f=$('#etsyPdf').files[0];setMediaState('#etsyPdfState',f?`${f.name} ready to upload.`:'Choose a PDF to upload.');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});$('#etsyImages').addEventListener('change',()=>{const fs=[...$('#etsyImages').files];setMediaState('#etsyImagesState',fs.length?`${fs.length} image${fs.length===1?'':'s'} ready to upload.`:'Choose listing images to upload.');$('#etsyImagePreviews').innerHTML=fs.slice(0,10).map(f=>`<img src="${URL.createObjectURL(f)}" alt="Listing image preview">`).join('');const p=planner($('#etsyPlanner').value);if(p)etsyCheck(p)});
 $('#regenEtsy').addEventListener('click',()=>makeEtsy(true));$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
 $('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
 $('#sendMagicLink').addEventListener('click',sendCloudMagicLink);
