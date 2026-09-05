@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14213d">
+<title>PlanThenRoam Seller Tools</title>
+<style>
+:root{
+ --bg:#f5f6f8;--card:#fff;--ink:#172033;--muted:#687386;--line:#e2e7ee;
+ --navy:#18324f;--navy2:#294f72;--soft:#edf3f8;--ok:#067647;--warn:#b54708;--bad:#b42318;
+ --shadow:0 8px 28px rgba(26,37,51,.08)
+}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min-height:100vh;padding:0 0 92px}
+.top{position:sticky;top:0;z-index:20;background:rgba(245,246,248,.96);backdrop-filter:blur(12px);padding:15px 14px 10px;border-bottom:1px solid var(--line)}
+.toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.brand{font-size:20px;font-weight:850;letter-spacing:-.45px}.sub{font-size:12px;color:var(--muted);margin-top:2px}
+.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:48%}.pill{font-size:9px;font-weight:820;padding:5px 7px;border-radius:999px;border:1px solid var(--line);background:#fff;white-space:nowrap}
+.pill.pending{color:#8a3a14;background:#fff3e8;border-color:#ffd6b0}.pill.off{color:#5d6778;background:#f7f8fa}
+.main{padding:12px}.screen{display:none}.screen.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}.card h2{font-size:17px;margin:0 0 11px}.card h3{font-size:14px;margin:0 0 7px}
+.hero{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border:0}.hero .muted{color:#d8e3ed}
+.heroStats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}.stat{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px}.stat b{display:block;font-size:18px}.stat span{font-size:9px;color:#dce7f1}
+.grid{display:grid;grid-template-columns:1fr;gap:10px}.two{grid-template-columns:1fr 1fr}.field label{display:block;font-size:11px;font-weight:780;color:#49556a;margin:0 0 5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid #ccd4df;background:#fff;color:var(--ink);border-radius:12px;padding:11px 12px;outline:none}.field textarea{min-height:104px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#7892ac;box-shadow:0 0 0 3px rgba(61,93,128,.10)}
+.upload{border:1.5px dashed #aab6c5;border-radius:15px;padding:16px;text-align:center;background:#fbfcfd}.upload input{display:none}.upload label{display:block;font-weight:800;cursor:pointer}.upload small{display:block;color:var(--muted);margin-top:4px}
+.preview{display:none;margin-top:10px}.preview img{display:block;width:min(220px,55vw);aspect-ratio:2/3;object-fit:cover;margin:0 auto;border-radius:12px;border:1px solid var(--line)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid #cbd4df;background:#fff;border-radius:999px;padding:8px 10px;font-weight:760;color:#435066;font-size:12px}.chip.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.primary,.secondary,.danger,.smallBtn{border:0;border-radius:12px;padding:11px 13px;font-weight:820;cursor:pointer}.primary{background:var(--navy);color:#fff;width:100%}.secondary{background:var(--soft);color:var(--navy);border:1px solid #cfdce8;width:100%}
+.danger{background:#fff1f0;color:var(--bad);border:1px solid #ffd0cc;width:100%}.smallBtn{padding:7px 9px;background:#fff;border:1px solid var(--line);color:#49556a;font-size:12px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.helper{background:#f7f9fb;border:1px solid var(--line);border-radius:12px;padding:10px;color:#5f6a7c;font-size:11px}.helper strong{color:var(--ink)}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.list{display:grid;gap:8px}.item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px}.itemtop{display:flex;justify-content:space-between;gap:9px;align-items:flex-start}
+.item h3{font-size:13px;margin:0 0 3px}.badge{display:inline-block;font-size:9px;font-weight:830;padding:5px 7px;border-radius:999px;background:#eef2f6;color:#526070}.item p{font-size:11px;color:var(--muted);margin:6px 0 0}
+.productActions{display:flex;gap:6px;margin-top:8px}.productActions button{flex:1}.counter{float:right;font-weight:700}.empty{text-align:center;padding:25px 10px;color:var(--muted)}
+.sectionHead{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px}.sectionHead h2{margin:0}.linkstate{font-size:10px;font-weight:800}.linkstate.ready{color:var(--ok)}.linkstate.wait{color:var(--warn)}
+.modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fff;padding:9px;border-radius:11px;font-weight:780}.modeSwitch button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.taggrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.taggrid input{font-size:12px}.scenegrid{display:grid;grid-template-columns:1fr;gap:8px}.scene{display:grid;grid-template-columns:72px 1fr;gap:7px;align-items:start}.scene .time{font-size:11px;font-weight:800;color:var(--navy);background:var(--soft);border-radius:10px;padding:10px 8px;text-align:center}
+.mediaList{font-size:11px;color:var(--muted);margin-top:7px}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
+.nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,255,255,.98);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:5px 1px calc(5px + env(safe-area-inset-bottom))}
+.nav button{border:0;background:transparent;color:#687386;padding:6px 0;font-size:9px;font-weight:770}.nav button.active{color:var(--navy)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
+.toast{position:fixed;z-index:50;left:50%;bottom:91px;transform:translateX(-50%) translateY(18px);background:#172033;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:760;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:430px){.two,.actions,.heroStats{grid-template-columns:1fr}.taggrid{grid-template-columns:1fr}.brand{font-size:19px}.scene{grid-template-columns:62px 1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div class="toprow"><div><div class="brand">PlanThenRoam Seller Tools</div><div class="sub">Pinterest + TikTok + Etsy + Planner Library</div></div><div class="pills"><span class="pill pending">Etsy pending</span><span class="pill off">Pinterest off</span><span class="pill off">TikTok off</span></div></div></header>
+
+<main class="main">
+
+<section id="home" class="screen active">
+ <div class="card hero">
+  <h2 style="margin:0">One planner profile. Three sales engines.</h2>
+  <p class="muted" style="font-size:11px;margin:7px 0 0">Pinterest, TikTok and Etsy now pull from the same planner library.</p>
+  <div class="heroStats">
+   <div class="stat"><b id="homePlannerCount">17</b><span>planners</span></div>
+   <div class="stat"><b id="homePinCount">0</b><span>Pin queue</span></div>
+   <div class="stat"><b id="homeTikCount">0</b><span>TikTok queue</span></div>
+   <div class="stat"><b id="homeDraftCount">0</b><span>Etsy drafts</span></div>
+  </div>
+ </div>
+ <div class="card">
+  <h2>Built for your actual workflow</h2>
+  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> TikTok hook, on-screen scenes, caption, CTA and 5 hashtags auto-fill<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
+ </div>
+ <div class="card">
+  <h2>Connections</h2>
+  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> registration still to do.<br><br><strong>TikTok:</strong> control engine is built; posting/render connection still to wire. The first real workflow remains the shop-promo video.</div>
+ </div>
+</section>
+
+<section id="pin" class="screen">
+ <div class="card"><div class="sectionHead"><h2>New Pinterest Pin</h2><span class="linkstate wait">Not publishing yet</span></div>
+  <div class="grid">
+   <div class="upload"><input id="pinImage" type="file" accept="image/png,image/jpeg,image/webp"><label for="pinImage">Tap to choose your Pin</label><small>1000 × 1500 PNG recommended</small><div id="pinPreview" class="preview"><img id="pinPreviewImg" alt="Pin preview"></div></div>
+   <div class="field"><label>Planner</label><select id="pinPlanner"></select></div>
+   <div class="field"><label>Pin type</label><div class="chips" id="pinTypes"><button class="chip active" data-type="advert">Advert</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
+   <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
+   <div class="field"><label>Exact Etsy link</label><input id="pinLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
+  </div>
+ </div>
+ <div class="card"><div class="sectionHead"><h2>SEO auto-fill</h2><button class="smallBtn" id="refreshPinSeo">New variation</button></div>
+  <div class="grid">
+   <div class="field"><label>Title <span class="counter" id="pinTitleCount">0/100</span></label><input id="pinTitle" maxlength="100"></div>
+   <div class="field"><label>Description <span class="counter" id="pinDescCount">0/500</span></label><textarea id="pinDesc" maxlength="500"></textarea></div>
+   <div class="field"><label>Alt text</label><textarea id="pinAlt" maxlength="500"></textarea></div>
+  </div><div id="pinChecks" class="helper" style="margin-top:9px"></div>
+ </div>
+ <div class="card"><h2>Schedule</h2><div class="grid two"><div class="field"><label>Date</label><input id="pinDate" type="date"></div><div class="field"><label>Time</label><input id="pinTime" type="time"></div></div><div class="actions" style="margin-top:9px"><button class="secondary" id="nextPinSlot">Next slot</button><button class="primary" id="addPinQueue">Add to Pin queue</button></div></div>
+</section>
+
+<section id="tiktok" class="screen">
+ <div class="card">
+  <div class="sectionHead"><h2>TikTok Creative Engine</h2><span class="linkstate wait">Posting not connected</span></div>
+  <div class="grid">
+   <div class="field"><label>Content goal</label><div class="chips" id="tikTypes"><button class="chip active" data-type="shop">Shop Promo</button><button class="chip" data-type="planner">Planner Promo</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
+   <div class="field"><label>Featured planner</label><select id="tikPlanner"></select></div>
+   <div class="field"><label>Creative concept</label>
+    <select id="tikConcept">
+     <option value="auto">Auto-rotate — avoid repeats</option>
+     <option value="cinematic">Cinematic destination montage</option>
+     <option value="problem">Problem → solution</option>
+     <option value="route">Route reveal</option>
+     <option value="compare">Trip-length comparison</option>
+     <option value="reasons">3 reasons / 3 benefits</option>
+     <option value="facts">Fast fact stack</option>
+     <option value="checklist">Planning checklist</option>
+     <option value="savecard">Save-this reference</option>
+     <option value="inside">What you get</option>
+     <option value="mistake">Planning mistake → fix</option>
+     <option value="beforeafter">Before vs after planning</option>
+     <option value="collection">Collection showcase</option>
+     <option value="seasonal">Seasonal urgency</option>
+     <option value="editorial">Slow editorial / premium</option>
+     <option value="punchy">Fast punchy cuts</option>
+    </select>
+   </div>
+   <div class="field"><label>Hook angle</label>
+    <select id="tikAngle">
+     <option value="auto">Auto-rotate</option>
+     <option value="pain">Pain point</option>
+     <option value="curiosity">Curiosity</option>
+     <option value="utility">Useful / practical</option>
+     <option value="aspiration">Aspirational</option>
+     <option value="identity">Identity / relatable</option>
+     <option value="comparison">Comparison</option>
+     <option value="urgency">Seasonal urgency</option>
+    </select>
+   </div>
+   <div class="field"><label>Editing pace</label>
+    <select id="tikPace">
+     <option value="auto">Auto for concept</option>
+     <option value="fast">Fast — 7–9 seconds</option>
+     <option value="balanced">Balanced — 10–12 seconds</option>
+     <option value="editorial">Editorial — 13–16 seconds</option>
+    </select>
+   </div>
+   <div class="upload"><input id="tikMedia" type="file" accept="video/*,image/png,image/jpeg,image/webp" multiple><label for="tikMedia">Choose clips / images</label><small>Destination footage, planner visuals or shop-promo assets</small><div id="tikMediaList" class="mediaList">No media selected yet.</div></div>
+  </div>
+ </div>
+
+ <div class="card">
+  <div class="sectionHead"><h2 id="tikConceptTitle">Creative pack</h2><button class="smallBtn" id="refreshTik">Generate a different concept</button></div>
+  <div class="grid">
+   <div class="helper" id="tikDirection"></div>
+   <div class="field"><label>Hook</label><input id="tikHook" maxlength="90"></div>
+   <div class="scenegrid">
+    <div class="scene"><div class="time" id="time1">0–2s</div><div class="field"><label>Scene 1</label><textarea id="scene1" style="min-height:72px"></textarea></div></div>
+    <div class="scene"><div class="time" id="time2">2–5s</div><div class="field"><label>Scene 2</label><textarea id="scene2" style="min-height:72px"></textarea></div></div>
+    <div class="scene"><div class="time" id="time3">5–8s</div><div class="field"><label>Scene 3</label><textarea id="scene3" style="min-height:72px"></textarea></div></div>
+    <div class="scene"><div class="time" id="time4">8–11s</div><div class="field"><label>Scene 4 / CTA</label><textarea id="scene4" style="min-height:72px"></textarea></div></div>
+   </div>
+   <div class="field"><label>Caption</label><textarea id="tikCaption"></textarea></div>
+   <div class="field"><label>CTA</label><input id="tikCTA"></div>
+   <div class="field"><label>5 SEO hashtags</label><input id="tikHashtags"></div>
+   <div class="helper" id="tikWhy"></div>
+   <div class="copyRow"><button class="secondary" id="copyTik">Copy full video pack</button><button class="secondary" id="copyTikCaption">Copy caption only</button></div>
+  </div>
+ </div>
+
+ <div class="card"><h2>Schedule</h2><div class="grid two"><div class="field"><label>Date</label><input id="tikDate" type="date"></div><div class="field"><label>Time</label><input id="tikTime" type="time"></div></div><div class="actions" style="margin-top:9px"><button class="secondary" id="nextTikSlot">Next slot</button><button class="primary" id="addTikQueue">Add to TikTok queue</button></div></div>
+</section>
+
+<section id="etsy" class="screen">
+ <div class="card"><div class="sectionHead"><h2>Etsy Listing Engine</h2><span class="linkstate wait">API pending</span></div>
+  <div class="modeSwitch"><button class="active" data-etsy-mode="edit">Edit existing</button><button data-etsy-mode="new">Create new</button></div>
+  <div class="grid" style="margin-top:10px"><div class="field"><label>Planner</label><select id="etsyPlanner"></select></div><div class="helper" id="etsyState"></div></div>
+ </div>
+ <div class="card"><h2>Listing content</h2><div class="grid">
+  <div class="field"><label>Etsy title</label><textarea id="etsyTitle" style="min-height:76px"></textarea></div>
+  <div class="field"><label>Description</label><textarea id="etsyDesc" style="min-height:190px"></textarea></div>
+  <div class="field"><label>13 tags</label><div id="tagGrid" class="taggrid"></div></div>
+  <div class="field"><label>Customer PDF</label><input id="etsyPdf" type="file" accept="application/pdf"></div>
+  <div class="field"><label>Listing images</label><input id="etsyImages" type="file" accept="image/png,image/jpeg" multiple></div>
+  <div class="helper">Customer-file rule: PDF only. Generated copy excludes editable Word-document wording and does not write £14.99 into the listing copy.</div>
+  <div class="actions"><button class="secondary" id="regenEtsy">Regenerate copy</button><button class="primary" id="saveEtsyDraft">Save draft</button></div>
+ </div></div>
+</section>
+
+<section id="library" class="screen">
+ <div class="card"><div class="sectionHead"><h2>Planner Library</h2><span class="badge" id="plannerBadge">17 planners</span></div><div class="helper">One permanent profile per planner. Board, Etsy link, route lengths, highlights and search phrase are reused by Pinterest, TikTok and Etsy.</div><div id="plannerList" class="list" style="margin-top:10px"></div></div>
+ <div class="card"><h2 id="plannerFormTitle">Add planner</h2><input type="hidden" id="editPlannerId"><div class="grid">
+  <div class="field"><label>Planner name</label><input id="libName"></div>
+  <div class="field"><label>Main search phrase</label><input id="libKeyword"></div>
+  <div class="grid two"><div class="field"><label>Route lengths</label><input id="libRoutes"></div><div class="field"><label>Edition / season</label><input id="libSeason"></div></div>
+  <div class="field"><label>Destinations / highlights</label><input id="libHighlights"></div>
+  <div class="field"><label>Automatic Pinterest board</label><input id="libBoard"></div>
+  <div class="field"><label>Exact Etsy listing link</label><input id="libLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
+  <div class="field"><label>Etsy listing ID</label><input id="libListingId" inputmode="numeric" placeholder="Auto-sync after Etsy approval"></div>
+  <button class="primary" id="savePlanner">Save planner</button>
+ </div></div>
+</section>
+
+<section id="queue" class="screen">
+ <div class="card"><div class="sectionHead"><h2>Pinterest Queue</h2><span class="badge" id="pinQueueBadge">0 Pins</span></div><div id="pinQueueList" class="list"></div></div>
+ <div class="card"><div class="sectionHead"><h2>TikTok Queue</h2><span class="badge" id="tikQueueBadge">0 videos</span></div><div id="tikQueueList" class="list"></div></div>
+ <div class="card"><h2>Etsy Drafts</h2><div id="etsyDraftList" class="list"></div></div>
+ <div class="card"><h2>Scheduling</h2><div class="grid two"><div class="field"><label>Pinterest slots</label><input id="pinSlots" value="09:00,18:00"></div><div class="field"><label>TikTok slots</label><input id="tikSlots" value="12:00,20:00"></div></div><button class="primary" id="saveSlots" style="margin-top:9px">Save slots</button></div>
+</section>
+
+</main>
+
+<nav class="nav">
+ <button class="active" data-screen="home"><b>⌂</b>Home</button>
+ <button data-screen="pin"><b>＋</b>Pinterest</button>
+ <button data-screen="tiktok"><b>▶</b>TikTok</button>
+ <button data-screen="etsy"><b>✎</b>Etsy</button>
+ <button data-screen="library"><b>▦</b>Planners</button>
+ <button data-screen="queue"><b>◷</b>Queue</button>
+</nav>
+<div id="toast" class="toast"></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const KEYS={planners:'ptr_planners_master_v4',pins:'ptr_pin_queue_v4',tiks:'ptr_tik_queue_v4',drafts:'ptr_etsy_drafts_v4',settings:'ptr_settings_master_v4',variants:'ptr_variants_v4'};
+const defaults=[
+{id:'nc500',name:'NC500 Road Trip Planner',keyword:'NC500 road trip itinerary',routes:'5, 7 and 10 days',season:'',highlights:'North Coast 500, Scottish Highlands, scenic driving stops and practical route planning',board:'Scotland Road Trips',link:'',listingId:''},
+{id:'japan',name:'Japan First-Timer Itinerary Planner',keyword:'Japan itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Tokyo, Hakone and Mount Fuji, Kyoto, Osaka, Nara and Hiroshima',board:'Japan Travel Planning',link:'',listingId:''},
+{id:'south-korea',name:'South Korea First-Timer Itinerary Planner',keyword:'South Korea itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Seoul, Gyeongju, Busan and Jeju',board:'South Korea Travel Planning',link:'',listingId:''},
+{id:'rome',name:'Rome First-Timer Itinerary Planner',keyword:'Rome itinerary',routes:'3, 4 and 5 days',season:'',highlights:'Ancient Rome, Vatican City, the historic centre and Trastevere',board:'Rome Travel Planning',link:'',listingId:''},
+{id:'salem',name:'Salem Halloween Itinerary Planner',keyword:'Salem Halloween itinerary',routes:'1, 2 and 3 days',season:'2026',highlights:'witch-trial history, haunted attractions, October events and essential planning',board:'Halloween Travel Ideas',link:'',listingId:''},
+{id:'new-england',name:'New England Fall Foliage Road Trip Planner',keyword:'New England fall foliage road trip',routes:'5, 7 and 10 days',season:'2026',highlights:'Massachusetts, Vermont, New Hampshire and Maine fall foliage routes',board:'Fall Travel & Road Trips',link:'',listingId:''},
+{id:'nyc-christmas',name:'Christmas in New York Itinerary Planner',keyword:'New York Christmas itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Christmas lights, festive attractions, markets, seasonal experiences and Manhattan planning',board:'Christmas City Breaks',link:'',listingId:''},
+{id:'lapland',name:'Finnish Lapland Winter Itinerary Planner',keyword:'Finnish Lapland itinerary',routes:'3, 5 and 7 days',season:'2026–2027',highlights:'Rovaniemi, Levi, Northern Lights, Santa experiences and Arctic activities',board:'Lapland Winter Travel',link:'',listingId:''},
+{id:'europe-markets',name:'European Christmas Markets by Train',keyword:'European Christmas markets by train',routes:'7, 10 and 14 days',season:'2026',highlights:'Nuremberg, Prague, Vienna, Bratislava and Budapest by train',board:'European Christmas Markets',link:'',listingId:''},
+{id:'tromso',name:'Tromsø Winter Itinerary Planner',keyword:'Tromsø winter itinerary',routes:'3, 4 and 5 days',season:'2026–2027',highlights:'Tromsø, Northern Lights, Arctic winter activities and practical trip planning',board:'Norway Winter Travel',link:'',listingId:''},
+{id:'munich',name:'Munich Itinerary Planner',keyword:'Munich itinerary',routes:'3, 4 and 5 days',season:'',highlights:'Munich highlights, old town, food, culture and practical city-break planning',board:'Germany Travel Planning',link:'',listingId:''},
+{id:'oktoberfest',name:'Munich Oktoberfest Itinerary Planner',keyword:'Munich Oktoberfest itinerary',routes:'2, 3 and 4 days',season:'2026',highlights:'Oktoberfest, Munich sights, festival planning and practical trip logistics',board:'Oktoberfest Travel Planning',link:'',listingId:''},
+{id:'london-christmas',name:'Christmas in London Itinerary Planner',keyword:'London Christmas itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Christmas lights, markets, ice skating and seasonal London experiences',board:'Christmas City Breaks',link:'',listingId:''},
+{id:'iceland',name:'Iceland Ring Road Itinerary Planner',keyword:'Iceland Ring Road itinerary',routes:'7, 10 and 14 days',season:'',highlights:'Iceland Ring Road, waterfalls, geothermal sights, scenic drives and practical route planning',board:'Iceland Road Trips',link:'',listingId:''},
+{id:'copenhagen',name:'Copenhagen Christmas & Tivoli Itinerary Guide',keyword:'Copenhagen Christmas itinerary',routes:'3, 4 and 5 days',season:'2026–2027',highlights:'Tivoli Gardens, Christmas markets, Nyhavn and festive Copenhagen experiences',board:'Christmas City Breaks',link:'',listingId:''},
+{id:'alsace',name:'Alsace Christmas Markets Itinerary Planner',keyword:'Alsace Christmas markets itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Strasbourg, Colmar, Alsace villages, Christmas markets and festive route planning',board:'European Christmas Markets',link:'',listingId:''},
+{id:'belgium',name:'Belgian Christmas Markets Itinerary Planner',keyword:'Belgium Christmas markets itinerary',routes:'3, 4 and 5 days',season:'2026',highlights:'Brussels, Bruges, Ghent and Belgian Christmas market planning',board:'European Christmas Markets',link:'',listingId:''}
+];
+function migratePlanners(){
+ const old=JSON.parse(localStorage.getItem('ptr_planners_v3')||'null');
+ return JSON.parse(localStorage.getItem(KEYS.planners)||'null') || old || defaults;
+}
+let planners=migratePlanners();
+let pinQueue=JSON.parse(localStorage.getItem(KEYS.pins)||'[]');
+let tikQueue=JSON.parse(localStorage.getItem(KEYS.tiks)||'[]');
+let drafts=JSON.parse(localStorage.getItem(KEYS.drafts)||'[]');
+let settings=JSON.parse(localStorage.getItem(KEYS.settings)||'null')||{pinSlots:'09:00,18:00',tikSlots:'12:00,20:00'};
+let variants=JSON.parse(localStorage.getItem(KEYS.variants)||'{}');
+let pinType='advert',tikType='shop',etsyMode='edit';
+function persist(){localStorage.setItem(KEYS.planners,JSON.stringify(planners));localStorage.setItem(KEYS.pins,JSON.stringify(pinQueue));localStorage.setItem(KEYS.tiks,JSON.stringify(tikQueue));localStorage.setItem(KEYS.drafts,JSON.stringify(drafts));localStorage.setItem(KEYS.settings,JSON.stringify(settings));localStorage.setItem(KEYS.variants,JSON.stringify(variants))}
+function esc(v=''){return String(v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
+function clean(s=''){return String(s).replace(/\s+/g,' ').replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide').trim()}
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
+function planner(id){return planners.find(p=>p.id===id)}
+function shortName(n){return String(n).replace(/ Itinerary Planner| Road Trip Planner| Itinerary Guide| Planner| Guide| First-Timer/g,'').trim()}
+function localDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function nextVariant(key,len,advance=true){if(!(key in variants))variants[key]=0;else if(advance)variants[key]++;persist();return variants[key]%len}
+function updateHome(){$('#homePlannerCount').textContent=planners.length;$('#homePinCount').textContent=pinQueue.length;$('#homeTikCount').textContent=tikQueue.length;$('#homeDraftCount').textContent=drafts.length;$('#plannerBadge').textContent=`${planners.length} planners`;$('#pinQueueBadge').textContent=`${pinQueue.length} Pin${pinQueue.length===1?'':'s'}`;$('#tikQueueBadge').textContent=`${tikQueue.length} video${tikQueue.length===1?'':'s'}`}
+function fillSelects(){const opts=planners.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');const vals=[$('#pinPlanner').value,$('#tikPlanner').value,$('#etsyPlanner').value];$('#pinPlanner').innerHTML=opts;$('#tikPlanner').innerHTML=opts;$('#etsyPlanner').innerHTML=opts;if(planner(vals[0]))$('#pinPlanner').value=vals[0];if(planner(vals[1]))$('#tikPlanner').value=vals[1];if(planner(vals[2]))$('#etsyPlanner').value=vals[2]}
+
+/* Pinterest */
+function pinVariants(p,type){const place=shortName(p.name),season=p.season?` ${p.season}`:'',r=p.routes,h=p.highlights;return{
+ advert:[
+ [`${place}${season} | ${r} Itinerary`,`Planning ${place}? Explore a ready-planned ${r} itinerary covering ${h}. Use the guide to organise the key stops in a sensible order and make trip planning faster and easier.`],
+ [`Plan ${place}${season} | ${r} Routes`,`Take the stress out of planning ${place} with ${r} route options covering ${h}. A practical digital itinerary guide for building a clear, realistic trip plan.`],
+ [`${place} Travel Planner | ${r}`,`Build your ${place} trip around ${r} carefully structured routes, with ${h}. Save this Pin for a practical planning shortcut before you travel.`]
+ ],
+ save:[
+ [`Save This ${p.keyword} | ${r}`,`Save this for your ${place} trip. Compare ${r} route options covering ${h}, with practical planning organised into an easy-to-follow itinerary.`],
+ [`${place}: Save These ${r} Route Ideas`,`Planning ${place} later? Save these ${r} itinerary options featuring ${h} so you have a useful starting point when you are ready to plan.`],
+ [`A Smarter Way to Plan ${place}`,`Save this ${p.keyword} idea for later: ${r} route options, ${h}, and a clear structure to help turn your ideas into a workable trip.`]
+ ],
+ factual:[
+ [`${place}: ${r} Route Ideas`,`Useful ${p.keyword} planning: choose from ${r} routes featuring ${h}. Save this Pin as a quick reference while comparing trip lengths.`],
+ [`How Long Do You Need in ${place}?`,`This planner includes ${r} route options covering ${h}. Save it while deciding how much time to allow for your trip.`],
+ [`${place} Trip Planning: ${r}`,`Quick planning reference for ${place}: ${r} itinerary options with ${h}. Save for later when comparing routes and trip length.`]
+ ]}[type]}
+function syncPin(){const p=planner($('#pinPlanner').value);if(!p)return;$('#pinBoard').value=p.board||'';$('#pinLink').value=p.link||'';genPin(false);nextSlot('pin')}
+function genPin(advance=true){const p=planner($('#pinPlanner').value);if(!p)return;const arr=pinVariants(p,pinType),i=nextVariant(`pin_${p.id}_${pinType}`,arr.length,advance),pair=arr[i];$('#pinTitle').value=clean(pair[0]).slice(0,100);$('#pinDesc').value=clean(pair[1]).slice(0,500);$('#pinAlt').value=clean(`Pinterest travel Pin for ${shortName(p.name)}, highlighting ${p.routes} itinerary options and ${p.highlights}.`).slice(0,500);pinCount();pinCheck(p)}
+function pinCount(){$('#pinTitleCount').textContent=$('#pinTitle').value.length+'/100';$('#pinDescCount').textContent=$('#pinDesc').value.length+'/500'}
+function pinCheck(p){const t=($('#pinTitle').value+' '+$('#pinDesc').value).toLowerCase(),main=(shortName(p.name).split(' ')[0]||'').toLowerCase();const checks=[['Destination/search phrase',t.includes(main)],['Route lengths',t.includes((p.routes.split(' ')[0]||'').toLowerCase())],['No price in copy',!(/£|14\.99/.test(t))],['No editable Word wording',!(/editable word|word document/.test(t))],['Board auto-filled',!!$('#pinBoard').value.trim()],['Exact Etsy link',!!$('#pinLink').value.trim()]];$('#pinChecks').innerHTML=checks.map(([x,ok],i)=>`<div class="${ok?'ok':(i===5?'warn':'bad')}">${ok?'✓':'!'} ${x}${i===5&&!ok?' — awaiting Etsy sync':''}</div>`).join('')}
+function nextSlot(kind){const slots=(kind==='pin'?settings.pinSlots:settings.tikSlots).split(',').map(x=>x.trim()).filter(Boolean).sort();const q=kind==='pin'?pinQueue:tikQueue,ds=kind==='pin'?$('#pinDate'):$('#tikDate'),ts=kind==='pin'?$('#pinTime'):$('#tikTime');let now=new Date();now.setSeconds(0,0);for(let add=0;add<45;add++){const day=new Date(now);day.setDate(now.getDate()+add);for(const s of slots){const [h,m]=s.split(':').map(Number),c=new Date(day);c.setHours(h||0,m||0,0,0);if(c>now&&!q.some(x=>Math.abs(new Date(x.when)-c)<60000)){ds.value=localDate(c);ts.value=s;return}}}}
+function addPin(){const p=planner($('#pinPlanner').value),d=$('#pinDate').value,t=$('#pinTime').value;if(!p||!d||!t)return toast('Choose a date and time');pinQueue.push({id:'pq'+Date.now(),plannerId:p.id,planner:p.name,type:pinType,board:$('#pinBoard').value.trim(),link:$('#pinLink').value.trim(),title:clean($('#pinTitle').value),desc:clean($('#pinDesc').value),alt:clean($('#pinAlt').value),when:new Date(`${d}T${t}:00`).toISOString()});pinQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));persist();renderQueues();updateHome();genPin(true);nextSlot('pin');toast('Pin added')}
+
+/* TikTok — goal × concept × hook-angle engine */
+const conceptNames={
+ cinematic:'Cinematic destination montage',problem:'Problem → solution',route:'Route reveal',
+ compare:'Trip-length comparison',reasons:'3 reasons / benefits',facts:'Fast fact stack',
+ checklist:'Planning checklist',savecard:'Save-this reference',inside:'What you get',
+ mistake:'Planning mistake → fix',beforeafter:'Before vs after planning',collection:'Collection showcase',
+ seasonal:'Seasonal urgency',editorial:'Slow editorial / premium',punchy:'Fast punchy cuts'
+};
+const compatible={
+ shop:['collection','problem','beforeafter','inside','cinematic','editorial','punchy','reasons'],
+ planner:['cinematic','problem','route','compare','reasons','inside','mistake','beforeafter','editorial','punchy'],
+ save:['savecard','route','compare','checklist','facts','cinematic','editorial','punchy'],
+ factual:['facts','compare','checklist','route','mistake','savecard','punchy','editorial']
+};
+const anglesByConcept={
+ cinematic:['aspiration','curiosity','identity'],problem:['pain','identity','utility'],
+ route:['utility','curiosity','comparison'],compare:['comparison','utility','curiosity'],
+ reasons:['utility','curiosity','aspiration'],facts:['utility','curiosity'],checklist:['utility','pain'],
+ savecard:['utility','curiosity'],inside:['curiosity','utility'],mistake:['pain','curiosity','utility'],
+ beforeafter:['pain','identity','aspiration'],collection:['curiosity','identity','aspiration'],
+ seasonal:['urgency','curiosity','aspiration'],editorial:['aspiration','identity','curiosity'],
+ punchy:['curiosity','pain','identity']
+};
+function slugWords(p){return shortName(p.name).toLowerCase().replace(/[&]/g,' ').replace(/[^\wÀ-ÿ ]/g,' ').split(/\s+/).filter(Boolean)}
+function tikHashtags(p,type){
+ if(type==='shop')return '#travelplanning #travelitinerary #tripplanning #traveltips #etsyfinds';
+ const words=slugWords(p),base=words[0]||'travel',two=(words.slice(0,2).join('')||base);
+ return [...new Set([`#${base}`,`#${two}travel`,`#${two}itinerary`,'#travelplanning','#traveltips'])].slice(0,5).join(' ');
+}
+function recentConceptsKey(p){return `tik_recent_${p.id}_${tikType}`}
+function chooseConcept(p,advance=true){
+ const manual=$('#tikConcept').value;if(manual!=='auto')return manual;
+ const pool=compatible[tikType]||compatible.planner;
+ let recent=variants[recentConceptsKey(p)]||[];
+ if(!Array.isArray(recent))recent=[];
+ let choices=pool.filter(c=>!recent.includes(c));
+ if(!choices.length){recent=[];choices=[...pool]}
+ const index=nextVariant(`tikconcept_${p.id}_${tikType}`,choices.length,advance);
+ const chosen=choices[index%choices.length];
+ if(advance){recent.push(chosen);if(recent.length>=Math.min(pool.length,6))recent=recent.slice(-5);variants[recentConceptsKey(p)]=recent;persist()}
+ return chosen;
+}
+function chooseAngle(p,concept,advance=true){
+ const manual=$('#tikAngle').value;if(manual!=='auto')return manual;
+ const pool=anglesByConcept[concept]||['curiosity','utility','aspiration'];
+ return pool[nextVariant(`tikangle_${p.id}_${tikType}_${concept}`,pool.length,advance)];
+}
+function durationFor(concept){
+ const manual=$('#tikPace').value;
+ if(manual==='fast')return 8;if(manual==='balanced')return 11;if(manual==='editorial')return 15;
+ if(['punchy','facts','savecard'].includes(concept))return 8;
+ if(['cinematic','editorial'].includes(concept))return 15;
+ return 11;
+}
+function setTikTimes(d){
+ let cuts=d<=8?['0–1.5s','1.5–3s','3–5s','5–8s']:d>=14?['0–3s','3–7s','7–11s','11–15s']:['0–2s','2–5s','5–8s','8–11s'];
+ ['#time1','#time2','#time3','#time4'].forEach((s,i)=>$(s).textContent=cuts[i])
+}
+function angleHook(place,angle,type,p){
+ const shopHooks={
+  pain:["Your next trip doesn't need 37 open tabs.","Planning the trip shouldn't become the trip.","Travel planning shouldn't feel like admin."],
+  curiosity:["What if the itinerary was already the easy part?","This is what I use instead of starting from a blank page.","The travel-planning shortcut nobody talks about."],
+  identity:["For people who love travel, not spreadsheets.","For the person who plans the whole trip in their head first.","If you save trips faster than you plan them, this is for you."],
+  utility:["A simpler way to turn a destination into an actual plan.","Start with the route, then book around it.","One place to start when the trip idea becomes real."],
+  aspiration:["Spend more time looking forward to the trip.","Make the planning part feel lighter.","Start the trip before you even leave."],
+  comparison:["Blank page vs ready-planned route.","Hours of tabs vs one structured starting point.","Planning from scratch vs planning from a route that already makes sense."],
+  urgency:["Planning a seasonal trip? Start with the route now.","The best seasonal trips get easier when the route comes first.","Before you book the festive bits, sort the route."]
+ };
+ if(type==='shop')return (shopHooks[angle]||shopHooks.curiosity);
+ const hooks={
+  pain:[`${place} without the planning spiral.`,`Stop planning ${place} from 20 different tabs.`,`The hardest part of ${place} shouldn't be building the route.`],
+  curiosity:[`The ${place} plan I wish everyone started with.`,`Before you book ${place}, look at this.`,`This is the part of ${place} planning people usually overcomplicate.`],
+  utility:[`Start your ${place} trip with the route.`,`A practical way to plan ${place}.`,`How to make ${place} planning much easier.`],
+  aspiration:[`Make ${place} feel exciting before you even go.`,`A calmer way to plan ${place}.`,`Build a ${place} trip you'll actually look forward to.`],
+  identity:[`For people who want ${place}, not a planning project.`,`If ${place} is saved all over your phone, start here.`,`For the over-planner who still wants the trip to feel fun.`],
+  comparison:[`${p.routes}: which ${place} trip fits you?`,`How long do you really need in ${place}?`,`Shorter trip or slower trip? Start here.`],
+  urgency:[`${place} is coming up fast — sort the route first.`,`Planning ${place} this season? Don't leave the route until last.`,`Before the seasonal dates fill up, get the route clear.`]
+ };
+ return hooks[angle]||hooks.curiosity;
+}
+function conceptPack(p,concept,angle){
+ const place=shortName(p.name),r=p.routes,h=p.highlights,count=planners.length;
+ const hookPool=angleHook(place,angle,tikType,p);
+ const hook=hookPool[nextVariant(`tikhook_${p.id}_${tikType}_${concept}_${angle}`,hookPool.length,true)];
+ const shop=tikType==='shop';
+ const shopLine=`${count} ready-planned travel guides`;
+ const data={
+  cinematic:{
+   scenes:shop?[hook,shopLine,"City breaks • road trips • seasonal travel","Pick the trip. Start with a route that already makes sense."]:[hook,`${r} ways to shape the trip`,h,"Save the destination. Start with the route."],
+   caption:shop?`Travel planning, but without the spreadsheet spiral. ${count} ready-planned itinerary guides designed to give each trip a clearer starting point.`:`Planning ${place}? Start with ${r} structured route options covering ${h}.`,
+   cta:shop?'Browse the planner collection on Etsy':'See the full itinerary guide on Etsy',
+   direction:'Use your strongest destination footage. Open with the single most visually arresting clip, then 2–3 elegant cutaways. Keep text minimal and let the visuals sell the feeling.'
+  },
+  problem:{
+   scenes:shop?[hook,"Too many tabs. Too many notes. No actual route.",shopLine,"Start with the route instead of a blank page."]:[hook,"Too many tabs. Too many saved places. No clear order.",`${r} ready-planned route options`,"Use the structure. Personalise the details."],
+   caption:shop?`The fun part is choosing the trip. The exhausting part is turning it into a workable route. These planners give you a structured starting point.`:`If ${place} planning is turning into tabs, notes and screenshots, use a route that already has a sensible structure.`,
+   cta:shop?'Browse all travel planners on Etsy':'See the planner on Etsy',
+   direction:'Start messy: rapid clips/screenshots/tabs. Then hard-cut to one clean, calm visual and simpler typography. The visual contrast is the concept.'
+  },
+  route:{
+   scenes:[hook,`Option 1 → ${r.split(' and ')[0]||r}`,`Then compare the other route lengths`,h],
+   caption:`Start ${place} planning by comparing the route lengths first. The guide includes ${r} options with ${h}.`,
+   cta:'Save this, then compare the full routes on Etsy',
+   direction:'Reveal the trip progressively. Use one destination clip per route beat. Text should feel like a route unfolding rather than an advert.'
+  },
+  compare:{
+   scenes:[hook,`${r}`,`Same destination. Different pace.`,h],
+   caption:`Not every ${place} trip needs the same number of days. Compare ${r} route options and choose the pace that fits your trip.`,
+   cta:'Save this comparison for later',
+   direction:'Use split-screen or alternating text cards. Make the day-count comparison the visual hero, not the product.'
+  },
+  reasons:{
+   scenes:[hook,shop?`1. ${shopLine}`:`1. ${r} route options`,shop?'2. Different trip styles and seasons':`2. ${h}`,"3. Less time starting from scratch"],
+   caption:shop?`Three reasons to start with a ready-planned itinerary: a clearer route, less research chaos and more time to personalise the parts that matter.`:`Three reasons this ${place} planner is useful: ${r} route options, ${h}, and a clearer starting point.`,
+   cta:shop?'Browse the collection':'See the full planner',
+   direction:'Count 1–2–3 on screen with a strong visual change for each point. Keep every reason short enough to read instantly.'
+  },
+  facts:{
+   scenes:[hook,`${r} route options`,h,"Save this as your quick planning reference."],
+   caption:`Quick ${place} planning reference: ${r} itinerary options covering ${h}.`,
+   cta:'Save for trip planning',
+   direction:'Fast, clean, information-first. Each scene should deliver one useful fact. Avoid sales language until the final frame.'
+  },
+  checklist:{
+   scenes:[hook,"✓ Choose the trip length","✓ Lock the route before the details",`✓ Use ${h}`],
+   caption:`A simple ${place} planning checklist: choose the trip length, get the route clear, then build bookings around it.`,
+   cta:'Save this checklist',
+   direction:'Checklist visual language. One tick per beat. Use readable text and steady footage so the viewer can actually absorb it.'
+  },
+  savecard:{
+   scenes:[hook,`Save: ${place}`,`Compare: ${r}`,`Remember: ${h}`],
+   caption:`Save this for later if ${place} is on your list. ${r} route options covering ${h}.`,
+   cta:'Save now — use it when the trip gets real',
+   direction:'Design this to be paused and saved. Use large text, slower cuts and a final frame that works like a reference card.'
+  },
+  inside:{
+   scenes:[hook,shop?shopLine:`Inside: ${r} route options`,shop?'Routes • highlights • practical planning':h,"A structured starting point you can personalise."],
+   caption:shop?`What you actually get: structured digital itinerary guides built to make the route clearer before you start booking.`:`Inside the ${place} guide: ${r} route options, ${h}, and practical planning structure.`,
+   cta:shop?'Browse the full collection':'See what is inside the planner',
+   direction:'Product-led but not mock-up heavy. Alternate destination footage with clean feature text. Show value, not just a cover.'
+  },
+  mistake:{
+   scenes:[hook,"Mistake: booking everything before the route is clear.","Fix: choose the trip length and order first.",`${r} route options to compare`],
+   caption:`A common ${place} planning mistake is locking in details before the route makes sense. Start with the trip length and order first.`,
+   cta:'Save this before you book',
+   direction:'Use a red-flag/opening mistake frame, then switch to calm solution visuals. The educational angle should lead.'
+  },
+  beforeafter:{
+   scenes:[hook,"BEFORE: tabs, screenshots, random saved places","AFTER: one clear route to work from",shop?shopLine:`${r} ways to structure ${place}`],
+   caption:shop?`Before: ideas everywhere. After: one route you can actually plan around.`:`Before: ${place} ideas everywhere. After: a route you can actually build the trip around.`,
+   cta:shop?'Browse the itinerary collection':'See the planner on Etsy',
+   direction:'Strong visual contrast. First half intentionally busy; second half clean and spacious. Make the relief visible.'
+  },
+  collection:{
+   scenes:[hook,shopLine,"Road trips • city breaks • seasonal itineraries","Choose the destination that is next for you."],
+   caption:`Where are you going next? Browse ${count} ready-planned itinerary guides across road trips, city breaks and seasonal travel.`,
+   cta:'Browse the whole PlanThenRoam collection',
+   direction:'Show 4–6 different destinations in quick succession. Every cut should feel like a new trip possibility. This is a range-selling video.'
+  },
+  seasonal:{
+   scenes:[hook,p.season?`${p.season} planning starts with the route.`:"Seasonal trips reward early planning.",h,"Sort the route before the dates get busy."],
+   caption:`Planning ${place}${p.season?' '+p.season:''}? Get the route clear early, then book the time-sensitive pieces around it.`,
+   cta:'Start the planning now',
+   direction:'Use obvious seasonal footage and date/edition text. Create urgency without fake scarcity or countdown claims.'
+  },
+  editorial:{
+   scenes:[hook,shop?shopLine:`${place} • ${r}`,h,"A calmer way to plan the trip."],
+   caption:shop?`A more considered way to plan travel: clear routes, useful detail and space to make the trip your own.`:`A slower, clearer way to plan ${place}: ${r} route options with ${h}.`,
+   cta:shop?'Explore the planner collection':'Explore the full itinerary guide',
+   direction:'Slow premium pacing, 3–4 beautiful shots, subtle text, no frantic transitions. Let the destination carry the emotion.'
+  },
+  punchy:{
+   scenes:[hook,shop?`${count} planners`:`${r}`,shop?'Pick one. Plan it. Go.':h,"Save it. Plan it. Go."],
+   caption:shop?`Less planning drag. More trips that actually get planned.`:`${place} planning in one sentence: choose the route first, then build around it.`,
+   cta:shop?'Browse now':'Save this and see the planner',
+   direction:'Fast hard cuts, one short phrase per frame, strongest motion clips only. No sentence-length on-screen text.'
+  }
+ };
+ return {...data[concept],hook};
+}
+function genTik(advance=true){
+ const p=planner($('#tikPlanner').value);if(!p)return;
+ const concept=chooseConcept(p,advance),angle=chooseAngle(p,concept,advance),x=conceptPack(p,concept,angle),dur=durationFor(concept);
+ $('#tikConceptTitle').textContent=`${conceptNames[concept]} · ${angle}`;
+ $('#tikDirection').innerHTML=`<strong>Visual concept:</strong> ${esc(conceptNames[concept])}<br>${esc(x.direction)}<br><span class="badge">${dur}s target</span> <span class="badge">${esc(angle)} hook</span>`;
+ $('#tikHook').value=clean(x.hook);x.scenes.forEach((v,i)=>$('#scene'+(i+1)).value=v);
+ $('#tikCaption').value=x.caption.replace(/£14\.99/gi,'').replace(/editable word|word document/gi,'PDF guide');
+ $('#tikCTA').value=x.cta;$('#tikHashtags').value=tikHashtags(p,tikType);
+ $('#tikWhy').innerHTML=`<strong>Why this should stay fresh:</strong> concept, hook angle and pacing are separate. Auto-rotate avoids repeating the same concept for this planner until the usable pool has cycled.`;
+ setTikTimes(dur);nextSlot('tik');
+ // Persist generated meta for queue.
+ $('#tikConceptTitle').dataset.concept=concept;$('#tikConceptTitle').dataset.angle=angle;$('#tikConceptTitle').dataset.duration=String(dur);
+}
+async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch{toast('Copy not available in this browser')}}
+function tikPackText(){return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\nSCENE 1\n${$('#scene1').value}\n\nSCENE 2\n${$('#scene2').value}\n\nSCENE 3\n${$('#scene3').value}\n\nSCENE 4\n${$('#scene4').value}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}`}
+function addTik(){
+ const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value;if(!p||!d||!t)return toast('Choose a date and time');
+ tikQueue.push({id:'tq'+Date.now(),plannerId:p.id,planner:p.name,type:tikType,concept:$('#tikConceptTitle').dataset.concept||'',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||0),hook:$('#tikHook').value,scenes:[1,2,3,4].map(i=>$('#scene'+i).value),caption:$('#tikCaption').value,cta:$('#tikCTA').value,hashtags:$('#tikHashtags').value,mediaNames:[...$('#tikMedia').files].map(f=>f.name),when:new Date(`${d}T${t}:00`).toISOString()});
+ tikQueue.sort((a,b)=>new Date(a.when)-new Date(b.when));persist();renderQueues();updateHome();genTik(true);nextSlot('tik');toast('TikTok added');
+}
+
+/* Etsy */
+function makeTags(p){const base=[p.keyword,shortName(p.name),`${p.routes.split(' and ')[0]} itinerary`,'travel itinerary','trip planner','travel planner','digital itinerary','vacation planner',p.season?`${p.season} travel`:'travel guide','city break planner','holiday planner','travel pdf','itinerary guide'];const out=[];for(const x of base){let t=String(x||'').toLowerCase().replace(/[^\wÀ-ÿ -]/g,'').trim().slice(0,20);if(t&&!out.includes(t))out.push(t)}while(out.length<13)out.push(`travel planning ${out.length+1}`.slice(0,20));return out.slice(0,13)}
+function makeEtsy(){const p=planner($('#etsyPlanner').value);if(!p)return;const place=shortName(p.name),season=p.season?` ${p.season}`:'';$('#etsyTitle').value=clean(`${place}${season} Itinerary Guide, ${p.routes}, Digital Travel Planner, ${p.keyword}`).slice(0,140);$('#etsyDesc').value=`Plan your ${place} trip with a clear, practical digital itinerary guide built around ${p.routes} route options.
+
+WHAT'S INCLUDED
+• ${p.routes} route options
+• ${p.highlights}
+• Practical planning guidance
+• Customer-ready PDF digital download
+
+This guide is designed to help you organise the trip more quickly while still leaving room to personalise your own bookings, timings and preferences.
+
+Please check current opening times, transport information and booking requirements before travel. Digital product only; no physical item will be posted.`;const tags=makeTags(p);$$('#tagGrid input').forEach((el,i)=>el.value=tags[i]||'')}
+function syncEtsy(){const p=planner($('#etsyPlanner').value);makeEtsy();$('#etsyState').innerHTML=p&&p.link?`<span class="ok">✓ Exact Etsy link saved.</span> This becomes a live editor after API approval.`:`<span class="warn">! Exact listing data will auto-sync after Etsy approval.</span> Draft creation works now.`}
+function saveDraft(){const p=planner($('#etsyPlanner').value);if(!p)return;const d={id:'d'+Date.now(),plannerId:p.id,planner:p.name,mode:etsyMode,title:clean($('#etsyTitle').value),desc:$('#etsyDesc').value.replace(/£14\.99/gi,'').replace(/editable\s+(microsoft\s+)?word(\s+document)?/gi,'PDF guide'),tags:$$('#tagGrid input').map(x=>x.value.trim()).filter(Boolean),savedAt:new Date().toISOString(),pdfName:$('#etsyPdf').files[0]?.name||'',imageNames:[...$('#etsyImages').files].map(f=>f.name)};drafts=drafts.filter(x=>!(x.plannerId===p.id&&x.mode===etsyMode));drafts.push(d);persist();renderQueues();updateHome();toast('Etsy draft saved')}
+function loadDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;$('#etsyPlanner').value=d.plannerId;etsyMode=d.mode;$$('.modeSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.etsyMode===etsyMode));$('#etsyTitle').value=d.title;$('#etsyDesc').value=d.desc;$$('#tagGrid input').forEach((el,i)=>el.value=d.tags[i]||'');navigate('etsy');toast('Draft opened')}
+
+/* Library */
+function renderLibrary(){$('#plannerList').innerHTML=planners.map(p=>`<div class="item"><div class="itemtop"><div><h3>${esc(p.name)}</h3><span class="badge">${esc(p.routes||'Routes not set')}</span></div><span class="linkstate ${p.link?'ready':'wait'}">${p.link?'Etsy linked':'Awaiting Etsy'}</span></div><p>${esc(p.board||'Board not set')}<br>${esc(p.keyword||'Keyword not set')}</p><div class="productActions"><button class="smallBtn" onclick="editPlanner('${p.id}')">Edit</button><button class="smallBtn" onclick="deletePlanner('${p.id}')">Delete</button></div></div>`).join('')}
+function editPlanner(id){const p=planner(id);if(!p)return;$('#editPlannerId').value=p.id;$('#libName').value=p.name||'';$('#libKeyword').value=p.keyword||'';$('#libRoutes').value=p.routes||'';$('#libSeason').value=p.season||'';$('#libHighlights').value=p.highlights||'';$('#libBoard').value=p.board||'';$('#libLink').value=p.link||'';$('#libListingId').value=p.listingId||'';$('#plannerFormTitle').textContent='Edit planner';window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})}
+function deletePlanner(id){if(!confirm('Delete this planner from the local library?'))return;planners=planners.filter(p=>p.id!==id);persist();refreshAll();toast('Planner deleted')}
+function savePlanner(){const name=$('#libName').value.trim();if(!name)return toast('Enter a planner name');const id=$('#editPlannerId').value||('p'+Date.now()),p={id,name,keyword:$('#libKeyword').value.trim(),routes:$('#libRoutes').value.trim(),season:$('#libSeason').value.trim(),highlights:$('#libHighlights').value.trim(),board:$('#libBoard').value.trim(),link:$('#libLink').value.trim(),listingId:$('#libListingId').value.trim()},i=planners.findIndex(x=>x.id===id);if(i>=0)planners[i]=p;else planners.push(p);['#editPlannerId','#libName','#libKeyword','#libRoutes','#libSeason','#libHighlights','#libBoard','#libLink','#libListingId'].forEach(s=>$(s).value='');$('#plannerFormTitle').textContent='Add planner';persist();refreshAll();toast(i>=0?'Planner updated':'Planner added')}
+
+/* Queues */
+function renderQueues(){
+ $('#pinQueueList').innerHTML=pinQueue.length?pinQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.planner)}</h3><span class="badge">${esc(q.type)}</span></div><button class="smallBtn" onclick="removePin('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.title)}<br>${esc(q.board||'Board not set')}</p></div>`).join(''):'<div class="empty">No Pins queued.</div>';
+ $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(q.type)}</span><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span></div><button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.hook)}${q.mediaNames.length?`<br>${q.mediaNames.length} media file(s) selected`:''}</p></div>`).join(''):'<div class="empty">No TikToks queued.</div>';
+ $('#etsyDraftList').innerHTML=drafts.length?drafts.map(d=>`<div class="item"><div class="itemtop"><div><h3>${esc(d.planner)}</h3><span class="badge">${esc(d.mode)}</span></div><button class="smallBtn" onclick="loadDraft('${d.id}')">Open</button></div><p>${esc(d.title||'Untitled')}<br>Saved ${new Date(d.savedAt).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</p></div>`).join(''):'<div class="empty">No Etsy drafts.</div>';
+}
+function removePin(id){pinQueue=pinQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Removed')}
+function removeTik(id){tikQueue=tikQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Removed')}
+
+function navigate(id){$$('.screen').forEach(x=>x.classList.toggle('active',x.id===id));$$('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));window.scrollTo(0,0)}
+function buildTags(){let s='';for(let i=1;i<=13;i++)s+=`<input maxlength="20" aria-label="Tag ${i}" placeholder="Tag ${i}">`;$('#tagGrid').innerHTML=s}
+function refreshAll(){fillSelects();renderLibrary();renderQueues();updateHome();syncPin();genTik(false);syncEtsy()}
+
+/* Events */
+$$('.nav button').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.screen)));
+$$('#pinTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#pinTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');pinType=b.dataset.type;genPin(true);nextSlot('pin')}));
+$$('#tikTypes .chip').forEach(b=>b.addEventListener('click',()=>{$$('#tikTypes .chip').forEach(x=>x.classList.remove('active'));b.classList.add('active');tikType=b.dataset.type;genTik(true)}));
+$('#tikConcept').addEventListener('change',()=>genTik(true));$('#tikAngle').addEventListener('change',()=>genTik(true));$('#tikPace').addEventListener('change',()=>genTik(false));
+$$('.modeSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.modeSwitch button').forEach(x=>x.classList.remove('active'));b.classList.add('active');etsyMode=b.dataset.etsyMode;syncEtsy()}));
+$('#pinPlanner').addEventListener('change',syncPin);$('#tikPlanner').addEventListener('change',()=>genTik(true));$('#etsyPlanner').addEventListener('change',syncEtsy);
+$('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot').addEventListener('click',()=>nextSlot('pin'));$('#addPinQueue').addEventListener('click',addPin);
+$('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));$('#addTikQueue').addEventListener('click',addTik);
+$('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
+$('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
+$('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block'});
+$('#tikMedia').addEventListener('change',()=>{const fs=[...$('#tikMedia').files];$('#tikMediaList').textContent=fs.length?fs.map(f=>f.name).join(' • '):'No media selected yet.'});
+$('#regenEtsy').addEventListener('click',makeEtsy);$('#saveEtsyDraft').addEventListener('click',saveDraft);$('#savePlanner').addEventListener('click',savePlanner);
+$('#saveSlots').addEventListener('click',()=>{settings.pinSlots=$('#pinSlots').value.trim()||'09:00,18:00';settings.tikSlots=$('#tikSlots').value.trim()||'12:00,20:00';persist();nextSlot('pin');nextSlot('tik');toast('Scheduling saved')});
+$('#pinSlots').value=settings.pinSlots;$('#tikSlots').value=settings.tikSlots;buildTags();refreshAll();genPin(false);genTik(false);nextSlot('pin');nextSlot('tik');
+</script>
+</body>
+</html>
