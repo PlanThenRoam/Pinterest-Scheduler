@@ -516,7 +516,7 @@ function transitionDuration(){return state.transitionSpeed==='fast'?.12:state.tr
 function drawAt(canvas,t,guide=false){
  const ctx=canvas===preview?pc:canvas.getContext('2d',{alpha:false});ctx.save();ctx.setTransform(canvas.width/W,0,0,canvas.height/H,0,0);ctx.clearRect(0,0,W,H);
  const scenes=state.scenes;if(!scenes.length){ctx.fillStyle='#183C33';ctx.fillRect(0,0,W,H);ctx.restore();return;}
- const secs=state.duration/scenes.length,idx=Math.min(scenes.length-1,Math.max(0,Math.floor(t/secs))),local=clamp(t-idx*secs,0,secs),p=clamp(local/secs),tt=resolvedTransition(scenes[idx],state.style),td=Math.min(transitionDuration(),secs*.28);
+ const fallback=state.duration/scenes.length,durations=scenes.map(scene=>Number(scene.duration)>0?Number(scene.duration):fallback),target=clamp(t,0,durations.reduce((n,x)=>n+x,0));let idx=0,start=0;while(idx<durations.length-1&&target>=start+durations[idx]){start+=durations[idx];idx++;}const secs=durations[idx],local=clamp(target-start,0,secs),p=clamp(local/secs),tt=resolvedTransition(scenes[idx],state.style),td=Math.min(transitionDuration(),secs*.28);
  if(idx>0&&local<td&&tt!=='cut'){
   const q=clamp(local/td);drawScene(ctx,scenes[idx-1],1,state.style,state.variation,idx-1,1);
   if(tt==='dissolve'){ctx.save();ctx.globalAlpha=q;drawScene(ctx,scenes[idx],p,state.style,state.variation,idx,q);ctx.restore();}
