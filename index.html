@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#14213d">
+<meta name="theme-color" content="#17384c">
 <title>PlanThenRoam Seller Tools</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -14,48 +14,49 @@
 <meta name="apple-mobile-web-app-title" content="Seller Tools">
 <style>
 :root{
- --bg:#f5f6f8;--card:#fff;--ink:#172033;--muted:#687386;--line:#e2e7ee;
- --navy:#18324f;--navy2:#294f72;--soft:#edf3f8;--ok:#067647;--warn:#b54708;--bad:#b42318;
- --shadow:0 8px 28px rgba(26,37,51,.08)
+ --bg:#f3eee6;--card:#fffdf9;--ink:#263238;--muted:#6f746f;--line:#ddd3c5;
+ --navy:#17384c;--navy2:#4f756e;--soft:#edf1ea;--sage:#668278;--sand:#ead9bd;--clay:#b8664d;--gold:#c49a58;
+ --ok:#167052;--warn:#a95625;--bad:#b23a31;--shadow:0 12px 34px rgba(48,54,49,.09)
 }
-*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 96% 2%,rgba(196,154,88,.18),transparent 25rem),radial-gradient(circle at 2% 42%,rgba(102,130,120,.13),transparent 28rem),linear-gradient(180deg,#f8f4ed,var(--bg));color:var(--ink);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min-height:100vh;padding:0 0 92px}
-.top{position:sticky;top:0;z-index:20;background:rgba(245,246,248,.96);backdrop-filter:blur(12px);padding:15px 14px 10px;border-bottom:1px solid var(--line)}
-.toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.brand{font-size:20px;font-weight:850;letter-spacing:-.45px}.sub{font-size:12px;color:var(--muted);margin-top:2px}
-.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:48%}.pill{font-size:9px;font-weight:820;padding:5px 7px;border-radius:999px;border:1px solid var(--line);background:#fff;white-space:nowrap}
+.top{position:sticky;top:0;z-index:20;background:rgba(248,244,237,.94);backdrop-filter:blur(14px);padding:15px 14px 11px;border-bottom:1px solid #dacdbc}
+.toprow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.brand{font-size:20px;font-weight:850;letter-spacing:-.45px;color:var(--navy)}.brand:after{content:"";display:inline-block;width:7px;height:7px;margin-left:7px;border-radius:50%;background:var(--clay);box-shadow:11px 0 0 var(--gold)}.sub{font-size:12px;color:var(--muted);margin-top:3px}
+.pills{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;max-width:48%}.pill{font-size:9px;font-weight:820;padding:5px 7px;border-radius:999px;border:1px solid var(--line);background:#fffaf3;white-space:nowrap}
 .pill.pending{color:#8a3a14;background:#fff3e8;border-color:#ffd6b0}.pill.off{color:#5d6778;background:#f7f8fa}
 .main{padding:12px}.screen{display:none}.screen.active{display:block}
-.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:var(--shadow);margin-bottom:12px}.card h2{font-size:17px;margin:0 0 11px}.card h3{font-size:14px;margin:0 0 7px}
-.hero{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border:0}.hero .muted{color:#d8e3ed}
+.card{background:linear-gradient(180deg,#fffefa,var(--card));border:1px solid var(--line);border-radius:20px;padding:17px;box-shadow:var(--shadow);margin-bottom:15px}.card h2{font-size:18px;margin:0 0 13px;color:var(--navy);letter-spacing:-.2px}.card h3{font-size:14px;margin:0 0 7px}.hero{background:radial-gradient(circle at 90% 5%,rgba(234,217,189,.24),transparent 40%),linear-gradient(135deg,var(--navy) 0%,#315f63 68%,var(--navy2));color:#fff;border:0;padding:20px}.hero h2{color:#fff}.hero .muted{color:#e5eee9}
 .heroStats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:13px}.stat{background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px}.stat b{display:block;font-size:18px}.stat span{font-size:9px;color:#dce7f1}
 .grid{display:grid;grid-template-columns:1fr;gap:10px}.two{grid-template-columns:1fr 1fr}.field label{display:block;font-size:11px;font-weight:780;color:#49556a;margin:0 0 5px}
-.field input,.field select,.field textarea{width:100%;border:1px solid #ccd4df;background:#fff;color:var(--ink);border-radius:12px;padding:11px 12px;outline:none}.field textarea{min-height:104px;resize:vertical}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:#7892ac;box-shadow:0 0 0 3px rgba(61,93,128,.10)}
-.upload{border:1.5px dashed #aab6c5;border-radius:15px;padding:16px;text-align:center;background:#fbfcfd}.upload input{display:none}.upload label{display:block;font-weight:800;cursor:pointer}.upload small{display:block;color:var(--muted);margin-top:4px}
+.field input,.field select,.field textarea{width:100%;border:1px solid #d3c8ba;background:#fffdfa;color:var(--ink);border-radius:13px;padding:12px 13px;outline:none}.field textarea{min-height:104px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--sage);box-shadow:0 0 0 3px rgba(102,130,120,.14)}
+.upload{border:1.5px dashed #bbaa94;border-radius:16px;padding:19px;text-align:center;background:#fbf5eb}.upload input{display:none}.upload label{display:block;font-weight:800;cursor:pointer;color:var(--navy)}.upload small{display:block;color:var(--muted);margin-top:4px}
 .preview{display:none;margin-top:10px}.preview img{display:block;width:min(220px,55vw);aspect-ratio:2/3;object-fit:cover;margin:0 auto;border-radius:12px;border:1px solid var(--line)}
-.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid #cbd4df;background:#fff;border-radius:999px;padding:8px 10px;font-weight:760;color:#435066;font-size:12px}.chip.active{background:var(--navy);color:#fff;border-color:var(--navy)}
-.primary,.secondary,.danger,.smallBtn{border:0;border-radius:12px;padding:11px 13px;font-weight:820;cursor:pointer}.primary{background:var(--navy);color:#fff;width:100%}.secondary{background:var(--soft);color:var(--navy);border:1px solid #cfdce8;width:100%}
+.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{border:1px solid #d1c6b8;background:#fffdfa;border-radius:999px;padding:8px 11px;font-weight:760;color:#4e5c5a;font-size:12px}.chip.active{background:linear-gradient(135deg,var(--navy),var(--sage));color:#fff;border-color:transparent}
+.primary,.secondary,.danger,.smallBtn{border:0;border-radius:13px;padding:12px 14px;font-weight:820;cursor:pointer}.primary{background:linear-gradient(135deg,var(--navy),#3f6d68);color:#fff;width:100%;box-shadow:0 6px 16px rgba(23,56,76,.16)}.secondary{background:#f4eadc;color:var(--navy);border:1px solid #dec9aa;width:100%}
 .danger{background:#fff1f0;color:var(--bad);border:1px solid #ffd0cc;width:100%}.smallBtn{padding:7px 9px;background:#fff;border:1px solid var(--line);color:#49556a;font-size:12px}
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.helper{background:#f7f9fb;border:1px solid var(--line);border-radius:12px;padding:10px;color:#5f6a7c;font-size:11px}.helper strong{color:var(--ink)}
-.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.list{display:grid;gap:8px}.item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px}.itemtop{display:flex;justify-content:space-between;gap:9px;align-items:flex-start}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.helper{background:linear-gradient(135deg,#f7f1e8,#f1f4ee);border:1px solid var(--line);border-radius:13px;padding:11px;color:#626d69;font-size:11px}.helper strong{color:var(--ink)}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.list{display:grid;gap:9px}.item{background:#fffcf7;border:1px solid var(--line);border-radius:15px;padding:12px}.itemtop{display:flex;justify-content:space-between;gap:9px;align-items:flex-start}
 .item h3{font-size:13px;margin:0 0 3px}.badge{display:inline-block;font-size:9px;font-weight:830;padding:5px 7px;border-radius:999px;background:#eef2f6;color:#526070}.item p{font-size:11px;color:var(--muted);margin:6px 0 0}
 .productActions{display:flex;gap:6px;margin-top:8px}.productActions button{flex:1}.counter{float:right;font-weight:700}.empty{text-align:center;padding:25px 10px;color:var(--muted)}
 .sectionHead{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-bottom:9px}.sectionHead h2{margin:0}.linkstate{font-size:10px;font-weight:800}.linkstate.ready{color:var(--ok)}.linkstate.wait{color:var(--warn)}
-.modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fff;padding:9px;border-radius:11px;font-weight:780}.modeSwitch button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fffdfa;padding:10px;border-radius:12px;font-weight:780}.modeSwitch button.active{background:linear-gradient(135deg,var(--navy),var(--sage));color:#fff;border-color:transparent}
 .taggrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.taggrid input{font-size:12px}.scenegrid{display:grid;grid-template-columns:1fr;gap:8px}.scene{display:grid;grid-template-columns:72px 1fr;gap:7px;align-items:start}.scene .time{font-size:11px;font-weight:800;color:var(--navy);background:var(--soft);border-radius:10px;padding:10px 8px;text-align:center}
 .mediaList{font-size:11px;color:var(--muted);margin-top:7px}.mediaList.uploading{color:var(--warn);font-weight:760}.mediaList.ready{color:var(--ok);font-weight:760}.mediaList.error{color:var(--bad);font-weight:760}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
 .scoreCard{display:grid;grid-template-columns:58px 1fr;gap:11px;align-items:center;background:#f7f9fb;border:1px solid var(--line);border-radius:14px;padding:10px}.scoreRing{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--ok) calc(var(--score,0)*1%),#e4e9ef 0);position:relative}.scoreRing:after{content:"";position:absolute;inset:6px;border-radius:50%;background:#fff}.scoreRing b{position:relative;z-index:1;font-size:14px}.scoreText{font-size:11px;color:var(--muted)}.scoreText strong{display:block;color:var(--ink);font-size:13px}.metricGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px}.metric b{display:block;font-size:18px}.metric span{font-size:9px;color:var(--muted)}.mediaThumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.mediaThumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;border:1px solid var(--line)}.statusBadge{display:inline-block;font-size:9px;font-weight:850;padding:5px 7px;border-radius:999px;background:#fff3e8;color:var(--warn)}.statusBadge.published{background:#ecfdf3;color:var(--ok)}.queueActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.queueActions button{flex:1;min-width:82px}.modalCard .field{margin-top:9px}
-.studioCallout{background:linear-gradient(135deg,#18324f,#294f72);color:#fff;border-radius:16px;padding:14px}.studioCallout h3{font-size:15px;margin:0 0 5px}.studioCallout p{font-size:11px;color:#dce7f1;margin:0 0 11px}.studioCallout .primary{background:#fff;color:var(--navy)}
+.studioCallout{background:radial-gradient(circle at 100% 0,rgba(234,217,189,.22),transparent 45%),linear-gradient(135deg,var(--navy),#486f69);color:#fff;border-radius:17px;padding:16px}.studioCallout h3{font-size:15px;margin:0 0 5px}.studioCallout p{font-size:11px;color:#e6eee9;margin:0 0 12px}.studioCallout .primary{background:#fffaf2;color:var(--navy);box-shadow:none}
 .modal{position:fixed;inset:0;z-index:80;background:rgba(12,20,31,.72);display:none;align-items:center;justify-content:center;padding:18px}.modal.open{display:flex}.modalCard{width:min(430px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:14px;box-shadow:0 24px 80px rgba(0,0,0,.3)}.modalCard video{display:block;width:100%;max-height:72vh;background:#101820;border-radius:14px;margin:10px 0}.modalHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.modalHead h2{margin:0;font-size:17px}
-.nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,255,255,.98);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:5px 1px calc(5px + env(safe-area-inset-bottom))}
-.nav button{border:0;background:transparent;color:#687386;padding:6px 0;font-size:9px;font-weight:770}.nav button.active{color:var(--navy)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
+.nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,252,247,.97);backdrop-filter:blur(14px);border-top:1px solid #d8ccbd;display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:6px 3px calc(6px + env(safe-area-inset-bottom))}
+.nav button{border:0;background:transparent;color:#777a73;padding:7px 2px;font-size:9px;font-weight:770;border-radius:12px}.nav button.active{color:var(--navy);background:var(--soft)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
+.screen>.card:first-child{border-top-width:4px}.screen#home>.card:first-child{border-top-color:var(--gold)}.screen#pin>.card:first-child{border-top-color:#a84f68}.screen#tiktok>.card:first-child{border-top-color:#307b78}.screen#etsy>.card:first-child{border-top-color:#ca7543}.screen#library>.card:first-child{border-top-color:var(--gold)}.screen#queue>.card:first-child{border-top-color:var(--sage)}
+.disclosure{padding:0;overflow:hidden}.disclosure>summary,.options>summary{list-style:none;cursor:pointer;font-weight:830;color:var(--navy)}.disclosure>summary::-webkit-details-marker,.options>summary::-webkit-details-marker{display:none}.disclosure>summary{padding:17px 46px 17px 17px;position:relative}.disclosure>summary:after,.options>summary:after{content:"+";position:absolute;right:17px;color:var(--clay);font-size:20px;line-height:1}.disclosure[open]>summary:after,.options[open]>summary:after{content:"−"}.disclosure[open]>summary{border-bottom:1px solid var(--line)}.disclosure>.disclosureBody{padding:15px 17px 17px}.options{position:relative;border:1px solid var(--line);border-radius:15px;background:#fcf8f1;padding:0}.options>summary{padding:12px 42px 12px 13px;font-size:12px}.options>summary:after{right:13px;font-size:17px}.options[open]>summary{border-bottom:1px solid var(--line)}.options>.grid{padding:13px}
 .toast{position:fixed;z-index:50;left:50%;bottom:91px;transform:translateX(-50%) translateY(18px);background:#172033;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:760;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-@media(max-width:430px){.two,.actions,.heroStats{grid-template-columns:1fr}.taggrid{grid-template-columns:1fr}.brand{font-size:19px}.scene{grid-template-columns:62px 1fr}}
+@media(max-width:430px){.two,.actions{grid-template-columns:1fr}.heroStats{grid-template-columns:1fr 1fr}.taggrid{grid-template-columns:1fr}.brand{font-size:19px}.scene{grid-template-columns:62px 1fr}}
 </style>
 </head>
 <body>
 <div class="app">
-<header class="top"><div class="toprow"><div><div class="brand">PlanThenRoam Seller Tools</div><div class="sub">Pinterest + TikTok + Etsy + Planner Library</div></div><div class="pills"><span class="pill pending">Etsy pending</span><span class="pill pending">Pinterest trial</span><span class="pill off">TikTok manual</span></div></div></header>
+<header class="top"><div class="toprow"><div><div class="brand">PlanThenRoam Seller Tools</div><div class="sub">Create, preview and organise your seller content</div></div><div class="pills"><span class="pill off">Private</span></div></div></header>
 
 <main class="main">
 
@@ -80,14 +81,14 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   <div class="metricGrid"><div class="metric"><b id="publishedCount">0</b><span>published</span></div><div class="metric"><b id="trackedSales">0</b><span>sales tracked</span></div><div class="metric"><b id="trackedClicks">0</b><span>clicks tracked</span></div></div>
   <div class="helper" id="winnerSummary" style="margin-top:9px">Publish content, then add its results in Queue. The strongest seller will be highlighted here.</div>
  </div>
- <div class="card">
-  <h2>Built for your actual workflow</h2>
-  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest image recognition, SEO, creative angle and destination checks<br><span class="ok">✓</span> TikTok goals + 15 rotating concepts + 6–8 generated scenes<br><span class="ok">✓</span> Sound, cover and optional voiceover plans<br><span class="ok">✓</span> Integrated 28-style video studio with one-time photo selection, full preview and local MP4 rendering<br><span class="ok">✓</span> Secure finished-video queue, private previews and download packs<br><span class="ok">✓</span> Etsy titles, descriptions, tags, gallery plan, PDFs and listing images<br><span class="ok">✓</span> Conversion scoring and results tracking across all three channels<br><span class="ok">✓</span> Private owner-only uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners</div>
- </div>
- <div class="card">
-  <h2>Connections</h2>
-  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> concept generation, video rendering, secure queueing and private previews are built. Direct publishing remains pending platform API approval.</div>
- </div>
+ <details class="card disclosure">
+  <summary>What the app can do</summary>
+  <div class="disclosureBody"><div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest image recognition, SEO and destination checks<br><span class="ok">✓</span> TikTok concepts with 6–8 generated scenes<br><span class="ok">✓</span> Sound, cover and optional voiceover plans<br><span class="ok">✓</span> 28-style video studio, full preview and local MP4 rendering<br><span class="ok">✓</span> Secure video queue, private previews and download packs<br><span class="ok">✓</span> Etsy copy, tags, PDFs and listing images<br><span class="ok">✓</span> Conversion scoring and results tracking<br><span class="ok">✓</span> Private owner-only uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners</div></div>
+ </details>
+ <details class="card disclosure">
+  <summary>Connection status</summary>
+  <div class="disclosureBody"><div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> video creation, secure queueing and previews are ready. Direct publishing remains pending platform API approval.</div></div>
+ </details>
  <div class="card">
   <div class="sectionHead"><h2>Cloud Sync</h2><span id="cloudState" class="linkstate wait">Signed out</span></div>
   <div id="cloudSignedOut" class="grid">
@@ -110,11 +111,13 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
    <div class="helper" id="pinRecogniseState"><strong>Automatic planner recognition:</strong> choose a Pin and the app will read its text, select the planner, board and Etsy link, then create matching SEO copy.</div>
    <div class="field"><label>Planner</label><select id="pinPlanner"></select></div>
    <div class="field"><label>Pin type</label><div class="chips" id="pinTypes"><button class="chip active" data-type="advert">Advert</button><button class="chip" data-type="save">Save-worthy</button><button class="chip" data-type="factual">Factual</button></div></div>
-   <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
-   <div class="field"><label>Exact Etsy link</label><input id="pinLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
-   <div class="field"><label>Creative angle</label><select id="pinAngle"><option value="utility">Useful / practical</option><option value="dream">Dream trip</option><option value="problem">Problem → solution</option><option value="comparison">Compare routes</option><option value="urgency">Seasonal urgency</option><option value="save">Save-this reference</option></select></div>
-   <div class="field"><label>Pin overlay text</label><input id="pinOverlay" maxlength="70" placeholder="Short, readable promise"></div>
-   <div class="field"><label>Pinterest topics — up to 5</label><input id="pinTopics" placeholder="travel planning, city breaks, …"></div>
+   <details class="options"><summary>Destination and creative controls</summary><div class="grid">
+    <div class="field"><label>Automatic board</label><input id="pinBoard"></div>
+    <div class="field"><label>Exact Etsy link</label><input id="pinLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
+    <div class="field"><label>Creative angle</label><select id="pinAngle"><option value="utility">Useful / practical</option><option value="dream">Dream trip</option><option value="problem">Problem → solution</option><option value="comparison">Compare routes</option><option value="urgency">Seasonal urgency</option><option value="save">Save-this reference</option></select></div>
+    <div class="field"><label>Pin overlay text</label><input id="pinOverlay" maxlength="70" placeholder="Short, readable promise"></div>
+    <div class="field"><label>Pinterest topics — up to 5</label><input id="pinTopics" placeholder="travel planning, city breaks, …"></div>
+   </div></details>
   </div>
  </div>
  <div class="card"><div class="sectionHead"><h2>SEO auto-fill</h2><button class="smallBtn" id="refreshPinSeo">New variation</button></div>
@@ -153,27 +156,11 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
      <option value="punchy">Fast punchy cuts</option>
     </select>
    </div>
-   <div class="field"><label>Hook angle</label>
-    <select id="tikAngle">
-     <option value="auto">Auto-rotate</option>
-     <option value="pain">Pain point</option>
-     <option value="curiosity">Curiosity</option>
-     <option value="utility">Useful / practical</option>
-     <option value="aspiration">Aspirational</option>
-     <option value="identity">Identity / relatable</option>
-     <option value="comparison">Comparison</option>
-     <option value="urgency">Seasonal urgency</option>
-    </select>
-   </div>
-   <div class="field"><label>Editing pace</label>
-    <select id="tikPace">
-     <option value="auto">Auto for concept</option>
-     <option value="fast">Fast — 7–9 seconds</option>
-     <option value="balanced">Balanced — 10–12 seconds</option>
-     <option value="editorial">Editorial — 13–16 seconds</option>
-    </select>
-   </div>
    <div class="field"><label>Number of scenes / photos</label><select id="tikSceneCount"><option value="6" selected>6 scenes — concise</option><option value="7">7 scenes — detailed</option><option value="8">8 scenes — full story</option></select></div>
+   <details class="options"><summary>Fine-tune the creative direction</summary><div class="grid">
+    <div class="field"><label>Hook angle</label><select id="tikAngle"><option value="auto">Auto-rotate</option><option value="pain">Pain point</option><option value="curiosity">Curiosity</option><option value="utility">Useful / practical</option><option value="aspiration">Aspirational</option><option value="identity">Identity / relatable</option><option value="comparison">Comparison</option><option value="urgency">Seasonal urgency</option></select></div>
+    <div class="field"><label>Editing pace</label><select id="tikPace"><option value="auto">Auto for concept</option><option value="fast">Fast — 7–9 seconds</option><option value="balanced">Balanced — 10–12 seconds</option><option value="editorial">Editorial — 13–16 seconds</option></select></div>
+   </div></details>
    <div class="helper"><strong>Photos are added once, in the Video Studio.</strong> Select exactly one text-free photograph per scene there, where you can check its crop, order, movement and full preview before rendering.</div>
   </div>
  </div>
@@ -183,13 +170,15 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   <div class="grid">
    <div class="helper" id="tikDirection"></div>
    <div class="field"><label>Hook</label><input id="tikHook" maxlength="90"></div>
-   <div class="scenegrid" id="tikScenes"></div>
+   <details class="options"><summary>Review all 6–8 scene captions</summary><div class="grid"><div class="scenegrid" id="tikScenes"></div></div></details>
    <div class="field"><label>Caption</label><textarea id="tikCaption"></textarea></div>
    <div class="field"><label>CTA</label><input id="tikCTA"></div>
    <div class="field"><label>5 SEO hashtags</label><input id="tikHashtags"></div>
-   <div class="field"><label>Sound plan</label><select id="tikSound"><option value="trending">Add a relevant trending sound in TikTok</option><option value="voiceover">Record voiceover, then add low music in TikTok</option><option value="music">Add suitable music in TikTok</option><option value="silent">Publish without added sound</option></select></div>
-   <div class="field"><label>Cover title</label><input id="tikCover" maxlength="60"></div>
-   <div class="field"><label>Optional voiceover script</label><textarea id="tikVoiceover" maxlength="700"></textarea></div>
+   <details class="options"><summary>Sound, cover and voiceover</summary><div class="grid">
+    <div class="field"><label>Sound plan</label><select id="tikSound"><option value="trending">Add a relevant trending sound in TikTok</option><option value="voiceover">Record voiceover, then add low music in TikTok</option><option value="music">Add suitable music in TikTok</option><option value="silent">Publish without added sound</option></select></div>
+    <div class="field"><label>Cover title</label><input id="tikCover" maxlength="60"></div>
+    <div class="field"><label>Optional voiceover script</label><textarea id="tikVoiceover" maxlength="700"></textarea></div>
+   </div></details>
    <div class="helper" id="tikWhy"></div>
    <div id="tikScore" class="scoreCard"></div>
    <div class="copyRow"><button class="secondary" id="copyTik">Copy full video pack</button><button class="secondary" id="downloadTikPack">Download posting notes</button></div>
@@ -198,7 +187,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   </div>
  </div>
 
- <div class="card"><h2>Optional posting reminder</h2><div class="helper">Your finished video downloads to your phone and can be saved to the private queue from the studio. Add licensed sound inside TikTok, set the prepared cover, paste the caption, then post.</div><div class="grid two" style="margin-top:9px"><div class="field"><label>Date (optional)</label><input id="tikDate" type="date"></div><div class="field"><label>Time (optional)</label><input id="tikTime" type="time"></div></div><button class="secondary" id="nextTikSlot" style="margin-top:9px">Suggest a posting slot</button></div>
+ <details class="card disclosure"><summary>Optional posting reminder</summary><div class="disclosureBody"><div class="helper">Your finished video downloads to your phone and can be saved to the private queue from the studio. Add licensed sound inside TikTok, set the prepared cover, paste the caption, then post.</div><div class="grid two" style="margin-top:9px"><div class="field"><label>Date (optional)</label><input id="tikDate" type="date"></div><div class="field"><label>Time (optional)</label><input id="tikTime" type="time"></div></div><button class="secondary" id="nextTikSlot" style="margin-top:9px">Suggest a posting slot</button></div></details>
 </section>
 
 <section id="etsy" class="screen">
@@ -209,7 +198,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  <div class="card"><h2>Listing content</h2><div class="grid">
   <div class="field"><label>Etsy title <span class="counter" id="etsyTitleCount">0/140</span></label><textarea id="etsyTitle" maxlength="140" style="min-height:76px"></textarea></div>
   <div class="field"><label>Description <span class="counter" id="etsyDescCount">0</span></label><textarea id="etsyDesc" style="min-height:190px"></textarea></div>
-  <div class="field"><label>13 tags</label><div id="tagGrid" class="taggrid"></div></div>
+  <details class="options"><summary>Review all 13 Etsy search tags</summary><div class="grid"><div class="field"><label>Search tags</label><div id="tagGrid" class="taggrid"></div></div></div></details>
   <div class="field"><label>Customer PDF</label><input id="etsyPdf" type="file" accept="application/pdf"><div id="etsyPdfState" class="mediaList">Uploads securely when you save the draft.</div></div>
   <div class="field"><label>Listing images</label><input id="etsyImages" type="file" accept="image/png,image/jpeg,image/webp" multiple><div id="etsyImagesState" class="mediaList">Uploads securely when you save the draft.</div><div id="etsyImagePreviews" class="mediaThumbs"></div></div>
   <div class="helper" id="etsyImagePlan"></div>
@@ -221,7 +210,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 
 <section id="library" class="screen">
  <div class="card"><div class="sectionHead"><h2>Planner Library</h2><span class="badge" id="plannerBadge">17 planners</span></div><div class="helper">One permanent profile per planner. Board, Etsy link, route lengths, highlights and search phrase are reused by Pinterest, TikTok and Etsy.</div><div id="plannerList" class="list" style="margin-top:10px"></div></div>
- <div class="card"><h2 id="plannerFormTitle">Add planner</h2><input type="hidden" id="editPlannerId"><div class="grid">
+ <details class="card disclosure"><summary id="plannerFormTitle">Add planner</summary><div class="disclosureBody"><input type="hidden" id="editPlannerId"><div class="grid">
   <div class="field"><label>Planner name</label><input id="libName"></div>
   <div class="field"><label>Main search phrase</label><input id="libKeyword"></div>
   <div class="grid two"><div class="field"><label>Route lengths</label><input id="libRoutes"></div><div class="field"><label>Edition / season</label><input id="libSeason"></div></div>
@@ -230,14 +219,14 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
   <div class="field"><label>Exact Etsy listing link</label><input id="libLink" inputmode="url" placeholder="Auto-sync after Etsy approval"></div>
   <div class="field"><label>Etsy listing ID</label><input id="libListingId" inputmode="numeric" placeholder="Auto-sync after Etsy approval"></div>
   <button class="primary" id="savePlanner">Save planner</button>
- </div></div>
+ </div></div></details>
 </section>
 
 <section id="queue" class="screen">
  <div class="card"><div class="sectionHead"><h2>Pinterest Queue</h2><span class="badge" id="pinQueueBadge">0 Pins</span></div><div id="pinQueueList" class="list"></div></div>
  <div class="card"><div class="sectionHead"><h2>TikTok download &amp; post queue</h2><span class="badge" id="tikQueueBadge">0 videos</span></div><div id="tikQueueList" class="list"></div></div>
  <div class="card"><h2>Etsy Drafts</h2><div id="etsyDraftList" class="list"></div></div>
- <div class="card"><h2>Scheduling</h2><div class="grid two"><div class="field"><label>Pinterest slots</label><input id="pinSlots" value="09:00,18:00"></div><div class="field"><label>TikTok slots</label><input id="tikSlots" value="12:00,20:00"></div></div><button class="primary" id="saveSlots" style="margin-top:9px">Save slots</button></div>
+ <details class="card disclosure"><summary>Scheduling settings</summary><div class="disclosureBody"><div class="grid two"><div class="field"><label>Pinterest slots</label><input id="pinSlots" value="09:00,18:00"></div><div class="field"><label>TikTok slots</label><input id="tikSlots" value="12:00,20:00"></div></div><button class="primary" id="saveSlots" style="margin-top:9px">Save slots</button></div></details>
 </section>
 
 </main>
@@ -792,7 +781,7 @@ function loadDraft(id){const d=drafts.find(x=>x.id===id);if(!d)return;$('#etsyPl
 
 /* Library */
 function renderLibrary(){$('#plannerList').innerHTML=planners.map(p=>`<div class="item"><div class="itemtop"><div><h3>${esc(p.name)}</h3><span class="badge">${esc(p.routes||'Routes not set')}</span></div><span class="linkstate ${p.link?'ready':'wait'}">${p.link?'Etsy linked':'Awaiting Etsy'}</span></div><p>${esc(p.board||'Board not set')}<br>${esc(p.keyword||'Keyword not set')}</p><div class="productActions"><button class="smallBtn" onclick="editPlanner('${p.id}')">Edit</button><button class="smallBtn" onclick="deletePlanner('${p.id}')">Delete</button></div></div>`).join('')}
-function editPlanner(id){const p=planner(id);if(!p)return;$('#editPlannerId').value=p.id;$('#libName').value=p.name||'';$('#libKeyword').value=p.keyword||'';$('#libRoutes').value=p.routes||'';$('#libSeason').value=p.season||'';$('#libHighlights').value=p.highlights||'';$('#libBoard').value=p.board||'';$('#libLink').value=p.link||'';$('#libListingId').value=p.listingId||'';$('#plannerFormTitle').textContent='Edit planner';window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})}
+function editPlanner(id){const p=planner(id);if(!p)return;$('#editPlannerId').value=p.id;$('#libName').value=p.name||'';$('#libKeyword').value=p.keyword||'';$('#libRoutes').value=p.routes||'';$('#libSeason').value=p.season||'';$('#libHighlights').value=p.highlights||'';$('#libBoard').value=p.board||'';$('#libLink').value=p.link||'';$('#libListingId').value=p.listingId||'';$('#plannerFormTitle').textContent='Edit planner';$('#plannerFormTitle').closest('details').open=true;window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})}
 function deletePlanner(id){if(!confirm('Delete this planner from the local library?'))return;planners=planners.filter(p=>p.id!==id);persist();refreshAll();toast('Planner deleted')}
 function savePlanner(){const name=$('#libName').value.trim();if(!name)return toast('Enter a planner name');const id=$('#editPlannerId').value||('p'+Date.now()),p={id,name,keyword:$('#libKeyword').value.trim(),routes:$('#libRoutes').value.trim(),season:$('#libSeason').value.trim(),highlights:$('#libHighlights').value.trim(),board:$('#libBoard').value.trim(),link:$('#libLink').value.trim(),listingId:$('#libListingId').value.trim()},i=planners.findIndex(x=>x.id===id);if(i>=0)planners[i]=p;else planners.push(p);['#editPlannerId','#libName','#libKeyword','#libRoutes','#libSeason','#libHighlights','#libBoard','#libLink','#libListingId'].forEach(s=>$(s).value='');$('#plannerFormTitle').textContent='Add planner';persist();refreshAll();toast(i>=0?'Planner updated':'Planner added')}
 
