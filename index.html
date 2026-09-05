@@ -44,6 +44,8 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
 .modeSwitch{display:grid;grid-template-columns:1fr 1fr;gap:7px}.modeSwitch button{border:1px solid var(--line);background:#fff;padding:9px;border-radius:11px;font-weight:780}.modeSwitch button.active{background:var(--navy);color:#fff;border-color:var(--navy)}
 .taggrid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.taggrid input{font-size:12px}.scenegrid{display:grid;grid-template-columns:1fr;gap:8px}.scene{display:grid;grid-template-columns:72px 1fr;gap:7px;align-items:start}.scene .time{font-size:11px;font-weight:800;color:var(--navy);background:var(--soft);border-radius:10px;padding:10px 8px;text-align:center}
 .mediaList{font-size:11px;color:var(--muted);margin-top:7px}.mediaList.uploading{color:var(--warn);font-weight:760}.mediaList.ready{color:var(--ok);font-weight:760}.mediaList.error{color:var(--bad);font-weight:760}.copyRow{display:flex;gap:7px}.copyRow button{flex:1}
+.studioCallout{background:linear-gradient(135deg,#18324f,#294f72);color:#fff;border-radius:16px;padding:14px}.studioCallout h3{font-size:15px;margin:0 0 5px}.studioCallout p{font-size:11px;color:#dce7f1;margin:0 0 11px}.studioCallout .primary{background:#fff;color:var(--navy)}
+.modal{position:fixed;inset:0;z-index:80;background:rgba(12,20,31,.72);display:none;align-items:center;justify-content:center;padding:18px}.modal.open{display:flex}.modalCard{width:min(430px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:14px;box-shadow:0 24px 80px rgba(0,0,0,.3)}.modalCard video{display:block;width:100%;max-height:72vh;background:#101820;border-radius:14px;margin:10px 0}.modalHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.modalHead h2{margin:0;font-size:17px}
 .nav{position:fixed;z-index:30;bottom:0;left:0;right:0;background:rgba(255,255,255,.98);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);max-width:760px;margin:0 auto;padding:5px 1px calc(5px + env(safe-area-inset-bottom))}
 .nav button{border:0;background:transparent;color:#687386;padding:6px 0;font-size:9px;font-weight:770}.nav button.active{color:var(--navy)}.nav b{display:block;font-size:17px;line-height:1.05;margin-bottom:2px}
 .toast{position:fixed;z-index:50;left:50%;bottom:91px;transform:translateX(-50%) translateY(18px);background:#172033;color:#fff;padding:10px 14px;border-radius:999px;font-size:12px;font-weight:760;opacity:0;pointer-events:none;transition:.2s;white-space:nowrap}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -74,11 +76,11 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  </div>
  <div class="card">
   <h2>Built for your actual workflow</h2>
-  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> TikTok hook, on-screen scenes, caption, CTA and 5 hashtags auto-fill<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Private owner-only media uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
+  <div class="helper"><span class="ok">✓</span> Shared 17-planner library<br><span class="ok">✓</span> Pinterest board, Etsy link, SEO and scheduling auto-fill<br><span class="ok">✓</span> TikTok goals + 15 rotating creative concepts + separate hook angles<br><span class="ok">✓</span> Integrated 28-style video studio with full preview and local MP4 rendering<br><span class="ok">✓</span> Secure finished-video queue with owner-only previews<br><span class="ok">✓</span> Etsy edit/create drafts with title, description, tags, PDF and images<br><span class="ok">✓</span> Private owner-only media uploads with automatic clean-up<br><span class="ok">✓</span> Unlimited future planners<br><span class="warn">!</span> Live posting connections come after each platform approves the API connection</div>
  </div>
  <div class="card">
   <h2>Connections</h2>
-  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> control engine is built; posting/render connection still to wire. The first real workflow remains the shop-promo video.</div>
+  <div class="helper"><strong>Etsy:</strong> Seller App created; approval pending.<br><br><strong>Pinterest:</strong> Trial access pending.<br><br><strong>TikTok:</strong> concept generation, video rendering, secure queueing and private previews are built. Direct publishing remains pending platform API approval.</div>
  </div>
  <div class="card">
   <div class="sectionHead"><h2>Cloud Sync</h2><span id="cloudState" class="linkstate wait">Signed out</span></div>
@@ -182,6 +184,7 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
    <div class="field"><label>5 SEO hashtags</label><input id="tikHashtags"></div>
    <div class="helper" id="tikWhy"></div>
    <div class="copyRow"><button class="secondary" id="copyTik">Copy full video pack</button><button class="secondary" id="copyTikCaption">Copy caption only</button></div>
+   <div class="studioCallout"><h3>Turn this concept into a finished video</h3><p>Your planner, hook, scenes, caption and schedule will open in the integrated studio. Add photos, play the full preview, then render and securely add the finished file to this queue.</p><button class="primary" id="openVideoStudio">Build &amp; preview video</button></div>
   </div>
  </div>
 
@@ -236,6 +239,9 @@ button,input,select,textarea{font:inherit}.app{max-width:760px;margin:0 auto;min
  <button data-screen="queue"><b>◷</b>Queue</button>
 </nav>
 <div id="toast" class="toast"></div>
+<div id="videoModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
+ <div class="modalCard"><div class="modalHead"><h2 id="videoModalTitle">Queued TikTok preview</h2><button class="smallBtn" id="closeVideoModal" type="button">Close</button></div><video id="queuedVideo" controls playsinline preload="metadata"></video><div id="queuedVideoState" class="helper">Preparing secure preview…</div></div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
@@ -698,6 +704,12 @@ function genTik(advance=true){
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Copied')}catch{toast('Copy not available in this browser')}}
 function tikPackText(){return `CONCEPT\n${$('#tikConceptTitle').textContent}\n\nVISUAL DIRECTION\n${$('#tikDirection').innerText}\n\nHOOK\n${$('#tikHook').value}\n\nSCENE 1\n${$('#scene1').value}\n\nSCENE 2\n${$('#scene2').value}\n\nSCENE 3\n${$('#scene3').value}\n\nSCENE 4\n${$('#scene4').value}\n\nCAPTION\n${$('#tikCaption').value}\n\nCTA\n${$('#tikCTA').value}\n\nHASHTAGS\n${$('#tikHashtags').value}`}
+function openVideoStudio(){
+ const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value;if(!p)return toast('Choose a planner');if(!d||!t)return toast('Choose a date and time');
+ const concept=$('#tikConceptTitle').dataset.concept||'';
+ const handoff={id:globalThis.crypto?.randomUUID?.()||('vh'+Date.now()),createdAt:new Date().toISOString(),planner:{...p},type:tikType,concept,conceptName:conceptNames[concept]||'TikTok video',angle:$('#tikConceptTitle').dataset.angle||'',duration:Number($('#tikConceptTitle').dataset.duration||11),direction:$('#tikDirection').innerText,hook:clean($('#tikHook').value),scenes:[1,2,3,4].map(i=>clean($('#scene'+i).value)),caption:clean($('#tikCaption').value),cta:clean($('#tikCTA').value),hashtags:clean($('#tikHashtags').value),when:new Date(`${d}T${t}:00`).toISOString()};
+ try{localStorage.setItem('ptr_video_handoff_v1',JSON.stringify(handoff));location.href=`./video-studio.html?handoff=${encodeURIComponent(handoff.id)}`}catch(error){toast('The video studio could not be opened on this device')}
+}
 async function addTik(){
  const p=planner($('#tikPlanner').value),d=$('#tikDate').value,t=$('#tikTime').value,files=[...$('#tikMedia').files],button=$('#addTikQueue');
  if(!p||!d||!t)return toast('Choose a date and time');if(!files.length)return toast('Choose TikTok clips or images');
@@ -775,8 +787,17 @@ function savePlanner(){const name=$('#libName').value.trim();if(!name)return toa
 /* Queues */
 function renderQueues(){
  $('#pinQueueList').innerHTML=pinQueue.length?pinQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.planner)}</h3><span class="badge">${esc(q.type)}</span></div><button class="smallBtn" onclick="removePin('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.title)}<br>${esc(q.board||'Board not set')}${q.mediaPath?'<br>✓ Secure Pin image saved':''}</p></div>`).join(''):'<div class="empty">No Pins queued.</div>';
- $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>`<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(q.type)}</span><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span></div><button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.hook)}${q.mediaNames.length?`<br>${(q.mediaPaths||[]).length||q.mediaNames.length} secure media file(s) saved`:''}</p></div>`).join(''):'<div class="empty">No TikToks queued.</div>';
+ $('#tikQueueList').innerHTML=tikQueue.length?tikQueue.map(q=>{const hasVideo=(q.mediaPaths||[]).some(isVideoPath),mediaCount=(q.mediaPaths||[]).length||(q.mediaNames||[]).length;return `<div class="item"><div class="itemtop"><div><h3>${esc(q.type==='shop'?'Shop Promo':q.planner)}</h3><span class="badge">${esc(q.type)}</span><span class="badge">${esc(conceptNames[q.concept]||q.concept||'concept')}</span></div><div>${hasVideo?`<button class="smallBtn" onclick="previewTik('${q.id}')">Preview</button> `:''}<button class="smallBtn" onclick="removeTik('${q.id}')">Remove</button></div></div><p><b>${new Date(q.when).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}</b><br>${esc(q.hook)}${mediaCount?`<br>${mediaCount} secure media file(s) saved`:''}</p></div>`}).join(''):'<div class="empty">No TikToks queued.</div>';
  $('#etsyDraftList').innerHTML=drafts.length?drafts.map(d=>`<div class="item"><div class="itemtop"><div><h3>${esc(d.planner)}</h3><span class="badge">${esc(d.mode)}</span></div><div><button class="smallBtn" onclick="loadDraft('${d.id}')">Open</button> <button class="smallBtn" onclick="removeDraft('${d.id}')">Remove</button></div></div><p>${esc(d.title||'Untitled')}<br>Saved ${new Date(d.savedAt).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})}${d.pdfPath?'<br>✓ Secure PDF saved':''}${d.imagePaths?.length?`<br>✓ ${d.imagePaths.length} secure listing image${d.imagePaths.length===1?'':'s'} saved`:''}</p></div>`).join(''):'<div class="empty">No Etsy drafts.</div>';
+}
+function isVideoPath(path=''){return /\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(String(path))}
+function closeVideoPreview(){const modal=$('#videoModal'),video=$('#queuedVideo');video.pause();video.removeAttribute('src');video.load();modal.classList.remove('open')}
+async function previewTik(id){
+ const q=tikQueue.find(x=>x.id===id),path=(q?.mediaPaths||[]).find(isVideoPath);if(!path)return toast('No finished video is attached');
+ const {data:{session}}=await sb.auth.getSession();if(!session)return toast('Sign in under Cloud Sync to preview it');
+ $('#videoModalTitle').textContent=q.planner||'Queued TikTok preview';$('#queuedVideoState').textContent='Preparing secure preview…';$('#videoModal').classList.add('open');
+ const {data,error}=await sb.storage.from(MEDIA_BUCKETS.tik).createSignedUrl(path,900);if(error||!data?.signedUrl){$('#queuedVideoState').textContent=error?.message||'The preview could not be opened.';return}
+ $('#queuedVideo').src=data.signedUrl;$('#queuedVideoState').textContent='Private 15-minute preview link. The stored video remains owner-only.';
 }
 async function removePin(id){const q=pinQueue.find(x=>x.id===id);if(!q)return;const removed=await removeStoredMedia(MEDIA_BUCKETS.pin,[q.mediaPath]);if(!removed)return toast('Sign in and try removing the Pin again');await removeCloudRow('pinterest_queue',id);pinQueue=pinQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('Pin and stored image removed')}
 async function removeTik(id){const q=tikQueue.find(x=>x.id===id);if(!q)return;const removed=await removeStoredMedia(MEDIA_BUCKETS.tik,q.mediaPaths||[]);if(!removed)return toast('Sign in and try removing the TikTok again');await removeCloudRow('tiktok_queue',id);tikQueue=tikQueue.filter(x=>x.id!==id);persist();renderQueues();updateHome();toast('TikTok and stored media removed')}
@@ -795,6 +816,7 @@ $$('.modeSwitch button').forEach(b=>b.addEventListener('click',()=>{$$('.modeSwi
 $('#pinPlanner').addEventListener('change',syncPin);$('#tikPlanner').addEventListener('change',()=>genTik(true));$('#etsyPlanner').addEventListener('change',syncEtsy);
 $('#refreshPinSeo').addEventListener('click',()=>genPin(true));$('#nextPinSlot').addEventListener('click',()=>nextSlot('pin'));$('#addPinQueue').addEventListener('click',addPin);
 $('#refreshTik').addEventListener('click',()=>genTik(true));$('#nextTikSlot').addEventListener('click',()=>nextSlot('tik'));$('#addTikQueue').addEventListener('click',addTik);
+$('#openVideoStudio').addEventListener('click',openVideoStudio);$('#closeVideoModal').addEventListener('click',closeVideoPreview);$('#videoModal').addEventListener('click',event=>{if(event.target===$('#videoModal'))closeVideoPreview()});
 $('#copyTik').addEventListener('click',()=>copyText(tikPackText()));$('#copyTikCaption').addEventListener('click',()=>copyText(`${$('#tikCaption').value}\n\n${$('#tikHashtags').value}`));
 $('#pinTitle').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});$('#pinDesc').addEventListener('input',()=>{pinCount();const p=planner($('#pinPlanner').value);if(p)pinCheck(p)});
 $('#pinImage').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;$('#pinPreviewImg').src=URL.createObjectURL(f);$('#pinPreview').style.display='block';setMediaState('#pinMediaState',`${f.name} ready to upload.`);recognisePinPlanner(f)});

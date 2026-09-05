@@ -1,5 +1,5 @@
-const CACHE_NAME='ptr-seller-tools-v1';
-const APP_SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE_NAME='ptr-seller-tools-v2';
+const APP_SHELL=['./','./index.html','./video-studio.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
  self.skipWaiting();
@@ -17,8 +17,8 @@ self.addEventListener('fetch',event=>{
  if(url.origin!==self.location.origin)return;
  if(request.mode==='navigate'){
   event.respondWith(fetch(request).then(response=>{
-   const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put('./index.html',copy));return response;
-  }).catch(()=>caches.match('./index.html')));
+   const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
+  }).catch(async()=>await caches.match(request)||await caches.match(url.pathname.endsWith('/video-studio.html')?'./video-studio.html':'./index.html')));
   return;
  }
  event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
