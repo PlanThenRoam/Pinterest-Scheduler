@@ -8,10 +8,10 @@ const bucketFor: Record<string,string> = {tiktok:"tiktok-media",etsy:"etsy-asset
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
 const tools = [
- {name:"create_review_project",description:"Create one private TikTok, Etsy or Pinterest project in the owner's Seller Tools Review Box. This changes cloud data but does not publish.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["tiktok","etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. TikTok needs 6-8 scenes; Etsy needs 13 tags; Pinterest needs exactly 10 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
- {name:"attach_project_asset",description:"Attach a base64-encoded image, PDF or compact video to an existing review project. Use the returned project only after all assets are attached.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","filename","role","content_type","base64_data"],properties:{project_id:{type:"string",format:"uuid"},filename:{type:"string"},role:{type:"string",description:"Examples: video, scene-1, customer-pdf, thumbnail, listing-image-1, pin-1."},content_type:{type:"string"},base64_data:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
+ {name:"create_review_project",description:"Create one private TikTok, Etsy or Pinterest project after the owner has approved its complete content plan. For TikTok, send the exact scene copy and rendering recipe; Seller Tools creates the MP4.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["tiktok","etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. TikTok needs 6-8 scenes, five hashtags and the full approved render recipe; Etsy needs 13 tags; Pinterest needs exactly 10 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
+ {name:"attach_project_asset",description:"Attach a base64-encoded image or PDF to an existing review project. TikTok accepts one finished image per approved scene; Seller Tools creates its MP4.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","filename","role","content_type","base64_data"],properties:{project_id:{type:"string",format:"uuid"},filename:{type:"string"},role:{type:"string",description:"Examples: scene-1, customer-pdf, thumbnail, listing-image-1, pin-1. Do not attach a TikTok video."},content_type:{type:"string"},base64_data:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
  {name:"attach_project_asset_from_url",description:"Copy an HTTPS asset from a trusted ChatGPT/OpenAI cloud URL into the owner's private Seller Tools storage.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","source_url","filename","role"],properties:{project_id:{type:"string",format:"uuid"},source_url:{type:"string",format:"uri"},filename:{type:"string"},role:{type:"string"},content_type:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
- {name:"finalize_review_project",description:"Validate a project after its assets are attached and mark it ready for the owner to review. This does not publish.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
+ {name:"finalize_review_project",description:"Validate all attached assets. TikTok is handed to Seller Tools for MP4 rendering; Etsy and Pinterest are marked ready for review. This does not publish.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"list_review_projects",description:"List private Seller Tools projects and revision requests without returning binary files.",inputSchema:{type:"object",additionalProperties:false,properties:{status:{type:"string",enum:["ready","editing","approved","scheduled","publishing","published","failed"]},kind:{type:"string",enum:["tiktok","etsy","pinterest"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"update_review_project",description:"Update the manifest or replace the title of one existing project. Preserve fields the owner did not ask to change.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"},title:{type:"string"},manifest:{type:"object"},mark_ready:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"clear_review_project",description:"Permanently delete one named review project and all of its stored media. Always ask the owner to confirm immediately before calling.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","confirmed"],properties:{project_id:{type:"string",format:"uuid"},confirmed:{type:"boolean",const:true}}},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}}
@@ -21,7 +21,18 @@ function rpc(id: unknown, result: unknown, status=200){return new Response(JSON.
 function fail(id: unknown, code:number,message:string,status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,error:{code,message}}),{status,headers:{...cors,"content-type":"application/json"}})}
 function cleanName(value:string){return (value||"asset").normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/^-+|-+$/g,"").slice(-120)||"asset"}
 function validate(kind:string, manifest:any){
- if(kind==="tiktok"&&(!Array.isArray(manifest?.scenes)||manifest.scenes.length<6||manifest.scenes.length>8))throw new Error("TikTok projects require 6–8 scenes.");
+ if(kind==="tiktok"){
+  if(!Array.isArray(manifest?.scenes)||manifest.scenes.length<6||manifest.scenes.length>8)throw new Error("TikTok projects require 6–8 scenes.");
+  if(!Array.isArray(manifest?.hashtags)||manifest.hashtags.length!==5)throw new Error("TikTok projects require exactly five hashtags.");
+  if(!manifest.coverTitle||!manifest.caption||!manifest.soundRecommendation)throw new Error("TikTok projects require a cover title, caption and sound recommendation.");
+  if(manifest.videoFile||manifest.previewFile)throw new Error("Do not attach or name a finished TikTok video. Seller Tools renders the MP4.");
+  const recipe=manifest.render||manifest.renderRecipe;
+  const required=["style","typography","photoTreatment","textColour","textProtection","transition","transitionSpeed","motionIntensity","speedCurve","overlay","atmosphere","framing","effectIntensity","textAnimation"];
+  if(!recipe||required.some(k=>!recipe[k]))throw new Error("TikTok projects require the complete approved rendering recipe.");
+  manifest.scenes.forEach((scene:any,i:number)=>{
+   if(!scene?.imageFile||!(scene.heading||scene.text)||!(Number(scene.duration)>0)||!scene.motion||!(scene.position||scene.textPosition)||!(scene.transition||scene.transitionOverride)||!(scene.textAnimation||scene.textAnimationOverride))throw new Error(`TikTok scene ${i+1} is missing its image, exact text, duration, movement, placement, transition or text animation.`);
+  });
+ }
  if(kind==="etsy"&&(!Array.isArray(manifest?.tags)||manifest.tags.length!==13))throw new Error("Etsy projects require exactly 13 tags.");
  if(kind==="pinterest"&&(!Array.isArray(manifest?.pins)||manifest.pins.length!==10))throw new Error("Pinterest projects require exactly 10 Pins.");
 }
@@ -43,7 +54,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method!=="POST")return new Response("Method not allowed",{status:405,headers:cors});
  let body:any;try{body=await req.json()}catch{return fail(null,-32700,"Invalid JSON",400)}
  const {id,method,params}=body;
- if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:"1.0.0"}});
+ if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:"1.1.0"}});
  if(method==="ping")return rpc(id,{});
  if(method==="notifications/initialized")return new Response(null,{status:202,headers:cors});
  if(method==="tools/list")return rpc(id,{tools});
@@ -64,6 +75,7 @@ Deno.serve(async(req:Request)=>{
   const {data:project,error:projectError}=await db.from("review_projects").select("*").eq("id",args.project_id).single();
   if(projectError||!project)throw new Error("Project not found or access denied.");
   if(name==="attach_project_asset"||name==="attach_project_asset_from_url"){
+   if(project.kind==="tiktok"&&(args.role==="video"||args.role==="preview"||args.is_preview===true))throw new Error("Attach the approved scene images only. Seller Tools creates the TikTok MP4.");
    let bytes:Uint8Array,contentType=String(args.content_type||"application/octet-stream");
    if(name==="attach_project_asset"){if(typeof args.base64_data!=="string"||args.base64_data.length>9_000_000)throw new Error("Base64 asset is missing or exceeds the 6 MB direct-upload limit. Use the trusted URL tool for larger files.");bytes=Uint8Array.from(atob(args.base64_data),c=>c.charCodeAt(0))}
    else{if(!trustedAssetUrl(args.source_url))throw new Error("Asset URL must be an HTTPS ChatGPT/OpenAI cloud file URL.");const response=await fetch(args.source_url);if(!response.ok)throw new Error("Could not download the supplied asset URL.");const size=Number(response.headers.get("content-length")||0);if(size>50_000_000)throw new Error("Asset exceeds the 50 MB transfer limit.");const buf=await response.arrayBuffer();if(buf.byteLength>50_000_000)throw new Error("Asset exceeds the 50 MB transfer limit.");bytes=new Uint8Array(buf);contentType=args.content_type||response.headers.get("content-type")||contentType}
@@ -76,13 +88,15 @@ Deno.serve(async(req:Request)=>{
   }
   if(name==="finalize_review_project"){
    validate(project.kind,project.manifest);const media=Array.isArray(project.media)?project.media:[];
-   if(project.kind==="tiktok"&&!project.preview_path)throw new Error("Attach the finished preview video before finalizing.");
+   if(project.kind==="tiktok"&&!project.manifest.scenes.every((scene:any,i:number)=>media.some((x:any)=>x.role===(scene.imageRole||`scene-${i+1}`))))throw new Error("Attach one finished image for every approved TikTok scene before finalizing.");
    if(project.kind==="etsy"&&(!media.some((x:any)=>x.role==="customer-pdf")||!media.some((x:any)=>String(x.role).startsWith("listing-image"))))throw new Error("Attach the customer PDF and listing images before finalizing.");
    if(project.kind==="pinterest"&&!project.manifest.pins.every((p:any,i:number)=>media.some((x:any)=>x.role===(p.imageRole||`pin-${i+1}`))))throw new Error("Attach an image for each of the 10 Pins before finalizing.");
-   const {error}=await db.from("review_projects").update({status:"ready",revision_request:null,last_error:null}).eq("id",project.id);if(error)throw error;return rpc(id,output({project_id:project.id,status:"ready"}));
+   const status=project.kind==="tiktok"?"editing":"ready";
+   const {error}=await db.from("review_projects").update({status,preview_path:project.kind==="tiktok"?null:project.preview_path,revision_request:null,last_error:null}).eq("id",project.id);if(error)throw error;
+   return rpc(id,output(project.kind==="tiktok"?{project_id:project.id,status,render_pending:true,message:"Seller Tools will create the silent MP4 when the owner opens the TikTok Review Box."}:{project_id:project.id,status}));
   }
   if(name==="update_review_project"){
-   const changes:any={revision:project.revision+1};if(args.title)changes.title=String(args.title).slice(0,180);if(args.manifest){validate(project.kind,args.manifest);changes.manifest=args.manifest}if(args.mark_ready){changes.status="ready";changes.revision_request=null}
+   const changes:any={revision:project.revision+1};if(args.title)changes.title=String(args.title).slice(0,180);if(args.manifest){validate(project.kind,args.manifest);changes.manifest=args.manifest}if(args.mark_ready){changes.status=project.kind==="tiktok"?"editing":"ready";changes.revision_request=null}
    const {error}=await db.from("review_projects").update(changes).eq("id",project.id);if(error)throw error;return rpc(id,output({project_id:project.id,updated:true,revision:changes.revision}));
   }
   if(name==="clear_review_project"){
