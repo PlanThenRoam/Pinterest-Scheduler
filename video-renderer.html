@@ -789,14 +789,16 @@ window.PTRRenderer={
   await restore(portable,true);
   for(let i=0;i<images.length;i++){
    onProgress?.(i/sourceScenes.length*.08,'Loading scene '+(i+1)+' of '+sourceScenes.length);
-   let blob=images[i]?.blob;
-   if(!blob){
-    const response=await fetch(images[i]?.url,{cache:'no-store'});
-    if(!response.ok)throw new Error('Scene '+(i+1)+' image could not be loaded.');
-    blob=await response.blob();
-   }
-   if(typeof blob.arrayBuffer!=='function')throw new Error('Scene '+(i+1)+' image data is unavailable.');
-   await loadPhoto(state.scenes[i],new File([blob],images[i].name||('scene-'+(i+1)+'.jpg'),{type:blob.type||'image/jpeg'}));
+   const blob=images[i]?.blob;
+   if(blob&&typeof blob.arrayBuffer==='function'){
+    try{await loadPhoto(state.scenes[i],new File([blob],images[i].name||('scene-'+(i+1)+'.jpg'),{type:blob.type||'image/jpeg'}));}
+    catch(e){throw new Error('Scene '+(i+1)+' private image decode failed: '+(e.message||e));}
+   }else if(images[i]?.url){
+    try{
+     const image=await new Promise((resolve,reject)=>{const img=new Image();img.crossOrigin='anonymous';img.referrerPolicy='no-referrer';img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('signed image request was blocked'));img.src=images[i].url;});
+     state.scenes[i].image=image;state.scenes[i].dataURL=images[i].url;state.scenes[i].name=images[i].name||('scene-'+(i+1)+'.jpg');
+    }catch(e){throw new Error('Scene '+(i+1)+' signed image fallback failed: '+(e.message||e));}
+   }else throw new Error('Scene '+(i+1)+' image data is unavailable.');
    state.scenes[i].duration=allTimed?durations[i]:total/sourceScenes.length;
   }
   state.duration=total;state.quality=[540,720,1080].includes(portable.quality)?portable.quality:720;state.format='mp4';
