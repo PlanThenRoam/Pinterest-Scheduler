@@ -1,6 +1,6 @@
 {
   "name": "planthenroam-seller-tools",
-  "version": "0.2.0+codex.local-20260906-075357",
+  "version": "0.2.0+codex.local-20260906-080133",
   "description": "Plan complete TikTok, Etsy and Pinterest packs with the owner, then send approved assets to the private PlanThenRoam review app.",
   "author": {
     "name": "PlanThenRoam"
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "PlanThenRoam Seller Tools",
     "shortDescription": "Approve content plans, then send finished packs.",
-    "longDescription": "Plans and sends TikTok, Pinterest and Etsy packs, including secure new Etsy publishing and existing-listing image updates selected by product name.",
+    "longDescription": "Plans and sends TikTok, Pinterest and Etsy packs. Existing Etsy updates contain only six replacement images and matching alt text.",
     "developerName": "PlanThenRoam",
     "category": "Productivity",
     "capabilities": [
