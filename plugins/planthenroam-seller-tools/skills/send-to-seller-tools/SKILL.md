@@ -38,18 +38,18 @@ Only after approval:
 
 The TikTok Review Box is deliberately read-only. The owner previews the finished video and chooses only Download MP4 or Discard. Changes must be discussed and approved in ChatGPT before a replacement pack is sent.
 
-## Existing Etsy listing updates
+## Existing Etsy listing image updates
 
-When the owner names an existing product or asks to replace its thumbnail or listing images:
+When the owner names an existing product and asks for new Etsy photos:
 
-1. Call `list_etsy_shop_listings` with the product or destination name. Do not ask the owner for a listing ID.
-2. Call `prepare_etsy_listing_update` with the specific product name. Seller Tools securely copies the listing's current title, description, price, quantity, category, tags, materials, section, renewal/tax/handmade answers, personalisation data, images and alt text.
-3. Create only the replacement assets the owner requested. For a thumbnail replacement, attach the approved image using role `thumbnail`. For another image position, use `listing-image-1` through `listing-image-5`.
-4. Supply meaningful alt text for every replacement image in the matching `manifest.altText` position. Never remove or blank the other existing alt text.
-5. Finalize the update project. This sends it to Seller Tools for review; it does not change Etsy.
-6. The owner reviews the exact update and presses **Update Etsy listing**. Never claim the live listing changed before that action returns success.
+1. Find the listing by product or destination name. Do not ask the owner for a listing ID.
+2. Prepare an image-only update project. Store only the secure target listing ID, its six image positions and current alt text. Do not copy title, description, tags, price, quantity, PDF or any other listing content into the review project.
+3. Attach exactly one approved replacement thumbnail as `thumbnail` and five approved replacement listing photos as `listing-image-1` through `listing-image-5`.
+4. Set exactly six meaningful matching entries in `manifest.altText`.
+5. Finalize the project for review. The review card must show only the six replacement images and their alt text.
+6. The owner presses **Replace Etsy images**. That action overwrites image positions 1–6 and their alt text while leaving every other live Etsy field untouched.
 
-Preserve all current Etsy fields the owner did not explicitly ask to change. Never create a new listing when the request is to update an existing named product.
+Never send listing copy or product files for an existing-listing image update. Never create a new listing. Never claim Etsy changed before the owner approves and the update returns success.
 
 ## Other pack rules
 
