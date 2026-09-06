@@ -112,7 +112,7 @@ Deno.serve(async(req:Request)=>{
   if(name==="list_review_projects"){
    let query=db.from("review_projects").select("id,kind,title,status,manifest,revision,revision_request,scheduled_for,updated_at").order("updated_at",{ascending:false}).limit(50);
    if(args.kind)query=query.eq("kind",args.kind);if(args.status)query=query.eq("status",args.status);
-   const {data,error}=await query;if(error)throw error;return rpc(id,output({projects:data}));
+   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({projects:data,etsy_listings}));
   }
   const {data:project,error:projectError}=await db.from("review_projects").select("*").eq("id",args.project_id).single();
   if(projectError||!project)throw new Error("Project not found or access denied.");
