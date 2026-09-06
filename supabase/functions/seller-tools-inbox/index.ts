@@ -126,7 +126,7 @@ Deno.serve(async(req:Request)=>{
    if(project.kind==="etsy"){
     const roles=new Set(media.map((x:any)=>String(x.role)));
     if(project.manifest?.mode==="edit"){
-     if(!roles.has("thumbnail")&&![...roles].some(role=>role.startsWith("listing-image-")))throw new Error("Attach at least the approved replacement thumbnail or changed listing image before finalizing.");
+     const required=["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5"];if(required.some(role=>!roles.has(role)))throw new Error("Attach the replacement thumbnail and all five replacement listing images before finalizing.");
     }else{
      const required=["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5","customer-pdf"];
      if(required.some(role=>!roles.has(role)))throw new Error("Attach the customer PDF, thumbnail and all five listing images before finalizing.");
