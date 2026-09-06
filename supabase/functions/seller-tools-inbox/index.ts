@@ -4,10 +4,13 @@ import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
+const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const bucketFor: Record<string,string> = {tiktok:"tiktok-media",etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
 const tools = [
+ {name:"list_etsy_shop_listings",description:"Find the owner's current Etsy listings by product name before preparing an update. Use this whenever the owner names an existing product; do not ask them for a listing ID.",inputSchema:{type:"object",additionalProperties:false,properties:{query:{type:"string",description:"Optional product name or destination to match."},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true}},
+ {name:"prepare_etsy_listing_update",description:"Create a private Seller Tools update project for one existing Etsy product. Finds the listing by its product name, securely copies all current Etsy listing fields, and returns the project ID for attaching replacement assets. This does not change Etsy.",inputSchema:{type:"object",additionalProperties:false,required:["product_name"],properties:{product_name:{type:"string",minLength:2},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
  {name:"create_review_project",description:"Create one private TikTok, Etsy or Pinterest project after the owner has approved its complete content plan. For TikTok, send the exact scene copy and rendering recipe; Seller Tools creates the MP4.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["tiktok","etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. TikTok needs 6-8 scenes, five hashtags and the full approved render recipe; Etsy needs title, description, price, quantity, exactly 13 unique tags, six image alt texts and optional taxonomyId; Pinterest needs exactly 10 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
  {name:"attach_project_asset",description:"Attach a base64-encoded image or PDF to an existing review project. TikTok accepts one finished image per approved scene; Seller Tools creates its MP4.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","filename","role","content_type","base64_data"],properties:{project_id:{type:"string",format:"uuid"},filename:{type:"string"},role:{type:"string",description:"Examples: scene-1, customer-pdf, thumbnail, listing-image-1, pin-1. Do not attach a TikTok video."},content_type:{type:"string"},base64_data:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
  {name:"attach_project_asset_from_url",description:"Copy an HTTPS asset from a trusted ChatGPT/OpenAI cloud URL into the owner's private Seller Tools storage.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","source_url","filename","role"],properties:{project_id:{type:"string",format:"uuid"},source_url:{type:"string",format:"uri"},filename:{type:"string"},role:{type:"string"},content_type:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
@@ -46,6 +49,13 @@ function validate(kind:string, manifest:any){
  if(kind==="pinterest"&&(!Array.isArray(manifest?.pins)||manifest.pins.length!==10))throw new Error("Pinterest projects require exactly 10 Pins.");
 }
 function output(data:unknown){return {content:[{type:"text",text:JSON.stringify(data)}],structuredContent:data}}
+async function publisherRequest(auth:string,path:string,init:RequestInit={}){
+ const response=await fetch(etsyPublisher+path,{...init,headers:{authorization:auth,apikey:publishableKey,"content-type":"application/json",...(init.headers||{})}});
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.error||"Could not read the connected Etsy shop.");
+ return data;
+}
+function normal(value:unknown){return String(value||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g," ").trim()}
 function trustedAssetUrl(raw:string){const u=new URL(raw);if(u.protocol!=="https:")return false;return ["oaiusercontent.com","blob.core.windows.net","amazonaws.com","chatgpt.com"].some(d=>u.hostname===d||u.hostname.endsWith("."+d))}
 
 Deno.serve(async(req:Request)=>{
@@ -70,6 +80,19 @@ Deno.serve(async(req:Request)=>{
  if(method!=="tools/call")return fail(id,-32601,"Method not found");
  const name=params?.name,args=params?.arguments||{};
  try{
+  if(name==="list_etsy_shop_listings"){
+   const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
+   const q=normal(args.query);const listings=q?(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title))):(data.listings||[]);
+   return rpc(id,output({listings}));
+  }
+  if(name==="prepare_etsy_listing_update"){
+   const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
+   const q=normal(args.product_name),matches=(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title)));
+   if(matches.length===0)throw new Error(`No ${state} Etsy listing matched “${args.product_name}”. Use list_etsy_shop_listings to check the product name.`);
+   if(matches.length>1)throw new Error(`More than one Etsy listing matched “${args.product_name}”. Use a more specific product name.`);
+   const prepared=await publisherRequest(auth,"",{method:"POST",body:JSON.stringify({action:"prepare_edit",listing_id:matches[0].listing_id})});
+   return rpc(id,output({...prepared,matched_listing:matches[0],message:"Attach the approved replacement thumbnail as role thumbnail, attach any other changed listing images by their listing-image-N role, then finalize. The owner reviews and confirms the Etsy update in Seller Tools."}));
+  }
   if(name==="create_review_project"){
    if(!bucketFor[args.kind]||!args.title||typeof args.manifest!=="object")throw new Error("kind, title and manifest are required.");
    validate(args.kind,args.manifest);
@@ -100,8 +123,12 @@ Deno.serve(async(req:Request)=>{
    if(project.kind==="tiktok"&&!project.manifest.scenes.every((scene:any,i:number)=>media.some((x:any)=>x.role===(scene.imageRole||`scene-${i+1}`))))throw new Error("Attach one finished image for every approved TikTok scene before finalizing.");
    if(project.kind==="etsy"){
     const roles=new Set(media.map((x:any)=>String(x.role)));
-    const required=["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5","customer-pdf"];
-    if(required.some(role=>!roles.has(role)))throw new Error("Attach the customer PDF, thumbnail and all five listing images before finalizing.");
+    if(project.manifest?.mode==="edit"){
+     if(!roles.has("thumbnail")&&![...roles].some(role=>role.startsWith("listing-image-")))throw new Error("Attach at least the approved replacement thumbnail or changed listing image before finalizing.");
+    }else{
+     const required=["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5","customer-pdf"];
+     if(required.some(role=>!roles.has(role)))throw new Error("Attach the customer PDF, thumbnail and all five listing images before finalizing.");
+    }
    }
    if(project.kind==="pinterest"&&!project.manifest.pins.every((p:any,i:number)=>media.some((x:any)=>x.role===(p.imageRole||`pin-${i+1}`))))throw new Error("Attach an image for each of the 10 Pins before finalizing.");
    const status=project.kind==="tiktok"?"editing":"ready";
