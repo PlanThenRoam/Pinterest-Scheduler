@@ -7,6 +7,7 @@ const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const etsyKey = Deno.env.get("ETSY_API_KEY") || "";
 const etsySecret = Deno.env.get("ETSY_SHARED_SECRET") || "";
 const apiRoot = "https://openapi.etsy.com/v3/application";
+const templateListingId = "4568932542";
 const cors = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, apikey, content-type",
@@ -47,11 +48,15 @@ function validateProject(project: any) {
   if (!description) throw new Error("The Etsy description is missing.");
   if (tags.length !== 13 || new Set(tags.map((tag: string) => tag.toLowerCase())).size !== 13) throw new Error("Etsy requires exactly 13 unique tags.");
   if (tags.some((tag: string) => tag.length > 20)) throw new Error("Each Etsy tag must be 20 characters or fewer.");
-  const images = imageItems(project);
-  if (images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
+  const editMode = manifest.mode === "edit" || Boolean(manifest.listingId || manifest.etsyListingId);
+  const images = editMode
+    ? (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"))
+    : imageItems(project);
+  if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
+  if (editMode && images.length < 1 && !title && !description) throw new Error("Add at least one listing change.");
   const pdf = mediaByRole(project, "customer-pdf");
-  if (!pdf) throw new Error("Attach the customer PDF before publishing.");
-  return { manifest, title, description, tags, images, pdf };
+  if (!editMode && !pdf) throw new Error("Attach the customer PDF before publishing.");
+  return { manifest, title, description, tags, images, pdf, editMode };
 }
 
 async function etsyFetch(path: string, accessToken: string, init: RequestInit = {}) {
@@ -103,18 +108,30 @@ async function inferTaxonomy(shopId: string, token: string) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
 }
 
-async function createDraft(shopId: string, token: string, data: any) {
+function moneyValue(price: any, fallback = 14.99) {
+  if (typeof price === "number") return price;
+  if (price && Number(price.amount) >= 0) return Number(price.amount) / numberValue(price.divisor, 100);
+  return fallback;
+}
+
+function appendArray(form: URLSearchParams, name: string, values: unknown) {
+  if (!Array.isArray(values)) return;
+  for (const value of values) if (String(value).trim()) form.append(name, String(value).trim());
+}
+
+async function createDraft(shopId: string, token: string, data: any, template: any) {
   const form = new URLSearchParams();
   form.set("quantity", String(Math.round(numberValue(data.manifest.quantity, 999))));
   form.set("title", data.title);
   form.set("description", data.description);
   form.set("price", numberValue(data.manifest.price, 14.99).toFixed(2));
-  form.set("who_made", String(data.manifest.whoMade || "i_did"));
-  form.set("when_made", String(data.manifest.whenMade || "2020_2026"));
+  form.set("who_made", String(data.manifest.whoMade || template.who_made || "i_did"));
+  form.set("when_made", String(data.manifest.whenMade || template.when_made || "2020_2026"));
   form.set("taxonomy_id", String(data.taxonomyId));
   form.set("type", "download");
-  form.set("is_supply", "false");
-  form.set("should_auto_renew", data.manifest.autoRenew === false ? "false" : "true");
+  form.set("is_supply", String(data.manifest.isSupply ?? template.is_supply ?? false));
+  form.set("is_taxable", String(data.manifest.isTaxable ?? template.is_taxable ?? true));
+  form.set("should_auto_renew", String(data.manifest.autoRenew ?? template.should_auto_renew ?? true));
   for (const tag of data.tags) form.append("tags", tag);
   return await etsyFetch(`/shops/${shopId}/listings`, token, {
     method: "POST",
@@ -129,13 +146,38 @@ async function storageFile(admin: any, item: any) {
   return data;
 }
 
-async function uploadImage(admin: any, shopId: string, listingId: string, token: string, item: any, rank: number, altText: string) {
+async function uploadImage(admin: any, shopId: string, listingId: string, token: string, item: any, rank: number, altText: string, overwrite = false) {
   const blob = await storageFile(admin, item);
   const form = new FormData();
   form.set("image", blob, item.name || `listing-image-${rank}.jpg`);
   form.set("rank", String(rank));
+  if (overwrite) form.set("overwrite", "true");
   if (altText) form.set("alt_text", altText.slice(0, 500));
   return await etsyFetch(`/shops/${shopId}/listings/${listingId}/images`, token, { method: "POST", body: form });
+}
+
+async function updateListing(shopId: string, listingId: string, token: string, data: any, original: any) {
+  const m = data.manifest;
+  const form = new URLSearchParams();
+  form.set("title", data.title);
+  form.set("description", data.description);
+  form.set("quantity", String(Math.round(numberValue(m.quantity, original.quantity || 999))));
+  form.set("price", numberValue(m.price, moneyValue(original.price)).toFixed(2));
+  form.set("taxonomy_id", String(Math.round(numberValue(m.taxonomyId || m.taxonomy_id, original.taxonomy_id))));
+  form.set("who_made", String(m.whoMade || original.who_made || "i_did"));
+  form.set("when_made", String(m.whenMade || original.when_made || "2020_2026"));
+  form.set("is_supply", String(m.isSupply ?? original.is_supply ?? false));
+  form.set("is_taxable", String(m.isTaxable ?? original.is_taxable ?? true));
+  form.set("should_auto_renew", String(m.autoRenew ?? original.should_auto_renew ?? true));
+  form.set("type", "download");
+  if (m.shopSectionId || original.shop_section_id) form.set("shop_section_id", String(m.shopSectionId || original.shop_section_id));
+  appendArray(form, "tags", data.tags);
+  appendArray(form, "materials", m.materials ?? original.materials);
+  return await etsyFetch(`/shops/${shopId}/listings/${listingId}`, token, {
+    method: "PATCH",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: form,
+  });
 }
 
 async function uploadPdf(admin: any, shopId: string, listingId: string, token: string, item: any) {
@@ -159,7 +201,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
   if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, configured: Boolean(etsyKey && etsySecret) });
-  if (req.method !== "POST") return json({ error: "Method not allowed." }, 405);
+  if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
   if (!authorization.startsWith("Bearer ")) return json({ error: "Sign in to Seller Tools first." }, 401);
@@ -173,24 +215,70 @@ Deno.serve(async (req: Request) => {
 
   let projectId = "";
   try {
+    const { data: credential, error: credentialError } = await admin.from("etsy_credentials").select("*").eq("user_id", userData.user.id).single();
+    if (credentialError || !credential) throw new Error("Connect your Etsy shop in Settings first.");
+    const token = await accessToken(admin, credential);
+    if (req.method === "GET") {
+      const state = ["active", "draft", "inactive", "expired", "sold_out"].includes(url.searchParams.get("state") || "") ? url.searchParams.get("state")! : "active";
+      const listings = await etsyFetch(`/shops/${credential.shop_id}/listings?state=${state}&limit=100&includes=Images,Personalization`, token);
+      return json({ ok: true, listings: (listings.results || []).map((item: any) => ({
+        listing_id: String(item.listing_id), title: item.title, state: item.state,
+        thumbnail: item.images?.[0]?.url_170x135 || item.images?.[0]?.url_570xN || "",
+        image_count: item.images?.length || 0,
+      })) });
+    }
     const body = await req.json();
+    if (body.action === "prepare_edit") {
+      const listingId = String(body.listing_id || "");
+      if (!/^\d+$/.test(listingId)) throw new Error("Choose an Etsy listing.");
+      const existing = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
+      if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
+      const manifest = {
+        mode: "edit", listingId, title: existing.title, description: existing.description,
+        price: moneyValue(existing.price), quantity: existing.quantity, tags: existing.tags || [],
+        taxonomyId: existing.taxonomy_id, whoMade: existing.who_made, whenMade: existing.when_made,
+        isSupply: existing.is_supply, isTaxable: existing.is_taxable, autoRenew: existing.should_auto_renew,
+        shopSectionId: existing.shop_section_id, materials: existing.materials || [],
+        altText: (existing.images || []).map((image: any) => image.alt_text || ""),
+        existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
+        personalization: existing.personalization || null,
+      };
+      const { data: created, error: createError } = await admin.from("review_projects").insert({
+        kind: "etsy", title: existing.title, status: "ready", source: "chatgpt",
+        manifest, media: [], platform_id: listingId,
+      }).select("id,title,status,platform_id").single();
+      if (createError) throw createError;
+      return json({ ok: true, project: created });
+    }
     projectId = String(body.project_id || "");
     if (!projectId) throw new Error("Choose an Etsy project to publish.");
     const { data: project, error: projectError } = await admin.from("review_projects").select("*").eq("id", projectId).single();
     if (projectError) throw projectError;
     const listing = validateProject(project);
-    const { data: credential, error: credentialError } = await admin.from("etsy_credentials").select("*").eq("user_id", userData.user.id).single();
-    if (credentialError || !credential) throw new Error("Connect your Etsy shop in Settings first.");
-    const token = await accessToken(admin, credential);
     const manifest = { ...(project.manifest || {}) };
     const checkpoint = { ...(manifest.etsyPublish || {}) };
-    const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, 0)) || await inferTaxonomy(credential.shop_id, token);
+    const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
+    const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
     if (!taxonomyId) throw new Error("Add an Etsy taxonomy ID in Edit before publishing.");
     await admin.from("review_projects").update({ status: "publishing", last_error: null }).eq("id", projectId);
 
-    let listingId = String(project.platform_id || checkpoint.listingId || "");
+    let listingId = listing.editMode ? String(manifest.listingId || manifest.etsyListingId || project.platform_id || "") : String(project.platform_id || checkpoint.listingId || "");
+    if (listing.editMode) {
+      if (!listingId) throw new Error("The existing Etsy listing ID is missing.");
+      const original = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
+      await updateListing(credential.shop_id, listingId, token, { ...listing, taxonomyId }, original);
+      const altText = Array.isArray(manifest.altText) ? manifest.altText : [];
+      for (const item of listing.images) {
+        const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
+        await uploadImage(admin, credential.shop_id, listingId, token, item, rank, String(altText[rank - 1] || ""), true);
+      }
+      if (listing.pdf) await uploadPdf(admin, credential.shop_id, listingId, token, listing.pdf);
+      const publishedAt = new Date().toISOString();
+      await admin.from("review_projects").update({ status: "published", platform_id: listingId, published_at: publishedAt, last_error: null }).eq("id", projectId);
+      return json({ ok: true, updated: true, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` });
+    }
     if (!listingId) {
-      const draft = await createDraft(credential.shop_id, token, { ...listing, taxonomyId });
+      const draft = await createDraft(credential.shop_id, token, { ...listing, taxonomyId }, template);
       listingId = String(draft.listing_id || draft.results?.[0]?.listing_id || "");
       if (!listingId) throw new Error("Etsy created a draft but did not return its listing ID.");
       checkpoint.listingId = listingId;
