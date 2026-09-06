@@ -8,7 +8,7 @@ const bucketFor: Record<string,string> = {tiktok:"tiktok-media",etsy:"etsy-asset
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
 const tools = [
- {name:"create_review_project",description:"Create one private TikTok, Etsy or Pinterest project after the owner has approved its complete content plan. For TikTok, send the exact scene copy and rendering recipe; Seller Tools creates the MP4.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["tiktok","etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. TikTok needs 6-8 scenes, five hashtags and the full approved render recipe; Etsy needs 13 tags; Pinterest needs exactly 10 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
+ {name:"create_review_project",description:"Create one private TikTok, Etsy or Pinterest project after the owner has approved its complete content plan. For TikTok, send the exact scene copy and rendering recipe; Seller Tools creates the MP4.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["tiktok","etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. TikTok needs 6-8 scenes, five hashtags and the full approved render recipe; Etsy needs title, description, price, quantity, exactly 13 unique tags, six image alt texts and optional taxonomyId; Pinterest needs exactly 10 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
  {name:"attach_project_asset",description:"Attach a base64-encoded image or PDF to an existing review project. TikTok accepts one finished image per approved scene; Seller Tools creates its MP4.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","filename","role","content_type","base64_data"],properties:{project_id:{type:"string",format:"uuid"},filename:{type:"string"},role:{type:"string",description:"Examples: scene-1, customer-pdf, thumbnail, listing-image-1, pin-1. Do not attach a TikTok video."},content_type:{type:"string"},base64_data:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
  {name:"attach_project_asset_from_url",description:"Copy an HTTPS asset from a trusted ChatGPT/OpenAI cloud URL into the owner's private Seller Tools storage.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","source_url","filename","role"],properties:{project_id:{type:"string",format:"uuid"},source_url:{type:"string",format:"uri"},filename:{type:"string"},role:{type:"string"},content_type:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
  {name:"finalize_review_project",description:"Validate all attached assets. TikTok is handed to Seller Tools for MP4 rendering; Etsy and Pinterest are marked ready for review. This does not publish.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
@@ -33,7 +33,16 @@ function validate(kind:string, manifest:any){
    if(!scene?.imageFile||!(scene.heading||scene.text)||!(Number(scene.duration)>0)||!scene.motion||!(scene.position||scene.textPosition)||!(scene.transition||scene.transitionOverride)||!(scene.textAnimation||scene.textAnimationOverride))throw new Error(`TikTok scene ${i+1} is missing its image, exact text, duration, movement, placement, transition or text animation.`);
   });
  }
- if(kind==="etsy"&&(!Array.isArray(manifest?.tags)||manifest.tags.length!==13))throw new Error("Etsy projects require exactly 13 tags.");
+ if(kind==="etsy"){
+  const tags=Array.isArray(manifest?.tags)?manifest.tags.map((x:any)=>String(x).trim()).filter(Boolean):[];
+  if(!manifest?.title||!manifest?.description)throw new Error("Etsy projects require a listing title and full description.");
+  if(String(manifest.title).length>140)throw new Error("Etsy listing titles must be 140 characters or fewer.");
+  if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13)throw new Error("Etsy projects require exactly 13 unique tags.");
+  if(tags.some((x:string)=>x.length>20))throw new Error("Each Etsy tag must be 20 characters or fewer.");
+  if(!(Number(manifest.price)>0))manifest.price=14.99;
+  if(!(Number(manifest.quantity)>0))manifest.quantity=999;
+  manifest.tags=tags;
+ }
  if(kind==="pinterest"&&(!Array.isArray(manifest?.pins)||manifest.pins.length!==10))throw new Error("Pinterest projects require exactly 10 Pins.");
 }
 function output(data:unknown){return {content:[{type:"text",text:JSON.stringify(data)}],structuredContent:data}}
@@ -89,7 +98,11 @@ Deno.serve(async(req:Request)=>{
   if(name==="finalize_review_project"){
    validate(project.kind,project.manifest);const media=Array.isArray(project.media)?project.media:[];
    if(project.kind==="tiktok"&&!project.manifest.scenes.every((scene:any,i:number)=>media.some((x:any)=>x.role===(scene.imageRole||`scene-${i+1}`))))throw new Error("Attach one finished image for every approved TikTok scene before finalizing.");
-   if(project.kind==="etsy"&&(!media.some((x:any)=>x.role==="customer-pdf")||!media.some((x:any)=>String(x.role).startsWith("listing-image"))))throw new Error("Attach the customer PDF and listing images before finalizing.");
+   if(project.kind==="etsy"){
+    const roles=new Set(media.map((x:any)=>String(x.role)));
+    const required=["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5","customer-pdf"];
+    if(required.some(role=>!roles.has(role)))throw new Error("Attach the customer PDF, thumbnail and all five listing images before finalizing.");
+   }
    if(project.kind==="pinterest"&&!project.manifest.pins.every((p:any,i:number)=>media.some((x:any)=>x.role===(p.imageRole||`pin-${i+1}`))))throw new Error("Attach an image for each of the 10 Pins before finalizing.");
    const status=project.kind==="tiktok"?"editing":"ready";
    const {error}=await db.from("review_projects").update({status,preview_path:project.kind==="tiktok"?null:project.preview_path,revision_request:null,last_error:null}).eq("id",project.id);if(error)throw error;
