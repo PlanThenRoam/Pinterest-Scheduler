@@ -90,7 +90,9 @@ Deno.serve(async(req:Request)=>{
    const q=normal(args.product_name),matches=(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title)));
    if(matches.length===0)throw new Error(`No ${state} Etsy listing matched “${args.product_name}”. Use list_etsy_shop_listings to check the product name.`);
    if(matches.length>1)throw new Error(`More than one Etsy listing matched “${args.product_name}”. Use a more specific product name.`);
-   const prepared=await publisherRequest(auth,"",{method:"POST",body:JSON.stringify({action:"prepare_edit",listing_id:matches[0].listing_id})});
+   const {data:drafts}=await db.from("review_projects").select("id,title,media").eq("kind","etsy").is("platform_id",null).in("status",["editing","ready","failed"]).order("created_at",{ascending:false}).limit(20);
+   const reusable=(drafts||[]).find((p:any)=>normal(p.title).includes(q)||q.includes(normal(p.title).replace(" etsy listing update","")));
+   const prepared=await publisherRequest(auth,"",{method:"POST",body:JSON.stringify({action:"prepare_edit",listing_id:matches[0].listing_id,reuse_project_id:reusable?.id||null})});
    return rpc(id,output({...prepared,matched_listing:matches[0],message:"Attach the approved replacement thumbnail as role thumbnail, attach any other changed listing images by their listing-image-N role, then finalize. The owner reviews and confirms the Etsy update in Seller Tools."}));
   }
   if(name==="create_review_project"){
