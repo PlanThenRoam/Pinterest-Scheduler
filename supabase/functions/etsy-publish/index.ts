@@ -256,11 +256,21 @@ Deno.serve(async (req: Request) => {
         existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
         personalization: existing.personalization || null,
       };
-      const { data: created, error: createError } = await admin.from("review_projects").insert({
-        kind: "etsy", title: existing.title, status: "ready", source: "chatgpt",
-        manifest, media: [], platform_id: listingId,
-      }).select("id,title,status,platform_id").single();
+      let createQuery;
+      if (body.reuse_project_id) {
+        createQuery = admin.from("review_projects").update({
+          title: existing.title, status: "editing", manifest, platform_id: listingId, last_error: null,
+        }).eq("id", String(body.reuse_project_id)).eq("kind", "etsy").select("id,title,status,platform_id");
+      } else {
+        createQuery = admin.from("review_projects").insert({
+          kind: "etsy", title: existing.title, status: "ready", source: "chatgpt",
+          manifest, media: [], platform_id: listingId,
+        }).select("id,title,status,platform_id");
+      }
+      const { data: rows, error: createError } = await createQuery;
+      const created = Array.isArray(rows) ? rows[0] : rows;
       if (createError) throw createError;
+      if (!created) throw new Error("The existing Seller Tools draft could not be prepared.");
       return json({ ok: true, project: created });
     }
     projectId = String(body.project_id || "");
