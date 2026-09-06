@@ -5,8 +5,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 22;
-const API_CAPABILITY_VERSION = "2.2.0";
+const APP_VERSION = 23;
+const API_CAPABILITY_VERSION = "2.3.0";
 const bucketFor: Record<string,string> = {tiktok:"tiktok-media",etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -58,6 +58,8 @@ const tools = [
 function rpc(id: unknown, result: unknown, status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,result}),{status,headers:{...cors,"content-type":"application/json"}})}
 function fail(id: unknown, code:number,message:string,status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,error:{code,message}}),{status,headers:{...cors,"content-type":"application/json"}})}
 function cleanName(value:string){return (value||"asset").normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/^-+|-+$/g,"").slice(-120)||"asset"}
+function approvedText(value:any){return String(value&&typeof value==="object"?(value.text??value.label??""):(value??""))}
+function sceneHeadline(scene:any){return approvedText(scene?.headline??scene?.heading??scene?.text)}
 function clone<T>(value:T):T{return JSON.parse(JSON.stringify(value))}
 function pointerParts(path:string){if(!path.startsWith("/")||path.length>300)throw new Error("Patch paths must be valid JSON Pointer paths.");const parts=path.slice(1).split("/").map(x=>x.replace(/~1/g,"/").replace(/~0/g,"~"));if(parts.some(x=>["__proto__","prototype","constructor"].includes(x)))throw new Error("Unsafe patch path.");return parts}
 function applyPatches(manifest:any,title:string,patches:any[]){const next=clone(manifest||{});let nextTitle=title;for(const patch of patches){if(patch.path==="/projectTitle"){if(patch.op==="remove")throw new Error("Project title cannot be removed.");nextTitle=String(patch.value||"").trim().slice(0,180);if(!nextTitle)throw new Error("Project title cannot be empty.");continue}const parts=pointerParts(String(patch.path));let target=next;for(let i=0;i<parts.length-1;i++){const key=parts[i];if(target[key]==null){if(patch.op!=="add")throw new Error(`Patch path does not exist: ${patch.path}`);target[key]=/^\d+$/.test(parts[i+1])?[]:{}}target=target[key];if(!target||typeof target!=="object")throw new Error(`Patch path is not an object: ${patch.path}`)}const key=parts.at(-1)!;if(patch.op==="remove"){if(Array.isArray(target)){const n=Number(key);if(!Number.isInteger(n)||n<0||n>=target.length)throw new Error(`Patch index does not exist: ${patch.path}`);target.splice(n,1)}else{if(!Object.prototype.hasOwnProperty.call(target,key))throw new Error(`Patch path does not exist: ${patch.path}`);delete target[key]}}else if(Array.isArray(target)){if(key==="-"&&patch.op==="add")target.push(clone(patch.value));else{const n=Number(key);if(!Number.isInteger(n)||n<0||n>(patch.op==="add"?target.length:target.length-1))throw new Error(`Patch index is invalid: ${patch.path}`);if(patch.op==="replace"&&!Object.prototype.hasOwnProperty.call(target,n))throw new Error(`Patch path does not exist: ${patch.path}`);patch.op==="add"?target.splice(n,0,clone(patch.value)):target[n]=clone(patch.value)}}else{if(patch.op==="replace"&&!Object.prototype.hasOwnProperty.call(target,key))throw new Error(`Patch path does not exist: ${patch.path}`);target[key]=clone(patch.value)}}return {manifest:next,title:nextTitle}}
@@ -75,7 +77,7 @@ async function snapshot(db:any,project:any,name?:string){const {error}=await db.
 function validate(kind:string, manifest:any){
  validateCreativeIntegrity(manifest);
  if(kind==="tiktok"){
-  const preflight=creativePreflight(manifest);if(preflight.errors.length)throw new Error(preflight.errors.join(" "));
+  const preflight=creativePreflight({...manifest,scenes:(manifest.scenes||[]).map((scene:any)=>({...scene,text:sceneHeadline(scene)}))});if(preflight.errors.length)throw new Error(preflight.errors.join(" "));
   if(!Array.isArray(manifest?.scenes)||manifest.scenes.length!==6)throw new Error("Planner TikTok projects require exactly six scenes.");
   if(!Array.isArray(manifest?.hashtags)||manifest.hashtags.length!==5)throw new Error("TikTok projects require exactly five hashtags.");
   if(!manifest.coverTitle||!manifest.caption||!manifest.soundRecommendation)throw new Error("TikTok projects require a cover title, caption and sound recommendation.");
@@ -236,7 +238,7 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output(project.kind==="tiktok"?{project_id:project.id,status,render_pending:true,message:"All assets are verified. Seller Tools will create the silent MP4 when the owner opens the TikTok Review Box."}:{project_id:project.id,status}));
   }
   if(name==="analyse_tiktok_project"){
-   if(project.kind!=="tiktok")throw new Error("Creative quality analysis is currently for TikTok projects.");return rpc(id,output(creativePreflight(project.manifest)));
+   if(project.kind!=="tiktok")throw new Error("Creative quality analysis is currently for TikTok projects.");return rpc(id,output(creativePreflight({...project.manifest,scenes:(project.manifest?.scenes||[]).map((scene:any)=>({...scene,text:sceneHeadline(scene)}))})));
   }
   if(name==="list_project_versions"){
    const {data,error}=await db.from("review_project_versions").select("revision,name,title,created_at").eq("project_id",project.id).order("revision",{ascending:false});if(error)throw error;return rpc(id,output({project_id:project.id,current_revision:project.revision,versions:data||[]}));
