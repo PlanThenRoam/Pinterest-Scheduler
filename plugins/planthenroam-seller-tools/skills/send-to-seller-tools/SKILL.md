@@ -38,6 +38,19 @@ Only after approval:
 
 The TikTok Review Box is deliberately read-only. The owner previews the finished video and chooses only Download MP4 or Discard. Changes must be discussed and approved in ChatGPT before a replacement pack is sent.
 
+## Existing Etsy listing updates
+
+When the owner names an existing product or asks to replace its thumbnail or listing images:
+
+1. Call `list_etsy_shop_listings` with the product or destination name. Do not ask the owner for a listing ID.
+2. Call `prepare_etsy_listing_update` with the specific product name. Seller Tools securely copies the listing's current title, description, price, quantity, category, tags, materials, section, renewal/tax/handmade answers, personalisation data, images and alt text.
+3. Create only the replacement assets the owner requested. For a thumbnail replacement, attach the approved image using role `thumbnail`. For another image position, use `listing-image-1` through `listing-image-5`.
+4. Supply meaningful alt text for every replacement image in the matching `manifest.altText` position. Never remove or blank the other existing alt text.
+5. Finalize the update project. This sends it to Seller Tools for review; it does not change Etsy.
+6. The owner reviews the exact update and presses **Update Etsy listing**. Never claim the live listing changed before that action returns success.
+
+Preserve all current Etsy fields the owner did not explicitly ask to change. Never create a new listing when the request is to update an existing named product.
+
 ## Other pack rules
 
 - Etsy: create the customer PDF, one thumbnail and five additional listing images, SEO title (maximum 140 characters), full description, price in GBP (default £14.99 unless the owner specifies otherwise), quantity (default 999), exactly 13 unique tags of at most 20 characters, and six image alt texts. Include the Etsy `taxonomyId` when known; otherwise Seller Tools securely infers the shop’s established listing category at publish time. Use roles `customer-pdf`, `thumbnail`, and `listing-image-1` through `listing-image-5`, then finalize.
