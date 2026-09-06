@@ -53,17 +53,16 @@ function validateProject(project: any) {
     if (scopes.some((scope: string) => !allowed.has(scope))) throw new Error("This Etsy update contains an unsupported scope.");
     if (Object.keys(fields).some((key) => !allowed.has(key) || ["images","files"].includes(key))) throw new Error("This Etsy update contains an unsupported field.");
     if (Object.keys(fields).some((key) => !scopes.includes(key)) || scopes.some((scope: string) => !["images","files"].includes(scope) && !Object.prototype.hasOwnProperty.call(fields, scope))) throw new Error("The approved Etsy fields do not match the update scope.");
-    const images = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
+    const allImages = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
+    let imageReplacements = Array.isArray(manifest.imageReplacements) ? manifest.imageReplacements : [];
     if (scopes.includes("images")) {
-      const roles = new Set(images.map((item: any) => String(item.role)));
-      const required = ["thumbnail", "listing-image-1", "listing-image-2", "listing-image-3", "listing-image-4", "listing-image-5"];
-      if (required.some((role) => !roles.has(role))) throw new Error("Attach the replacement thumbnail and all five replacement listing images.");
-      const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
-      for (const item of images) { const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1); if (!altText[rank - 1]) throw new Error(`Add alt text for the replacement image at position ${rank}.`); }
+      if (!imageReplacements.length && Array.isArray(manifest.altText) && manifest.altText.length === 6) imageReplacements = ["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5"].map((role,i)=>({role,rank:i+1,altText:manifest.altText[i]}));
+      if (!imageReplacements.length) throw new Error("Choose at least one Etsy image to replace.");
+      for (const replacement of imageReplacements) { replacement.item=mediaByRole(project,String(replacement.role)); if(!replacement.item)throw new Error(`Attach image replacement ${replacement.role}.`); if(!(Number.isInteger(Number(replacement.rank))&&Number(replacement.rank)>=1&&Number(replacement.rank)<=10&&String(replacement.altText||"").trim()))throw new Error(`Image replacement ${replacement.role} needs a valid rank and alt text.`); }
     }
     const files = Array.isArray(manifest.fileReplacements) ? manifest.fileReplacements.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
     if (scopes.includes("files") && files.some((file: any) => !file.item)) throw new Error("Attach every approved digital-file replacement.");
-    return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? images : [], files, fields, scopes, pdf: null, editMode: true };
+    return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], files, fields, scopes, pdf: null, editMode: true };
   }
   if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
   if (!description) throw new Error("The Etsy description is missing.");
@@ -327,7 +326,7 @@ Deno.serve(async (req: Request) => {
       const before:any={};for(const scope of listing.scopes)before[scope]=scope==="images"?(original.images||[]).map((x:any)=>({id:x.listing_image_id,rank:x.rank,altText:x.alt_text||""})):scope==="files"?"individual replacements":original[scope]??null;
       await updateSelectedListingFields(credential.shop_id,listingId,token,listing.fields);
       if(listing.scopes.includes("personalization"))await updatePersonalization(credential.shop_id,listingId,token,listing.fields.personalization);
-      if(listing.scopes.includes("images")){const altText=Array.isArray(manifest.altText)?manifest.altText:[];for(const item of listing.images){const rank=item.role==="thumbnail"?1:Math.max(2,Number(String(item.role).replace("listing-image-",""))+1);await uploadImage(admin,credential.shop_id,listingId,token,item,rank,String(altText[rank-1]||""),true);}}
+      if(listing.scopes.includes("images")){for(const replacement of listing.images)await uploadImage(admin,credential.shop_id,listingId,token,replacement.item,Number(replacement.rank),String(replacement.altText),true);}
       if(listing.scopes.includes("files"))await replaceDigitalFiles(admin,credential.shop_id,listingId,token,listing.files);
       const publishedAt = new Date().toISOString();
       const audit={scopes:listing.scopes,before,approvedFields:listing.fields,completedAt:publishedAt};
