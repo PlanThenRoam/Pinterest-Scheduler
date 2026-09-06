@@ -357,7 +357,8 @@ function layoutScene(ctx,s,style,variation,index){
  const key=JSON.stringify([s.heading,s.body,s.eyebrow,s.cta,s.position,style,variation,index,state.typography]);if(layoutCache.has(key))return layoutCache.get(key);
  const st0=STYLE_RENDER[style]||STYLE_RENDER.film;const st={...st0,family:state.typography==='style'?st0.family:(TYPE_OVERRIDE[state.typography]||st0.family)};
  const headText=(style==='bold'||style==='poster')?s.heading.toUpperCase():s.heading;
- const head=fit(ctx,headText,st.maxW,st.initial,st.min,style==='poster'?3:3,st.family,st.weight);
+ const requestedSize=clamp(Number(s.textFontSize)||st.initial,36,120),requestedWidth=clamp(Number(s.textMaxWidth)||st.maxW,420,888),requestedWeight=clamp(Number(s.textFontWeight)||st.weight,400,900);
+ const head=fit(ctx,headText,requestedWidth,requestedSize,36,3,st.family,requestedWeight);
  const body=fit(ctx,s.body,st.maxW-18,st.body,Math.max(24,st.body-5),style==='field'?4:3,style==='field'?'mono':'sans',style==='field'?500:400);
  const label=fit(ctx,String(s.eyebrow||'').toUpperCase(),st.maxW,style==='field'?22:24,20,2,style==='field'?'mono':'sans',700);
  const cta=fit(ctx,s.cta,st.maxW-50,29,24,2,'sans',800);
@@ -375,6 +376,17 @@ function layoutScene(ctx,s,style,variation,index){
  let x=W/2;if(st.align==='left')x=style==='route'?118:style==='editorial'?112:style==='field'?110:style==='zine'?106:style==='scrapbook'?126:style==='ticket'?142:style==='postcard'?116:style==='swiss'?112:style==='contact'?112:style==='promptui'?108:style==='texture'?116:style==='optout'?118:120;else if(st.align==='right')x=W-118;
  const out={...st,head,body,label,cta,headH,bodyH,labelH,ctaH,extras,inset,top,height,x,overflow:head.overflow||body.overflow||label.overflow||cta.overflow||height>(H-SAFE.top-SAFE.bottom-56)};
  if(layoutCache.size>1600)layoutCache.clear();layoutCache.set(key,out);return out;
+}
+
+function plannerBounds(s){
+ if(!s.plannerImage)return null;const cfg=s.plannerPage||{},iw=s.plannerImage.naturalWidth||s.plannerImage.width,ih=s.plannerImage.naturalHeight||s.plannerImage.height;
+ const width=clamp(Number(cfg.width)||.36,.20,.72)*W,height=width*(ih/iw),x=clamp(Number.isFinite(Number(cfg.x))?Number(cfg.x):.5,.12,.88)*W,y=clamp(Number.isFinite(Number(cfg.y))?Number(cfg.y):.50,.20,.80)*H;
+ return {x:x-width/2,y:y-height/2,width,height};
+}
+function drawPlannerPage(ctx,s){
+ const b=plannerBounds(s);if(!b)return;const cfg=s.plannerPage||{};ctx.save();ctx.globalAlpha=clamp(Number(cfg.opacity)||1,.2,1);ctx.translate(b.x+b.width/2,b.y+b.height/2);ctx.rotate((Number(cfg.rotation)||0)*Math.PI/180);
+ if((cfg.shadow||'subtle')!=='none'){ctx.shadowColor='rgba(0,0,0,.30)';ctx.shadowBlur=22;ctx.shadowOffsetY=10;}
+ ctx.drawImage(s.plannerImage,-b.width/2,-b.height/2,b.width,b.height);ctx.restore();
 }
 function rounded(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function irregularPaper(ctx,x,y,w,h){ctx.beginPath();ctx.moveTo(x+10,y);ctx.lineTo(x+w-18,y+8);ctx.lineTo(x+w,y+34);ctx.lineTo(x+w-8,y+h-22);ctx.lineTo(x+w-35,y+h);ctx.lineTo(x+18,y+h-8);ctx.lineTo(x,y+h-36);ctx.lineTo(x+8,y+22);ctx.closePath();}
@@ -458,7 +470,7 @@ function drawOverlay(ctx,s,p,index){const k=resolvedOverlay(s),a=intensityNumber
  else if(k==='colour-wash'){const g=ctx.createLinearGradient(0,0,W,H);g.addColorStop(0,`rgba(74,120,255,${(.08+.05*Math.sin(p*Math.PI*2))*a})`);g.addColorStop(.5,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(255,120,80,${(.08+.05*Math.cos(p*Math.PI*2))*a})`);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}ctx.restore();}
 function drawAtmosphere(ctx,s,p,index){const k=resolvedAtmosphere(s),a=intensityNumber(state.effectIntensity);if(k==='none')return;ctx.save();const count=state.effectIntensity==='strong'?100:state.effectIntensity==='subtle'?42:68;if(k==='fog'||k==='mist'){for(let i=0;i<5;i++){const x=(rnd(i+index)*W+p*80*(i%2?1:-1))%W,y=H*(.18+i*.16),r=280+rnd(i*9)*220,g=ctx.createRadialGradient(x,y,20,x,y,r);g.addColorStop(0,`rgba(235,245,244,${(k==='fog'?.09:.06)*a})`);g.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}ctx.restore();return;}for(let i=0;i<count;i++){const seed=i+index*503,x0=rnd(seed*3.1)*W,y0=rnd(seed*7.7)*H,sz=2+rnd(seed*11)*8;let x=x0,y=y0;ctx.globalAlpha=.22*a+.38*rnd(seed*5);if(k==='snow'){y=(y0+p*220*(.5+rnd(seed)))%H;x=x0+Math.sin(p*6+seed)*12;ctx.fillStyle='#FFF';ctx.beginPath();ctx.arc(x,y,sz*.48,0,Math.PI*2);ctx.fill();}else if(k==='rain'){y=(y0+p*520)%H;x=x0;ctx.strokeStyle='#D9EBF3';ctx.lineWidth=1+sz*.12;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-8,y+30+sz*2);ctx.stroke();}else if(k==='bokeh'){ctx.fillStyle=i%3?'#FFF0C9':'#D9F0FF';ctx.beginPath();ctx.arc(x,y,sz*2.4,0,Math.PI*2);ctx.fill();}else if(k==='sparkle'||k==='stars'){ctx.strokeStyle='#FFF7D6';ctx.lineWidth=1.6;const tw=.4+.6*Math.abs(Math.sin(p*10+seed));ctx.globalAlpha*=tw;ctx.beginPath();ctx.moveTo(x-sz,y);ctx.lineTo(x+sz,y);ctx.moveTo(x,y-sz);ctx.lineTo(x,y+sz);ctx.stroke();}else if(k==='embers'||k==='fireflies'){y=(y0-p*180*(.4+rnd(seed)))%H;if(y<0)y+=H;ctx.fillStyle=k==='embers'?'#FFB35D':'#F7F59C';ctx.beginPath();ctx.arc(x+Math.sin(seed+p*8)*12,y,sz*.48,0,Math.PI*2);ctx.fill();}else if(k==='confetti'){y=(y0+p*260)%H;ctx.fillStyle=['#F5D36A','#E78E8E','#8EC7B5','#D9C1FF'][i%4];ctx.fillRect(x,y,sz*.6,sz*1.5);}else if(k==='petals'){y=(y0+p*150)%H;x=x0+Math.sin(seed+p*5)*24;ctx.fillStyle='#F4D5D9';ctx.beginPath();ctx.ellipse(x,y,sz*.7,sz*.35,p+seed,0,Math.PI*2);ctx.fill();}else if(k==='dust-motes'){y=(y0-p*60)%H;if(y<0)y+=H;ctx.fillStyle='#FFF4D6';ctx.beginPath();ctx.arc(x+Math.sin(seed+p*3)*8,y,sz*.28,0,Math.PI*2);ctx.fill();}}ctx.restore();}
 function drawScene(ctx,s,p,style,variation,index,entry=1){
- DRAW_STYLE=style;DRAW_TEXT_PROTECT=true;DRAW_SCENE=s;ctx.save();drawPhoto(ctx,s,p,index,style);const l=layoutScene(ctx,s,style,variation,index);DRAW_LAYOUT=l;drawOverlay(ctx,s,p,index);drawAtmosphere(ctx,s,p,index);const e=1-Math.pow(1-clamp(entry),3);ctx.globalAlpha*=.72+.28*e;drawProtectionBackdrop(ctx,l);applyTextAnimation(ctx,resolvedTextAnimation(s,style),e,l,index);const align=l.align,white='#FFF9EE',dark='#233B37';
+ DRAW_STYLE=style;DRAW_TEXT_PROTECT=true;DRAW_SCENE=s;ctx.save();drawPhoto(ctx,s,p,index,style);let l=layoutScene(ctx,s,style,variation,index);DRAW_LAYOUT=l;drawOverlay(ctx,s,p,index);drawAtmosphere(ctx,s,p,index);drawPlannerPage(ctx,s);const pb=plannerBounds(s);if(pb){const lb={left:l.x-l.maxW/2,right:l.x+l.maxW/2,top:l.top,bottom:l.top+l.height};if(!(lb.right<pb.x||lb.left>pb.x+pb.width||lb.bottom<pb.y||lb.top>pb.y+pb.height)){const above=pb.y-SAFE.top,below=H-SAFE.bottom-(pb.y+pb.height);l={...l,top:above>=l.height+36?Math.max(SAFE.top+36,pb.y-l.height-36):Math.min(H-SAFE.bottom-l.height-36,pb.y+pb.height+36)};}}const e=1-Math.pow(1-clamp(entry),3);ctx.globalAlpha*=.72+.28*e;drawProtectionBackdrop(ctx,l);applyTextAnimation(ctx,resolvedTextAnimation(s,style),e,l,index);const align=l.align,white='#FFF9EE',dark='#233B37';
  if(style==='film'){ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(0,0,W,56);ctx.fillRect(0,H-64,W,64);textGradient(ctx,l,'centre',.46);ctx.translate(0,(1-e)*16);let y=l.top;ctx.shadowColor='rgba(0,0,0,.40)';ctx.shadowBlur=14;ctx.shadowOffsetY=3;if(l.label.lines.length){linesDrawAt(ctx,l.label,W/2,y,l.accent,'center',1.25);y+=l.labelH;}y=linesDrawAt(ctx,l.head,W/2,y,white,'center',1.08);if(l.body.lines.length){y+=22;y=linesDrawAt(ctx,l.body,W/2,y,white,'center',1.34);}if(l.cta.lines.length){y+=28;drawCTA(ctx,l,W/2,y,style,'center',white);}}
  else if(style==='bold'){textGradient(ctx,l,'centre',.62);ctx.translate(0,(1-e)*20);ctx.fillStyle=l.accent;ctx.fillRect(0,l.top-20,W,9);let y=l.top;if(l.label.lines.length){font(ctx,24,'sans',900);const txt=l.label.lines.join(' '),mw=ctx.measureText(txt).width+44;ctx.fillStyle=l.accent;rounded(ctx,(W-mw)/2,y,mw,48,6);ctx.fill();linesDrawAt(ctx,l.label,W/2,y+10,'#222820','center',1.15);y+=72;}ctx.shadowColor='rgba(0,0,0,.42)';ctx.shadowBlur=13;y=linesDrawAt(ctx,l.head,W/2,y,white,'center',1.0);if(l.body.lines.length){y+=24;y=linesDrawAt(ctx,l.body,W/2,y,white,'center',1.26);}if(l.cta.lines.length){y+=26;drawCTA(ctx,l,W/2,y,style,'center',white);}}
  else if(style==='editorial'){textGradient(ctx,l,'left',.54);ctx.translate((1-e)*-18,0);let y=l.top;ctx.fillStyle=l.accent;ctx.fillRect(90,y,4,Math.min(l.height,520));if(l.label.lines.length){y=linesDrawAt(ctx,l.label,l.x,y,l.accent,'left',1.25)+14;}y=linesDrawAt(ctx,l.head,l.x,y,white,'left',1.06);if(l.body.lines.length){y+=18;y=linesDrawAt(ctx,l.body,l.x,y,white,'left',1.32);}font(ctx,20,'sans',700);ctx.fillStyle='#FFF9EEB0';ctx.textAlign='right';ctx.fillText(`ISSUE ${String(index+1).padStart(2,'0')}`,W-104,SAFE.top+26);if(l.cta.lines.length){y+=24;drawCTA(ctx,l,l.x,y,style,'left',white);}}
@@ -745,10 +757,10 @@ init().catch(e=>{setStatus('The editor could not start: '+e.message);});
 
 /* Seller Tools automated rendering bridge. The visible editor remains unused. */
 window.PTRRenderer={
- async render({manifest,images,onProgress}){
+ async render({manifest,images,plannerPages=[],onProgress}){
   if(activeJob)throw new Error('Another TikTok video is already rendering.');
   const sourceScenes=Array.isArray(manifest?.scenes)?manifest.scenes:[];
-  if(sourceScenes.length<6||sourceScenes.length>8)throw new Error('TikTok rendering requires 6–8 approved scenes.');
+  if(sourceScenes.length!==6)throw new Error('Planner TikTok rendering requires exactly six approved scenes.');
   if(!Array.isArray(images)||images.length!==sourceScenes.length)throw new Error('Every TikTok scene needs one finished image.');
   const recipe=manifest.render||manifest.renderRecipe||{};
   const pick=(key,fallback)=>recipe[key]??manifest[key]??fallback;
@@ -767,12 +779,12 @@ window.PTRRenderer={
    overlay:pick('overlay','none'),atmosphere:pick('atmosphere','none'),
    framing:pick('framing','fill'),effectIntensity:pick('effectIntensity','normal'),
    textAnimation:pick('textAnimation','fade-up'),sceneCount:sourceScenes.length,
-   duration:18,quality:Number(pick('quality',720))||720,format:'mp4',
+   duration:18,quality:1080,format:'mp4',
    scenes:sourceScenes.map((s,i)=>({
     role:roles.includes(s.role)?s.role:(i===0?'hook':i===sourceScenes.length-1?'end':'benefit'),
-    eyebrow:s.eyebrow||s.label||'',heading:s.heading||s.text||'',body:s.body||s.supportingText||'',
+    eyebrow:'',heading:String(s.text||s.heading||''),body:'',
     subject:s.subject||s.imagePrompt||'',cta:s.cta||'',
-    motion:s.motion||'push',position:s.position||s.textPosition||'lower',
+    motion:({none:'none','slow-push-in':'push','slow-pull-out':'pull','pan-up':'rise','pan-down':'fall','forward-track':'track-right'}[s.background?.motion||s.motion]||s.background?.motion||s.motion||'push'),position:s.position||s.textPosition||'upper',
     transitionOverride:s.transitionOverride||s.transition||'inherit',
     textAnimationOverride:s.textAnimationOverride||s.textAnimation||'inherit',
     framingOverride:s.framingOverride||s.framing||'inherit',
@@ -781,13 +793,15 @@ window.PTRRenderer={
     speedCurveOverride:s.speedCurveOverride||s.speedCurve||'inherit',
     textColourOverride:s.textColourOverride||s.textColour||'inherit',
     textProtectionOverride:s.textProtectionOverride||s.textProtection||'inherit',
-    focalX:Number.isFinite(Number(s.focalX))?Number(s.focalX):50,
-    focalY:Number.isFinite(Number(s.focalY))?Number(s.focalY):50,
+    focalX:100*(Number.isFinite(Number(s.background?.focalX??s.focalX))?Number(s.background?.focalX??s.focalX):.5),
+    focalY:100*(Number.isFinite(Number(s.background?.focalY??s.focalY))?Number(s.background?.focalY??s.focalY):.5),
+    textFontSize:Number(s.textFontSize)||60,textFontWeight:Number(s.textFontWeight)||800,textMaxWidth:Number(s.textMaxWidth)||888,
+    plannerPage:s.plannerPage||null,
     name:images[i]?.name||s.imageFile||('scene-'+(i+1)+'.jpg')
    }))
   };
   await restore(portable,true);
-  state.outerFrame=pick('outerFrame',true)!==false;
+  state.outerFrame=false;
   for(let i=0;i<images.length;i++){
    onProgress?.(i/sourceScenes.length*.08,'Loading scene '+(i+1)+' of '+sourceScenes.length);
    const blob=images[i]?.blob;
@@ -801,8 +815,14 @@ window.PTRRenderer={
     }catch(e){throw new Error('Scene '+(i+1)+' signed image fallback failed: '+(e.message||e));}
    }else throw new Error('Scene '+(i+1)+' image data is unavailable.');
    state.scenes[i].duration=allTimed?durations[i]:total/sourceScenes.length;
+   const pageCfg=sourceScenes[i].plannerPage;
+   if(pageCfg){
+    const page=plannerPages.find(x=>x.role===(pageCfg.role||`planner-page-${i+1}`));if(!page)throw new Error(`Scene ${i+1} planner overlay ${pageCfg.imageFile} is unavailable.`);
+    if(page.name!==pageCfg.imageFile)throw new Error(`Scene ${i+1} planner filename does not match the manifest: expected ${pageCfg.imageFile}.`);
+    try{state.scenes[i].plannerImage=await imageFromURL(URL.createObjectURL(page.blob));state.scenes[i].plannerPage=pageCfg;}catch(e){throw new Error(`Scene ${i+1} planner overlay could not be decoded: ${e.message||e}`);}
+   }
   }
-  state.duration=total;state.quality=[540,720,1080].includes(portable.quality)?portable.quality:720;state.format='mp4';
+  state.duration=total;state.quality=1080;state.format='mp4';
   if(document.fonts?.ready)await document.fonts.ready;
   const checked=validate();if(checked.errors.length)throw new Error(checked.errors[0]);
   const canvas=document.createElement('canvas');canvas.width=state.quality;canvas.height=Math.round(state.quality*16/9);canvas.setAttribute('aria-hidden','true');document.body.append(canvas);
