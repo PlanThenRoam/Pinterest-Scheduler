@@ -54,6 +54,14 @@ function validateProject(project: any) {
     : imageItems(project);
   if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
   if (editMode && images.length < 1 && !title && !description) throw new Error("Add at least one listing change.");
+  const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
+  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value))) throw new Error("Add alt text for all six Etsy listing images.");
+  if (editMode) {
+    for (const item of images) {
+      const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
+      if (!altText[rank - 1]) throw new Error(`Add alt text for the replacement image at position ${rank}.`);
+    }
+  }
   const pdf = mediaByRole(project, "customer-pdf");
   if (!editMode && !pdf) throw new Error("Attach the customer PDF before publishing.");
   return { manifest, title, description, tags, images, pdf, editMode };
@@ -132,6 +140,11 @@ async function createDraft(shopId: string, token: string, data: any, template: a
   form.set("is_supply", String(data.manifest.isSupply ?? template.is_supply ?? false));
   form.set("is_taxable", String(data.manifest.isTaxable ?? template.is_taxable ?? true));
   form.set("should_auto_renew", String(data.manifest.autoRenew ?? template.should_auto_renew ?? true));
+  if (data.manifest.shopSectionId || template.shop_section_id) form.set("shop_section_id", String(data.manifest.shopSectionId || template.shop_section_id));
+  appendArray(form, "materials", data.manifest.materials ?? template.materials);
+  appendArray(form, "styles", data.manifest.styles ?? template.styles);
+  if (data.manifest.isCustomizable ?? template.is_customizable) form.set("is_customizable", "true");
+  if (data.manifest.readinessStateId || template.readiness_state_id) form.set("readiness_state_id", String(data.manifest.readinessStateId || template.readiness_state_id));
   for (const tag of data.tags) form.append("tags", tag);
   return await etsyFetch(`/shops/${shopId}/listings`, token, {
     method: "POST",
