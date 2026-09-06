@@ -46,16 +46,24 @@ function validateProject(project: any) {
   const description = String(manifest.description || "").trim();
   const tags = Array.isArray(manifest.tags) ? manifest.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean) : [];
   if (editMode) {
+    const fields = manifest.updateFields && typeof manifest.updateFields === "object" ? manifest.updateFields : {};
+    const scopes = Array.isArray(manifest.updateScope) ? manifest.updateScope.map(String) : manifest.updateScope === "images_only" ? ["images"] : [];
+    const allowed = new Set(["title","description","price","quantity","tags","taxonomyId","shopSectionId","materials","styles","whoMade","whenMade","isSupply","isTaxable","autoRenew","state","personalization","images","files"]);
+    if (!scopes.length) throw new Error("This Etsy update has no approved fields.");
+    if (scopes.some((scope: string) => !allowed.has(scope))) throw new Error("This Etsy update contains an unsupported scope.");
+    if (Object.keys(fields).some((key) => !allowed.has(key) || ["images","files"].includes(key))) throw new Error("This Etsy update contains an unsupported field.");
+    if (Object.keys(fields).some((key) => !scopes.includes(key)) || scopes.some((scope: string) => !["images","files"].includes(scope) && !Object.prototype.hasOwnProperty.call(fields, scope))) throw new Error("The approved Etsy fields do not match the update scope.");
     const images = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
-    const roles = new Set(images.map((item: any) => String(item.role)));
-    const required = ["thumbnail", "listing-image-1", "listing-image-2", "listing-image-3", "listing-image-4", "listing-image-5"];
-    if (required.some((role) => !roles.has(role))) throw new Error("Attach the replacement thumbnail and all five replacement listing images.");
-    const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
-    for (const item of images) {
-      const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
-      if (!altText[rank - 1]) throw new Error(`Add alt text for the replacement image at position ${rank}.`);
+    if (scopes.includes("images")) {
+      const roles = new Set(images.map((item: any) => String(item.role)));
+      const required = ["thumbnail", "listing-image-1", "listing-image-2", "listing-image-3", "listing-image-4", "listing-image-5"];
+      if (required.some((role) => !roles.has(role))) throw new Error("Attach the replacement thumbnail and all five replacement listing images.");
+      const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
+      for (const item of images) { const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1); if (!altText[rank - 1]) throw new Error(`Add alt text for the replacement image at position ${rank}.`); }
     }
-    return { manifest, title: project.title, description: "", tags: [], images, pdf: null, editMode: true };
+    const files = Array.isArray(manifest.fileReplacements) ? manifest.fileReplacements.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
+    if (scopes.includes("files") && files.some((file: any) => !file.item)) throw new Error("Attach every approved digital-file replacement.");
+    return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? images : [], files, fields, scopes, pdf: null, editMode: true };
   }
   if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
   if (!description) throw new Error("The Etsy description is missing.");
@@ -196,12 +204,40 @@ async function updateListing(shopId: string, listingId: string, token: string, d
   });
 }
 
-async function uploadPdf(admin: any, shopId: string, listingId: string, token: string, item: any) {
+async function updateSelectedListingFields(shopId: string, listingId: string, token: string, fields: any) {
+  const form = new URLSearchParams();
+  const direct: Record<string,string> = { title:"title", description:"description", quantity:"quantity", price:"price", taxonomyId:"taxonomy_id", shopSectionId:"shop_section_id", whoMade:"who_made", whenMade:"when_made", isSupply:"is_supply", isTaxable:"is_taxable", autoRenew:"should_auto_renew", state:"state" };
+  for (const [key, apiKey] of Object.entries(direct)) if (Object.prototype.hasOwnProperty.call(fields, key)) form.set(apiKey, String(fields[key]));
+  for (const key of ["tags","materials","styles"]) if (Object.prototype.hasOwnProperty.call(fields,key)) appendArray(form,key,fields[key]);
+  if (![...form.keys()].length) return null;
+  return await etsyFetch(`/shops/${shopId}/listings/${listingId}`, token, { method:"PATCH", headers:{"content-type":"application/x-www-form-urlencoded"}, body:form });
+}
+
+async function updatePersonalization(shopId: string, listingId: string, token: string, personalization: any) {
+  const path=`/shops/${shopId}/listings/${listingId}/personalization`;
+  const questions=Array.isArray(personalization?.personalization_questions)?personalization.personalization_questions:[];
+  if(personalization?.enabled===false||questions.length===0)return await etsyFetch(path,token,{method:"DELETE"});
+  return await etsyFetch(path,token,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({personalization_questions:questions})});
+}
+
+async function replaceDigitalFiles(admin:any,shopId:string,listingId:string,token:string,replacements:any[]){
+  if(!replacements.length)return;
+  const current=await etsyFetch(`/shops/${shopId}/listings/${listingId}/files`,token),existing=Array.isArray(current.results)?current.results:[];
+  if(existing.length>=5)throw new Error("This listing already has Etsy's maximum of five digital files. Remove one in Etsy before using Seller Tools file replacement.");
+  for(const replacement of replacements){
+    const target=existing.find((x:any)=>String(x.listing_file_id)===String(replacement.listingFileId));if(!target)throw new Error(`Existing Etsy file ${replacement.listingFileId} was not found.`);
+    const uploaded=await uploadPdf(admin,shopId,listingId,token,replacement.item,Number(target.rank)||1);
+    const newId=String(uploaded.listing_file_id||uploaded.results?.[0]?.listing_file_id||"");if(!newId)throw new Error(`Etsy did not confirm the upload of ${replacement.filename}. The original file was kept.`);
+    await etsyFetch(`/shops/${shopId}/listings/${listingId}/files/${target.listing_file_id}`,token,{method:"DELETE"});
+  }
+}
+
+async function uploadPdf(admin: any, shopId: string, listingId: string, token: string, item: any, rank = 1) {
   const blob = await storageFile(admin, item);
   const form = new FormData();
   form.set("file", blob, item.name || "planner.pdf");
   form.set("name", String(item.name || "planner.pdf").slice(0, 70));
-  form.set("rank", "1");
+  form.set("rank", String(rank));
   return await etsyFetch(`/shops/${shopId}/listings/${listingId}/files`, token, { method: "POST", body: form });
 }
 
@@ -248,11 +284,14 @@ Deno.serve(async (req: Request) => {
       const listingId = String(body.listing_id || "");
       if (!/^\d+$/.test(listingId)) throw new Error("Choose an Etsy listing.");
       const existing = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
+      const files = await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token).catch(() => ({ results: [] }));
       if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
       const manifest = {
-        mode: "edit", updateScope: "images_only", listingId,
+        mode: "edit", updateScope: [], updateFields: {}, listingId,
         altText: (existing.images || []).map((image: any) => image.alt_text || ""),
         existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
+        existingFiles: (files.results || []).map((file:any)=>({id:String(file.listing_file_id),rank:file.rank,name:file.filename||file.display_name||"Digital file"})),
+        existingSnapshot:{title:existing.title,description:existing.description,price:moneyValue(existing.price),quantity:existing.quantity,tags:existing.tags||[],taxonomyId:existing.taxonomy_id,shopSectionId:existing.shop_section_id,materials:existing.materials||[],styles:existing.styles||[],whoMade:existing.who_made,whenMade:existing.when_made,isSupply:existing.is_supply,isTaxable:existing.is_taxable,autoRenew:existing.should_auto_renew,state:existing.state,personalization:existing.personalization||null},
       };
       let createQuery;
       if (body.reuse_project_id) {
@@ -261,7 +300,7 @@ Deno.serve(async (req: Request) => {
         }).eq("id", String(body.reuse_project_id)).eq("kind", "etsy").select("id,title,status,platform_id");
       } else {
         createQuery = admin.from("review_projects").insert({
-          kind: "etsy", title: existing.title, status: "ready", source: "chatgpt",
+          kind: "etsy", title: existing.title, status: "editing", source: "chatgpt",
           manifest, media: [], platform_id: listingId,
         }).select("id,title,status,platform_id");
       }
@@ -283,15 +322,17 @@ Deno.serve(async (req: Request) => {
     let listingId = listing.editMode ? String(manifest.listingId || manifest.etsyListingId || project.platform_id || "") : String(project.platform_id || checkpoint.listingId || "");
     if (listing.editMode) {
       if (!listingId) throw new Error("The existing Etsy listing ID is missing.");
-      const altText = Array.isArray(manifest.altText) ? manifest.altText : [];
-      for (const item of listing.images) {
-        const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
-        await uploadImage(admin, credential.shop_id, listingId, token, item, rank, String(altText[rank - 1] || ""), true);
-      }
-      if (listing.pdf) await uploadPdf(admin, credential.shop_id, listingId, token, listing.pdf);
+      const original=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
+      if(String(original.user_id||"")&&String(original.user_id)!==String(credential.etsy_user_id))throw new Error("That listing does not belong to the connected Etsy account.");
+      const before:any={};for(const scope of listing.scopes)before[scope]=scope==="images"?(original.images||[]).map((x:any)=>({id:x.listing_image_id,rank:x.rank,altText:x.alt_text||""})):scope==="files"?"individual replacements":original[scope]??null;
+      await updateSelectedListingFields(credential.shop_id,listingId,token,listing.fields);
+      if(listing.scopes.includes("personalization"))await updatePersonalization(credential.shop_id,listingId,token,listing.fields.personalization);
+      if(listing.scopes.includes("images")){const altText=Array.isArray(manifest.altText)?manifest.altText:[];for(const item of listing.images){const rank=item.role==="thumbnail"?1:Math.max(2,Number(String(item.role).replace("listing-image-",""))+1);await uploadImage(admin,credential.shop_id,listingId,token,item,rank,String(altText[rank-1]||""),true);}}
+      if(listing.scopes.includes("files"))await replaceDigitalFiles(admin,credential.shop_id,listingId,token,listing.files);
       const publishedAt = new Date().toISOString();
-      await admin.from("review_projects").update({ status: "published", platform_id: listingId, published_at: publishedAt, last_error: null }).eq("id", projectId);
-      return json({ ok: true, updated: true, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` });
+      const audit={scopes:listing.scopes,before,approvedFields:listing.fields,completedAt:publishedAt};
+      await admin.from("review_projects").update({status:"published",platform_id:listingId,published_at:publishedAt,last_error:null,manifest:{...manifest,etsyUpdateAudit:audit}}).eq("id",projectId);
+      return json({ok:true,updated:true,updated_fields:listing.scopes,listing_id:listingId,listing_url:`https://www.etsy.com/listing/${listingId}`});
     }
     const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
     const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
