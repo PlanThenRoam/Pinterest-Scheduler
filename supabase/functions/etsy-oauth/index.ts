@@ -144,8 +144,17 @@ async function callback(url: URL) {
   let shops: any;
   try { shops = await etsyFetch("/users/" + encodeURIComponent(etsyUserId) + "/shops", token.access_token); }
   catch (e) { return html("Etsy was not connected", String((e as Error).message || e), false); }
-  const shop = Array.isArray(shops?.results) ? shops.results[0] : Array.isArray(shops) ? shops[0] : null;
-  if (!shop?.shop_id) return html("Etsy was not connected", "No Etsy shop was found for this account.", false);
+  const shop =
+    (Array.isArray(shops?.results) ? shops.results[0] : null) ||
+    (Array.isArray(shops?.shops) ? shops.shops[0] : null) ||
+    (Array.isArray(shops) ? shops[0] : null) ||
+    (shops?.shop_id ? shops : null) ||
+    (shops?.shop?.shop_id ? shops.shop : null) ||
+    (shops?.results?.shop_id ? shops.results : null);
+  if (!shop?.shop_id) {
+    const responseKeys = shops && typeof shops === "object" ? Object.keys(shops).slice(0, 8).join(", ") : typeof shops;
+    return html("Etsy was not connected", "Etsy authorised the account but returned no active shop record. Response fields: " + responseKeys, false);
+  }
 
   const expiresAt = new Date(Date.now() + (Number(token.expires_in) || 3600) * 1000).toISOString();
   const { error: saveError } = await admin.from("etsy_credentials").upsert({
