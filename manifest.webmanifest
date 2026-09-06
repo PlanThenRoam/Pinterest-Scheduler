@@ -2,7 +2,7 @@
   "id": "./",
   "name": "PlanThenRoam Seller Tools",
   "short_name": "Seller Tools",
-  "description": "Private TikTok, Etsy and Pinterest review workspace for PlanThenRoam.",
+  "description": "Private Etsy and Pinterest review workspace for PlanThenRoam.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
