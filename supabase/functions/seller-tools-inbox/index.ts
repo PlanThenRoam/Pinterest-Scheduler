@@ -37,14 +37,22 @@ function validate(kind:string, manifest:any){
   });
  }
  if(kind==="etsy"){
-  const tags=Array.isArray(manifest?.tags)?manifest.tags.map((x:any)=>String(x).trim()).filter(Boolean):[];
-  if(!manifest?.title||!manifest?.description)throw new Error("Etsy projects require a listing title and full description.");
-  if(String(manifest.title).length>140)throw new Error("Etsy listing titles must be 140 characters or fewer.");
-  if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13)throw new Error("Etsy projects require exactly 13 unique tags.");
-  if(tags.some((x:string)=>x.length>20))throw new Error("Each Etsy tag must be 20 characters or fewer.");
-  if(!(Number(manifest.price)>0))manifest.price=14.99;
-  if(!(Number(manifest.quantity)>0))manifest.quantity=999;
-  manifest.tags=tags;
+  if(manifest?.mode==="edit"||manifest?.updateScope==="images_only"){
+   const listingId=String(manifest.listingId||manifest.etsyListingId||"");
+   const alt=Array.isArray(manifest.altText)?manifest.altText.map((x:any)=>String(x).trim()):[];
+   if(!/^\\d+$/.test(listingId))throw new Error("Image-only Etsy updates require the exact existing listing ID.");
+   if(alt.length!==6||alt.some((x:string)=>!x))throw new Error("Image-only Etsy updates require exactly six matching alt-text entries.");
+   manifest.mode="edit";manifest.updateScope="images_only";manifest.listingId=listingId;manifest.altText=alt;
+  }else{
+   const tags=Array.isArray(manifest?.tags)?manifest.tags.map((x:any)=>String(x).trim()).filter(Boolean):[];
+   if(!manifest?.title||!manifest?.description)throw new Error("New Etsy listings require a listing title and full description.");
+   if(String(manifest.title).length>140)throw new Error("Etsy listing titles must be 140 characters or fewer.");
+   if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13)throw new Error("New Etsy listings require exactly 13 unique tags.");
+   if(tags.some((x:string)=>x.length>20))throw new Error("Each Etsy tag must be 20 characters or fewer.");
+   if(!(Number(manifest.price)>0))manifest.price=14.99;
+   if(!(Number(manifest.quantity)>0))manifest.quantity=999;
+   manifest.tags=tags;
+  }
  }
  if(kind==="pinterest"&&(!Array.isArray(manifest?.pins)||manifest.pins.length!==10))throw new Error("Pinterest projects require exactly 10 Pins.");
 }
