@@ -5,6 +5,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
+const APP_VERSION = 20;
+const API_CAPABILITY_VERSION = "2.0.0";
 const bucketFor: Record<string,string> = {tiktok:"tiktok-media",etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -33,7 +35,7 @@ const tools = [
  {name:"attach_project_asset",description:"Attach or replace one base64-encoded project asset. TikTok backgrounds use scene-N and genuine PDF-rendered overlays use planner-page-N. Reusing a role replaces only that asset.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","filename","role","content_type","base64_data"],properties:{project_id:{type:"string",format:"uuid"},filename:{type:"string"},role:{type:"string",description:"Examples: scene-1, planner-page-1, customer-pdf, thumbnail, listing-image-1, pin-1. Do not attach a TikTok video."},content_type:{type:"string"},base64_data:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"attach_project_asset_from_url",description:"Copy an HTTPS asset from a trusted ChatGPT/OpenAI cloud URL into the owner's private Seller Tools storage.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","source_url","filename","role"],properties:{project_id:{type:"string",format:"uuid"},source_url:{type:"string",format:"uri"},filename:{type:"string"},role:{type:"string"},content_type:{type:"string"},is_preview:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
  {name:"finalize_review_project",description:"Validate all attached assets. TikTok is handed to Seller Tools for MP4 rendering; Etsy and Pinterest are marked ready for review. This does not publish.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
- {name:"list_review_projects",description:"List private Seller Tools projects and revision requests without returning binary files.",inputSchema:{type:"object",additionalProperties:false,properties:{status:{type:"string",enum:["draft","uploading_assets","assets_verified","ready_to_render","rendering","ready","changes_requested","approved","scheduled","publishing","published","failed"]},kind:{type:"string",enum:["tiktok","etsy","pinterest"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
+ {name:"list_review_projects",description:"Report the live Seller Tools app/API versions and list private review projects and revision requests without returning binary files.",inputSchema:{type:"object",additionalProperties:false,properties:{status:{type:"string",enum:["draft","uploading_assets","assets_verified","ready_to_render","rendering","ready","changes_requested","approved","scheduled","publishing","published","failed"]},kind:{type:"string",enum:["tiktok","etsy","pinterest"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"update_review_project",description:"Update the manifest or replace the title of one existing project. Preserve fields the owner did not ask to change.",inputSchema:{type:"object",additionalProperties:false,required:["project_id"],properties:{project_id:{type:"string",format:"uuid"},title:{type:"string"},manifest:{type:"object"},mark_ready:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"get_creative_capabilities",description:"Return every ChatGPT-facing premium creative preset, template, editable property and rendering rule. No creative controls are exposed in the owner's Review Box.",inputSchema:{type:"object",additionalProperties:false,properties:{}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"patch_review_project",description:"Patch only named project properties using JSON Pointer paths. Unmentioned manifest fields, assets and settings remain byte-for-byte unchanged. Creates a recoverable version first.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","patches"],properties:{project_id:{type:"string",format:"uuid"},patches:{type:"array",minItems:1,maxItems:50,items:{type:"object",additionalProperties:false,required:["op","path"],properties:{op:{type:"string",enum:["add","replace","remove"]},path:{type:"string",pattern:"^/"},value:{}}}},version_name:{type:"string",maxLength:80},mark_ready:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
@@ -139,7 +141,7 @@ Deno.serve(async(req:Request)=>{
  if(req.method!=="POST")return new Response("Method not allowed",{status:405,headers:cors});
  let body:any;try{body=await req.json()}catch{return fail(null,-32700,"Invalid JSON",400)}
  const {id,method,params}=body;
- if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:"1.1.0"}});
+ if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:API_CAPABILITY_VERSION},appVersion:APP_VERSION,apiCapabilityVersion:API_CAPABILITY_VERSION});
  if(method==="ping")return rpc(id,{});
  if(method==="notifications/initialized")return new Response(null,{status:202,headers:cors});
  if(method==="tools/list")return rpc(id,{tools});
@@ -170,7 +172,7 @@ Deno.serve(async(req:Request)=>{
   if(name==="list_review_projects"){
    let query=db.from("review_projects").select("id,kind,title,status,manifest,revision,revision_request,scheduled_for,updated_at").order("updated_at",{ascending:false}).limit(50);
    if(args.kind)query=query.eq("kind",args.kind);if(args.status)query=query.eq("status",args.status);
-   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({projects:data,etsy_listings}));
+   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true},projects:data,etsy_listings}));
   }
   if(name==="get_creative_capabilities")return rpc(id,output(CREATIVE_CAPABILITIES));
   if(name==="list_creative_styles"){
