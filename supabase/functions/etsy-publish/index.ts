@@ -41,27 +41,30 @@ function validateProject(project: any) {
   if (!project || project.kind !== "etsy") throw new Error("Etsy project not found.");
   if (!["ready", "approved", "failed", "publishing"].includes(project.status)) throw new Error("This Etsy project is not ready to publish.");
   const manifest = project.manifest || {};
+  const editMode = manifest.mode === "edit" || Boolean(manifest.listingId || manifest.etsyListingId);
   const title = String(manifest.title || project.title || "").trim();
   const description = String(manifest.description || "").trim();
   const tags = Array.isArray(manifest.tags) ? manifest.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean) : [];
-  if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
-  if (!description) throw new Error("The Etsy description is missing.");
-  if (tags.length !== 13 || new Set(tags.map((tag: string) => tag.toLowerCase())).size !== 13) throw new Error("Etsy requires exactly 13 unique tags.");
-  if (tags.some((tag: string) => tag.length > 20)) throw new Error("Each Etsy tag must be 20 characters or fewer.");
-  const editMode = manifest.mode === "edit" || Boolean(manifest.listingId || manifest.etsyListingId);
-  const images = editMode
-    ? (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"))
-    : imageItems(project);
-  if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
-  if (editMode && images.length < 1 && !title && !description) throw new Error("Add at least one listing change.");
-  const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
-  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value))) throw new Error("Add alt text for all six Etsy listing images.");
   if (editMode) {
+    const images = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
+    const roles = new Set(images.map((item: any) => String(item.role)));
+    const required = ["thumbnail", "listing-image-1", "listing-image-2", "listing-image-3", "listing-image-4", "listing-image-5"];
+    if (required.some((role) => !roles.has(role))) throw new Error("Attach the replacement thumbnail and all five replacement listing images.");
+    const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
     for (const item of images) {
       const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
       if (!altText[rank - 1]) throw new Error(`Add alt text for the replacement image at position ${rank}.`);
     }
+    return { manifest, title: project.title, description: "", tags: [], images, pdf: null, editMode: true };
   }
+  if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
+  if (!description) throw new Error("The Etsy description is missing.");
+  if (tags.length !== 13 || new Set(tags.map((tag: string) => tag.toLowerCase())).size !== 13) throw new Error("Etsy requires exactly 13 unique tags.");
+  if (tags.some((tag: string) => tag.length > 20)) throw new Error("Each Etsy tag must be 20 characters or fewer.");
+  const images = imageItems(project);
+  if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
+  const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
+  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value))) throw new Error("Add alt text for all six Etsy listing images.");
   const pdf = mediaByRole(project, "customer-pdf");
   if (!editMode && !pdf) throw new Error("Attach the customer PDF before publishing.");
   return { manifest, title, description, tags, images, pdf, editMode };
@@ -247,14 +250,9 @@ Deno.serve(async (req: Request) => {
       const existing = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
       if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
       const manifest = {
-        mode: "edit", listingId, title: existing.title, description: existing.description,
-        price: moneyValue(existing.price), quantity: existing.quantity, tags: existing.tags || [],
-        taxonomyId: existing.taxonomy_id, whoMade: existing.who_made, whenMade: existing.when_made,
-        isSupply: existing.is_supply, isTaxable: existing.is_taxable, autoRenew: existing.should_auto_renew,
-        shopSectionId: existing.shop_section_id, materials: existing.materials || [],
+        mode: "edit", updateScope: "images_only", listingId,
         altText: (existing.images || []).map((image: any) => image.alt_text || ""),
         existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
-        personalization: existing.personalization || null,
       };
       let createQuery;
       if (body.reuse_project_id) {
@@ -280,16 +278,11 @@ Deno.serve(async (req: Request) => {
     const listing = validateProject(project);
     const manifest = { ...(project.manifest || {}) };
     const checkpoint = { ...(manifest.etsyPublish || {}) };
-    const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
-    const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
-    if (!taxonomyId) throw new Error("Add an Etsy taxonomy ID in Edit before publishing.");
     await admin.from("review_projects").update({ status: "publishing", last_error: null }).eq("id", projectId);
 
     let listingId = listing.editMode ? String(manifest.listingId || manifest.etsyListingId || project.platform_id || "") : String(project.platform_id || checkpoint.listingId || "");
     if (listing.editMode) {
       if (!listingId) throw new Error("The existing Etsy listing ID is missing.");
-      const original = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
-      await updateListing(credential.shop_id, listingId, token, { ...listing, taxonomyId }, original);
       const altText = Array.isArray(manifest.altText) ? manifest.altText : [];
       for (const item of listing.images) {
         const rank = item.role === "thumbnail" ? 1 : Math.max(2, Number(String(item.role).replace("listing-image-", "")) + 1);
@@ -300,6 +293,9 @@ Deno.serve(async (req: Request) => {
       await admin.from("review_projects").update({ status: "published", platform_id: listingId, published_at: publishedAt, last_error: null }).eq("id", projectId);
       return json({ ok: true, updated: true, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` });
     }
+    const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
+    const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
+    if (!taxonomyId) throw new Error("Add an Etsy taxonomy ID in Edit before publishing.");
     if (!listingId) {
       const draft = await createDraft(credential.shop_id, token, { ...listing, taxonomyId }, template);
       listingId = String(draft.listing_id || draft.results?.[0]?.listing_id || "");
