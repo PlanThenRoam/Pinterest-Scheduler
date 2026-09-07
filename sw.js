@@ -1,5 +1,5 @@
-const CACHE_NAME='ptr-seller-tools-v25';
-const APP_SHELL=['./','./index.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
+const CACHE_NAME='ptr-seller-tools-v26';
+const APP_SHELL=['./','./index.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./core.js?v=26','./workspace.js?v=26','./workspace.css?v=26','./release.json'];
 
 self.addEventListener('install',event=>{
  self.skipWaiting();
@@ -17,6 +17,8 @@ self.addEventListener('fetch',event=>{
  if(request.method!=='GET')return;
  const url=new URL(request.url);
  if(url.origin!==self.location.origin)return;
+ if(url.searchParams.get('demo')==='1')return;
+ if(url.pathname.endsWith('/release.json')){event.respondWith(fetch(request,{cache:'no-store'}));return;}
  if(request.mode==='navigate'){
   event.respondWith(fetch(request,{cache:'no-store'}).then(response=>{
    const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
@@ -27,4 +29,3 @@ self.addEventListener('fetch',event=>{
   const copy=response.clone();caches.open(CACHE_NAME).then(cache=>cache.put(request,copy));return response;
  }).catch(()=>caches.match(request)));
 });
-

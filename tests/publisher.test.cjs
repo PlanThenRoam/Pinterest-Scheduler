@@ -1,0 +1,35 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const {stripTypeScriptTypes}=require('node:module');
+const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
+const context=vm.createContext({Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console});
+function load(name){return stripTypeScriptTypes(fs.readFileSync(base+'/'+name,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,''));}
+vm.runInContext(load('safety.ts')+'\n'+load('safe-edit.ts'),context);
+const {runEdit,preflightFiles,verifyFields}=context;
+const source=fs.readFileSync(base+'/index.ts','utf8');
+vm.runInContext(stripTypeScriptTypes(source.slice(source.indexOf('function numberValue('),source.indexOf('async function etsyFetch('))),context);
+function setup({count=2,uploadFail=false,drift=false,unexpectedField=false}={}){
+ const files=Array.from({length:count},(_,i)=>({listing_file_id:String(100+i),rank:i+1,filename:`file${i}.pdf`}));
+ const original={user_id:'owner',title:'Old title',description:'Original copy',price:{amount:1499,divisor:100},tags:['one'],images:[]};
+ const current=structuredClone(original),runs=[],writes=[];
+ const project={id:'project',kind:'etsy',title:'Sample',revision:1,status:'ready',media:[{role:'pdf',path:'safe/path',name:'new.pdf'}],manifest:{mode:'edit',listingId:'12345',updateScope:['files'],updateFields:{},fileUpdates:[{action:'replace',listingFileId:'100',role:'pdf',filename:'new.pdf'}]}};
+ const admin={from(table){const q={changes:null,filters:[],insert:async value=>{if(table==='seller_publish_runs'&&runs.some(r=>r.listing_key===value.listing_key&&['running','needs_review'].includes(r.status)))return {error:Error('duplicate')};runs.push({...structuredClone(value)});return {error:null};},update(v){this.changes=structuredClone(v);return this;},eq(k,v){this.filters.push([k,v]);return this;},in(k,v){this.filters.push([k,v]);return this;},select(){return this;},maybeSingle(){return Promise.resolve(this.apply());},then(resolve,reject){return Promise.resolve(this.apply()).then(resolve,reject);},apply(){const rows=table==='seller_publish_runs'?runs:[project];const matches=rows.filter(r=>this.filters.every(([k,v])=>Array.isArray(v)?v.includes(r[k]):r[k]===v));matches.forEach(r=>Object.assign(r,this.changes));return {data:matches[0]?{id:matches[0].id}:null,error:null};}};return q;}};
+ const api={fetch:async(path,token,init)=>{if(init?.method==='DELETE'){writes.push('delete');const i=files.findIndex(x=>String(x.listing_file_id)===path.split('/').at(-1));files.splice(i,1);return {};}if(path.endsWith('/files'))return {results:structuredClone(files)};if(drift)current.title='Externally edited';return structuredClone(current);},storageFile:async()=>new Blob(['content']),uploadFile:async()=>{writes.push('upload');if(uploadFail)throw Error('upload timeout');const file={listing_file_id:'200',rank:1,filename:'new.pdf'};files.push(file);return file;},updateFields:async(shop,id,token,fields)=>{writes.push('fields');Object.assign(current,fields);if(unexpectedField)current.description='Unexpected mutation';},uploadImage:async()=>{writes.push('image');},altText:async()=>{writes.push('alt');},personalization:async()=>{writes.push('personalization');}};
+ const listing=()=>context.validateProject(project);
+ return {project,runs,writes,files,current,admin,api,listing,run:()=>runEdit(admin,{shop_id:'shop',etsy_user_id:'owner'},'test',project,listing(),api)};
+}
+test('numeric file and alt-text IDs validate, omitted alt-text scope cannot execute',()=>{
+ const s=setup();assert.equal(s.listing().fileUpdates[0].listingFileId,'100');
+ s.project.manifest.updateScope=['alt_text'];s.project.manifest.altTextUpdates=[{listingImageId:'888',rank:1,altText:'Meaningful text'}];assert.equal(s.listing().altTextUpdates.length,1);
+ s.project.manifest.updateScope=['title'];s.project.manifest.updateFields={title:'New title'};assert.equal(s.listing().altTextUpdates.length,0);
+});
+test('replacement uploads before deleting original and verifies the exact file set',async()=>{const s=setup();const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['upload','delete']);assert.deepEqual(s.files.map(x=>x.listing_file_id).sort(),['101','200']);assert.equal(s.runs[0].status,'succeeded');});
+test('full five-file listing is blocked before any Etsy write',async()=>{const s=setup({count:5});await assert.rejects(s.run(),/one free Etsy file slot/);assert.deepEqual(s.writes,[]);assert.equal(s.files.length,5);assert.equal(s.runs[0].status,'blocked');});
+test('upload failure retains original and blocks unsafe retry',async()=>{const s=setup({uploadFail:true});await assert.rejects(s.run(),/may already be live/);assert.deepEqual(s.writes,['upload']);assert.equal(s.files[0].listing_file_id,'100');assert.equal(s.runs[0].status,'needs_review');await assert.rejects(s.run(),/unresolved update/);assert.deepEqual(s.writes,['upload']);});
+test('parallel attempts cannot publish the same listing twice',async()=>{const s=setup();const result=await Promise.allSettled([s.run(),s.run()]);assert.equal(result.filter(x=>x.status==='fulfilled').length,1);assert.equal(result.filter(x=>x.status==='rejected').length,1);assert.deepEqual(s.writes,['upload','delete']);});
+test('stale draft is blocked before changing Etsy',async()=>{const s=setup({drift:true});s.project.manifest.existingSnapshot={title:'Old title'};await assert.rejects(s.run(),/changed since this draft/);assert.deepEqual(s.writes,[]);});
+test('an unexpected change to an omitted field is reported as requiring review',async()=>{const s=setup({unexpectedField:true});s.project.manifest.updateScope=['title'];s.project.manifest.updateFields={title:'New title'};await assert.rejects(s.run(),/description differs/);assert.equal(s.runs[0].status,'needs_review');});
+test('duplicate file targets and excess additions fail preflight',()=>{assert.throws(()=>preflightFiles([{listing_file_id:'1'}],[{action:'replace',listingFileId:'1'},{action:'replace',listingFileId:'1'}]),/only once/);assert.throws(()=>preflightFiles(Array(5).fill({}),[{action:'add'}]),/five digital files/);});
+test('archived and publishing projects cannot be submitted',()=>{const s=setup();s.project.status='publishing';assert.throws(()=>s.listing(),/already|another request/);s.project.status='ready';s.project.manifest.archived=true;assert.throws(()=>s.listing(),/archived/);});

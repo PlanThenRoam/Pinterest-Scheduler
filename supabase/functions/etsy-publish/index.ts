@@ -40,6 +40,7 @@ function imageItems(project: any) {
 
 function validateProject(project: any) {
   if (!project || project.kind !== "etsy") throw new Error("Etsy project not found.");
+  if(project.manifest?.archived)throw new Error('Restore this archived project before editing it.');
   if (!["ready", "approved", "failed"].includes(project.status)) throw new Error("This Etsy project is not ready to publish, or another request is running.");
   const manifest = structuredClone(project.manifest || {});
   const editMode = manifest.mode === "edit" || Boolean(manifest.listingId || manifest.etsyListingId);
@@ -69,7 +70,7 @@ function validateProject(project: any) {
     if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 10) throw new Error("Choose one to ten existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>10 || !String(image?.altText||"").trim()) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
     const fileUpdates = Array.isArray(manifest.fileUpdates) ? manifest.fileUpdates.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
     if (scopes.includes("files")) { if (!fileUpdates.length || fileUpdates.length > 5) throw new Error("Choose one to five digital-file additions or replacements."); for (const [i,file] of fileUpdates.entries()) { if (!["add","replace"].includes(String(file?.action)) || !file?.role || !file.filename || !file.item) throw new Error(`Digital-file update ${i+1} is incomplete or its asset is not attached.`); if (file.action==="replace" && !/^\d+$/.test(String(file.listingFileId||""))) throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`); } }
-    return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], altTextUpdates, fileUpdates, fields, scopes, pdf: null, editMode: true };
+    return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], altTextUpdates: scopes.includes("alt_text") ? altTextUpdates : [], fileUpdates: scopes.includes("files") ? fileUpdates : [], fields, scopes, pdf: null, editMode: true };
   }
   if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
   if (!description) throw new Error("The Etsy description is missing.");
@@ -253,7 +254,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:26, api_version:'3.2.0', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -283,8 +284,12 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     if (body.action === "acknowledge_run") {
       if (body.confirmed_review !== true) throw new Error("Review the current Etsy listing before releasing this update.");
-      const {error} = await admin.from("seller_publish_runs").update({status:"dismissed",finished_at:new Date().toISOString()}).eq("id",String(body.run_id)).eq("status","needs_review");
+      const {data:run,error:readError}=await admin.from('seller_publish_runs').select('*').eq('id',String(body.run_id)).single();
+      if(readError||!run)throw new Error('Publishing attempt not found.');
+      if(run.status!=='needs_review'&&!(run.status==='running'&&Date.now()-Date.parse(run.created_at)>5*60_000))throw new Error('Only unresolved or stalled publishing attempts can be acknowledged.');
+      const {error} = await admin.from("seller_publish_runs").update({status:"dismissed",finished_at:new Date().toISOString()}).eq("id",run.id).eq("status",run.status);
       if(error)throw error;
+      if(run.status==='running')await admin.from('review_projects').update({status:'failed',last_error:'Stalled publishing attempt acknowledged. Prepare a fresh update after checking Etsy.'}).eq('id',run.project_id).eq('status','publishing');
       return json({ok:true});
     }
     if (body.action === "prepare_edit") {
@@ -366,6 +371,11 @@ Deno.serve(async (req: Request) => {
       await admin.from("review_projects").update({ manifest }).eq("id", projectId);
     }
     if (!checkpoint.fileUploaded) {
+      if(checkpoint.fileUploadAttempted)throw new Error('A previous file upload has an uncertain outcome. Inspect Etsy before retrying this new listing.');
+      checkpoint.fileUploadAttempted=true;
+      manifest.etsyPublish=checkpoint;
+      const {error:beforeUploadError}=await admin.from('review_projects').update({manifest}).eq('id',projectId);
+      if(beforeUploadError)throw beforeUploadError;
       await uploadPdf(admin, credential.shop_id, listingId, token, listing.pdf);
       checkpoint.fileUploaded = true;
       manifest.etsyPublish = checkpoint;
