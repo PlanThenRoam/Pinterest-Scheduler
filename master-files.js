@@ -29,16 +29,17 @@
  function listingOptions(selected){const list=shopListings.slice();if(selected&&!list.some(x=>String(x.listing_id)===String(selected)))list.push({listing_id:selected,title:'Currently Linked Etsy Listing'});return '<option value="">No Etsy Listing</option>'+list.map(x=>`<option value="${esc(x.listing_id)}" ${String(x.listing_id)===String(selected)?'selected':''}>${esc(x.title)}</option>`).join('');}
  function categoryOptions(selected){return ['planner','blueprint','image','other'].map(x=>`<option value="${x}" ${x===selected?'selected':''}>${typeLabel(x)}</option>`).join('');}
  function create(){
+  if(busy)return;$('#masterCreateModal').dataset.dirty='false';
   $('#masterCreateForm').innerHTML=`<label>Title<input name="title" maxlength="180" required placeholder="Japan First-Timer Itinerary Planner"></label><label>Category<select name="category">${categoryOptions('planner')}</select></label><label>Linked Etsy Listing<select name="listing_id">${listingOptions('')}</select></label><p class="muted">You can link an Etsy listing later. Adding a master does not change your shop.</p><p class="notice error hidden" id="masterCreateError"></p><button type="submit" class="btn primary">Create Master</button>`;
   $('#masterCreateModal').classList.add('open');$('#masterCreateForm [name="title"]').focus();
  }
- async function saveNew(e){e.preventDefault();const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;try{
+ async function saveNew(e){e.preventDefault();if(busy)return;busy=true;const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;try{
   const args=Object.fromEntries(new FormData(e.currentTarget));if(!args.listing_id)delete args.listing_id;
   let r;if(demoMode){r={...args,id:'demo-'+crypto.randomUUID(),revision:0,files:[],updated_at:new Date().toISOString()};records.push(r);}else r=(await rpc('create_master_file',args)).master;
-  $('#masterCreateModal').classList.remove('open');await load();await open(r.id);
- }catch(e){$('#masterCreateError').textContent=e.message;$('#masterCreateError').classList.remove('hidden');}finally{button.disabled=false;}}
+  $('#masterCreateModal').dataset.dirty='false';$('#masterCreateModal').classList.remove('open');busy=false;$('#masterModal').dataset.dirty='false';await load();await open(r.id);
+ }catch(e){$('#masterCreateError').textContent=e.message;$('#masterCreateError').classList.remove('hidden');}finally{busy=false;button.disabled=false;}}
  async function open(id,version){
-  if(busy)return;pendingUpload=null;stagingProject=null;
+  if(busy)return;if($('#masterModal').dataset.dirty==='true'&&!confirm('Discard unsaved master changes? Saved files and history will be kept.'))return;$('#masterModal').dataset.dirty='false';pendingUpload=null;stagingProject=null;
   $('#masterModal').classList.add('open');$('#masterBody').innerHTML='<p role="status">Opening master…</p>';
   try{
    if(demoMode){const current=records.find(r=>r.id===id);const master=version?(demoHistory.get(id)||[]).find(v=>v.revision===version):current;if(!master)throw Error('Saved version not found.');detail={master:structuredClone(master),current_revision:current.revision,is_current:master.revision===current.revision,history:[...(demoHistory.get(id)||[])].reverse(),publications:[]};}
@@ -85,20 +86,20 @@
     for(let i=0;i<pendingUpload.files.length;i++){const f=pendingUpload.files[i];if(f.done)continue;status(`Uploading ${i+1} of ${files.length}: ${f.name}`);const {error}=await sb.storage.from(pendingUpload.bucket).uploadToSignedUrl(f.path,f.token,files[i],{contentType:f.mime,upsert:false});if(error&&String(error.statusCode)!=='409')throw error;f.done=true;}
     status('Verifying files and saving the new version…');await rpc('commit_master_upload',{upload_id:pendingUpload.upload_id});
    }
-   const id=detail.master.id;busy=false;pendingUpload=null;await load();await open(id);toast(demoMode?'Sample version saved.':'Master files saved and verified.');
+   const id=detail.master.id;busy=false;$('#masterModal').dataset.dirty='false';pendingUpload=null;await load();await open(id);toast(demoMode?'Sample version saved.':'Master files saved and verified.');
   }catch(e){status(e.message+' Your previous master is still available.',true);}finally{busy=false;if($('#masterUploadForm'))for(const control of $('#masterUploadForm').elements)control.disabled=false;}
  }
  async function saveDetails(e){e.preventDefault();if(busy)return;busy=true;const button=e.currentTarget.querySelector('button');button.disabled=true;try{
   const changes=Object.fromEntries(new FormData(e.currentTarget));const r=detail.master;
   if(demoMode){const current=records.find(x=>x.id===r.id);Object.assign(current,changes,{revision:current.revision+1,updated_at:new Date().toISOString()});demoHistory.set(r.id,[...(demoHistory.get(r.id)||[]),{...structuredClone(current),reason:'Updated master details',created_at:current.updated_at}]);}
   else await rpc('update_master_details',{master_id:r.id,expected_revision:detail.current_revision,...changes,reason:'Updated master details'});
-  busy=false;await load();await open(r.id);toast('Master details saved.');
+  busy=false;$('#masterModal').dataset.dirty='false';await load();await open(r.id);toast('Master details saved.');
  }catch(e){toast(e.message);}finally{busy=false;button.disabled=false;}}
  async function restore(version){if(busy||!confirm(`Restore version ${version} as a new master version? Your history is retained and Etsy stays unchanged.`))return;busy=true;try{
   const id=detail.master.id;
   if(demoMode){const old=structuredClone(demoHistory.get(id).find(v=>v.revision===version)),current=records.find(r=>r.id===id);Object.assign(current,old,{revision:current.revision+1,updated_at:new Date().toISOString()});demoHistory.get(id).push({...structuredClone(current),reason:'Restored revision '+version,restored_from:version,created_at:current.updated_at});}
   else await rpc('restore_master_version',{master_id:id,expected_revision:detail.current_revision,revision:version});
-  busy=false;await load();await open(id);toast('Earlier files restored as a new version.');
+  busy=false;$('#masterModal').dataset.dirty='false';await load();await open(id);toast('Earlier files restored as a new version.');
  }catch(e){toast(e.message);}finally{busy=false;}}
  async function startEtsy(){
   if(busy)return;busy=true;$('#masterEtsyStage').innerHTML='<p role="status">Reading current Etsy downloads…</p>';
@@ -120,6 +121,7 @@
  window.MasterFiles={load,render,reset,open,create,restore,startEtsy};
  $('#masterSearch').oninput=render;$('#masterCategory').onchange=render;$('#masterRefresh').onclick=()=>load();$('#masterAdd').onclick=create;$('#masterCreateForm').onsubmit=saveNew;
  document.querySelector('[data-screen="masters"]').addEventListener('click',()=>load());
- for(const id of ['masterModal','masterCreateModal'])document.querySelector(`[data-close="${id}"]`).onclick=()=>{if(busy)return toast('Wait for the save to finish.');if(id==='masterModal'&&$('#masterUploadInput')?.files?.length&&!confirm('Close without finishing this save? Your existing master is retained.'))return;$('#'+id).classList.remove('open');};
+ for(const id of ['masterModal','masterCreateModal']){const modal=$('#'+id);modal.addEventListener('input',()=>{modal.dataset.dirty='true';});modal.addEventListener('change',()=>{modal.dataset.dirty='true';});for(const button of modal.querySelectorAll('[data-close]'))button.onclick=()=>{if(busy)return toast('Wait for the save to finish.');if(modal.dataset.dirty==='true'&&!confirm('Discard unsaved master changes? Saved files and history will be kept.'))return;modal.dataset.dirty='false';modal.classList.remove('open');};}
+ window.addEventListener('beforeunload',event=>{if(busy||['masterModal','masterCreateModal'].some(id=>$('#'+id).classList.contains('open')&&$('#'+id).dataset.dirty==='true')){event.preventDefault();event.returnValue='';}});
  if(demoMode){demo();render();}else if(session)load();
 })();
