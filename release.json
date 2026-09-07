@@ -1,7 +1,7 @@
 {
-  "app_version": 30,
-  "api_version": "3.4.2",
-  "minimum_backend_version": 30,
+  "app_version": 31,
+  "api_version": "3.4.3",
+  "minimum_backend_version": 31,
   "released": "2026-09-07",
-  "api_capability_version": "3.4.2"
+  "api_capability_version": "3.4.3"
 }

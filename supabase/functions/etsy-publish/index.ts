@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { runEdit } from './safe-edit.ts';
+import { listingSnapshot } from './safety.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -254,7 +255,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:30, api_version:'3.4.2', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:31, api_version:'3.4.3', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -303,7 +304,7 @@ Deno.serve(async (req: Request) => {
         altText: (existing.images || []).map((image: any) => image.alt_text || ""),
         existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
         existingFiles: (files.results || []).map((file:any)=>({id:String(file.listing_file_id),rank:file.rank,name:file.filename||file.display_name||"Digital file"})),
-        existingSnapshot:{title:existing.title,description:existing.description,price:moneyValue(existing.price),quantity:existing.quantity,tags:existing.tags||[],taxonomyId:existing.taxonomy_id,shopSectionId:existing.shop_section_id,materials:existing.materials||[],styles:existing.styles||[],whoMade:existing.who_made,whenMade:existing.when_made,isSupply:existing.is_supply,isTaxable:existing.is_taxable,autoRenew:existing.should_auto_renew,state:existing.state,personalization:existing.personalization||null},
+        existingSnapshot:listingSnapshot(existing),
       };
       let createQuery;
       if (body.reuse_project_id) {
