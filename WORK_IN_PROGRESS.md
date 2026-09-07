@@ -1,11 +1,9 @@
-# Seller Tools Release 27
+# Seller Tools Release 28
 
-Master Files is implemented with private uploads, current downloads, version history, conflict protection, restore and Etsy review staging. Backend app version 27 / API 3.3.0.
+API 3.4.0 adds native ChatGPT file upload, six-image Review Box import, explicit OAuth tool metadata, public metadata discovery and per-file save results. Master saves preserve identities and history, use immutable objects and idempotency keys, and cannot trigger Etsy publishing or scheduling. Customer Etsy downloads are PDF-only.
 
-Validation: 30 regression tests pass. Rolled-back database checks cover atomic version commits, idempotent retry, stale-save rejection, restores and owner-only access.
+The deployed release 27 source already registered the four master tools, while the current ChatGPT catalogue retained seven materially older Review Box schemas. This establishes a server/client metadata mismatch, not the underlying reason ChatGPT retained its snapshot. The old dev connection ID was reported not installed; the display-name lookup found an installed connection. Its actual registered URL and current metadata still require authenticated inspection.
 
-The catalogue contains 18 planner records linked to current Etsy listings. Planner binaries have not been imported: numbered copies must be reconciled with the approved source before designating the masters. No live Etsy listings were changed during implementation.
+The 108 approved images are in 18 existing private Review Box projects. The newer NC500 refined project replaces the earlier NC500 image-update project in this set. Before transfer, 18 existing master records are revision 0 with no files. No acceptance-test image transfer has been claimed.
 
-New connector tools and workflow instructions are included. ChatGPT’s existing thread may retain its older action catalogue; a fresh chat with the updated connection is required to check tool discovery. No local personal marketplace exists in this environment, so local plugin reinstall is not applicable.
-
-Etsy replacement still requires a free file slot. Word files are wrapped in ZIP for Etsy delivery. Saving or restoring a master does not publish it.
+Validation and deployment results will be updated as completed. The browser is signed out of both ChatGPT and Seller Tools, and the current callable ChatGPT catalogue still lacks the new actions.

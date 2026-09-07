@@ -1,7 +1,7 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');const path=require('node:path');const {stripTypeScriptTypes}=require('node:module');
 const root=path.join(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'supabase/functions/seller-tools-inbox/master-files.ts'),'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');
-const ctx=vm.createContext({crypto,Uint8Array,TextDecoder,Blob,Date,Set,Map,zipSync:require('fflate').zipSync});vm.runInContext(stripTypeScriptTypes(source),ctx);
+const ctx=vm.createContext({crypto,Uint8Array,TextDecoder,TextEncoder,URL,AbortSignal,fetch,Blob,Date,Set,Map,zipSync:require('fflate').zipSync});vm.runInContext(stripTypeScriptTypes(source),ctx);
 const plain=v=>JSON.parse(JSON.stringify(v));
 function query(data){const q={select(){return q},eq(){return q},order(){return q},limit(){return q},maybeSingle:async()=>({data}),single:async()=>({data}),then(fn){return Promise.resolve({data}).then(fn)}};return q;}
 const hash=async bytes=>Buffer.from(await crypto.subtle.digest('SHA-256',bytes)).toString('hex');
@@ -33,7 +33,7 @@ test('stale upload cannot reserve storage or overwrite a newer master',async()=>
 });
 test('retrying a committed upload returns its saved revision without writing again',async()=>{
  const admin={from:()=>query({id:'upload',status:'committed',master_id:'m',result_revision:2}),rpc(){throw Error('unexpected write')}};
- assert.deepEqual(plain(await ctx.handleMasterTool('commit_master_upload',{upload_id:'upload'},{admin,userId:'u'})),{master_id:'m',revision:2,already_committed:true});
+ assert.deepEqual(plain(await ctx.handleMasterTool('commit_master_upload',{upload_id:'upload'},{admin,userId:'u'})),{master_id:'m',revision:2,already_committed:true,files:[],etsy_updated:false,published:false,scheduled:false});
 });
 test('a bad second upload prevents committing the whole Word/PDF batch',async()=>{
  const first=new Uint8Array([80,75,3,4,1,2]),second=new TextEncoder().encode('%PDF-1.7 valid');

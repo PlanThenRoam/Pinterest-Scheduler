@@ -9,11 +9,17 @@ Use the seller-tools MCP server when the owner asks to prepare, send, import, up
 
 ## Master files
 
-Use the Master Files catalogue when the owner asks to work on a planner, blueprint or asset stored in Seller Tools. It is a shared source of current files for chats with this connection. Search with `list_master_files`; do not infer the current version from a filename, chat attachment or memory.
+Use the Master Files catalogue when the owner asks to work on a planner, blueprint or asset stored in Seller Tools. It is a shared source of current files for chats with these actions exposed. The live server capability flag alone does not establish which actions a ChatGPT conversation has loaded. Compare the actions available in the current conversation with the `mcp_registration` names in `list_review_projects`; if they differ, report the mismatch and do not claim the missing actions ran. Search with `list_master_files`; do not infer the current version from a filename, chat attachment or memory.
+
+For actual files attached to ChatGPT, use `upload_master_files`. Pass the native `files` input and an `assignments` entry for each `file_id`, with its role and filename. The server downloads and verifies the actual bytes, then commits a new version. Reuse one stable `idempotency_key` for retries. Do not claim success until per-file results report saved.
+
+For approved images already in a Review Box project, use `import_review_images_to_master` with the existing planner master ID, expected master revision, source project ID and project revision. Match the exact linked listing ID, select the latest approved set and import one planner at a time. It copies images without changing the review project. Verify with `get_master_file`, including file checksums, temporary download URLs and positions. Each complete set is `thumbnail` (position 1), then `listing-image-1` through `listing-image-5` (positions 2–6). Master saves never update Etsy, publish or schedule anything.
+
+For local files uploaded through signed destinations, follow these steps:
 
 1. Call `get_master_file` with the stable `master_id`. Download the current source files using the returned temporary URLs. Keep the `current_revision` and the existing file roles.
 2. Make only the requested edits using the relevant document or image workflow. For a planner, update the editable Word and matching PDF together when both are maintained, unless the owner requests work on only one format. Word files and blueprints are private editable master sources. Only PDFs are delivered through the owner's live Etsy listings. Preserve unrelated assets.
-3. Compute each changed file’s SHA-256 checksum and byte size. Call `prepare_master_upload` with the same master ID, `expected_revision`, changed files and a short change note. Use the same role to replace an existing file, such as `docx` or `pdf`.
+3. Compute each changed file’s SHA-256 checksum and byte size. Keep one stable idempotency key for this batch and pass it to `prepare_master_upload` to reuse upload destinations on retry. Call `prepare_master_upload` with the same master ID, `expected_revision`, changed files and a short change note. Use the same role to replace an existing file, such as `docx` or `pdf`.
 4. Upload each file’s raw bytes to its returned signed upload URL using PUT, its MIME Content-Type and `x-upsert: false`, or the Supabase `uploadToSignedUrl` client method. Call `commit_master_upload` only after the uploads finish. The server verifies all bytes before atomically advancing the version.
 5. Report the saved revision only after commit succeeds. Retrying the same upload ID is safe. On a version conflict, retrieve the latest master and reconcile the changes; never silently retry against the newer revision with stale content.
 
