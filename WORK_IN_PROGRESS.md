@@ -4,4 +4,4 @@ QA repair: persistent Cancel Editing and Save controls, cancellation of new draf
 
 Automated regression tests cover cancel/keep editing, saved draft preservation, new-draft cancellation, draft reuse, concurrent revision changes, in-flight save cancellation, file-input dirty state, Pin editing and Master Files discard guards.
 
-Browser validation and deployment pending. No live listing or master changes are part of this QA.
+Release 30 deployed. All 46 automated tests passed. A live 390 × 844 browser check confirmed persistent Cancel and Save controls and exposed horizontal form overflow; the follow-up CSS constrains fieldset minimum width and file inputs. The browser connection then timed out while exercising the discard dialog, so its behaviour is verified by automated tests rather than a completed browser confirmation test. No live listing or master changes were made for QA.

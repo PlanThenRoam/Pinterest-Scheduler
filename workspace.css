@@ -3,3 +3,5 @@
 @media(max-width:380px){.listinggrid{grid-template-columns:1fr}.pin{grid-template-columns:1fr}.pin img{max-height:240px;object-fit:contain}.summarygrid span{font-size:12px}}
 
 .editcard{display:flex;flex-direction:column;max-height:92dvh;overflow:hidden}.editcard .modalhead{position:static;flex-shrink:0}.editcard #editForm{overflow-y:auto;min-height:0;overscroll-behavior:contain;padding:0 3px}.editactions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:12px;flex-shrink:0;background:var(--paper)}.iconbtn{min-width:44px;flex-shrink:0}#assetModal.open{z-index:100}
+
+.fieldblock{min-inline-size:0}.editcard #editForm{overflow-x:hidden}.editcard input[type=file]{min-width:0;max-width:100%}
