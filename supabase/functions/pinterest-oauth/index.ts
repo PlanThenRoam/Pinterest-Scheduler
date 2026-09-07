@@ -7,7 +7,7 @@ const json=(data:any,status=200)=>new Response(JSON.stringify(data),{status,head
 Deno.serve(async(req:Request)=>{
  if(req.method==='OPTIONS')return new Response(null,{headers});
  const url=new URL(req.url);
- if(req.method==='GET'&&url.pathname.endsWith('/health'))return json({app_version:35,api_version:'4.0.0',configured:Boolean(key&&secret)});
+ if(req.method==='GET'&&url.pathname.endsWith('/health'))return json({app_version:36,api_version:'4.0.1',configured:Boolean(key&&secret)});
  try{
   if(!key||!secret)throw new Error('Pinterest app credentials are not configured.');
   if(url.pathname.endsWith('/callback')){

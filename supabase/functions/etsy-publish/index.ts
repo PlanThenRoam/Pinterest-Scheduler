@@ -1,6 +1,8 @@
+import {resumeImages} from './resume-images.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { validateAssetBlob, verifyNewListingAssets } from './assets.ts';
+import {readImageState,syncConfirmedImageAlt} from './image-state.ts';
 import { reconcileEdit } from './reconcile-edit.ts';
 import { runEdit } from './safe-edit.ts';
 import { listingSnapshot, verifyFields, equivalent } from './safety.ts';
@@ -92,15 +94,26 @@ async function etsyFetch(path: string, accessToken: string, init: RequestInit = 
   const headers = new Headers(init.headers || {});
   headers.set("x-api-key", `${etsyKey}:${etsySecret}`);
   headers.set("authorization", `Bearer ${accessToken}`);
-  const response = await fetch(apiRoot + path, { ...init, headers, signal: AbortSignal.timeout(25000) });
-  const text = await response.text();
-  let body: any = {};
-  try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
-  if (!response.ok) {
-    const message = body?.error || body?.error_description || body?.message || `Etsy returned HTTP ${response.status}.`;
-    throw new Error(String(message));
+  for(let attempt=0;attempt<4;attempt++){
+    const response = await fetch(apiRoot + path, { ...init, headers, signal: AbortSignal.timeout(25000) });
+    const text = await response.text();
+    let body: any = {};
+    try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
+    // A definite 429 rejects the request; retry it after Etsy's stated delay.
+    // Network errors and ambiguous write responses are deliberately not retried.
+    if(response.status===429&&attempt<3){
+      const retry=Number(response.headers.get('retry-after'));
+      if(Number.isFinite(retry)&&retry>15)throw new Error('Etsy rate limit requires a longer pause. The current result is retained.');
+      await new Promise(resolve=>setTimeout(resolve,Math.max(1100,Number.isFinite(retry)?retry*1000:0,1100*(attempt+1))));
+      continue;
+    }
+    if (!response.ok) {
+      const message = body?.error || body?.error_description || body?.message || `Etsy returned HTTP ${response.status}.`;
+      throw new Error(String(message));
+    }
+    return body;
   }
-  return body;
+  throw new Error('Etsy request rate limit persists. The current result is retained.');
 }
 
 async function accessToken(admin: any, credential: any) {
@@ -258,7 +271,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:35, api_version:'4.0.0', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:36, api_version:'4.0.1', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -336,6 +349,7 @@ Deno.serve(async (req: Request) => {
     if (projectError) throw projectError;
     if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
     if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
+    if(body.action==='resume_images')return json(await resumeImages(admin,credential,token,project,{fetch:etsyFetch,storageFile,uploadImage,altText:updateExistingImageAltText}));
     if(body.action==='check_result')return json(await reconcileEdit(admin,credential,token,project,{fetch:etsyFetch}));
     const listing = validateProject(project);
     if(listing.editMode){
@@ -407,7 +421,17 @@ Deno.serve(async (req: Request) => {
       await admin.from("review_projects").update({ manifest }).eq("id", projectId);
     }
     const draft=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
-    draft.images=(await etsyFetch(`/listings/${listingId}/images`,token)).results;
+    const expectedDraftImages=checkpoint.imageIds.map((id:string,i:number)=>({listing_image_id:id,rank:i+1,alt_text:String(altText[i])}));
+    let draftLayout=await readImageState({fetch:etsyFetch},listingId,token,expectedDraftImages,[1,2,3,4,5,6]);
+    for(const image of expectedDraftImages){
+      draftLayout=draftLayout.map((x:any)=>Number(x.rank)===image.rank?image:x);
+      await syncConfirmedImageAlt(admin,credential,token,listingId,{rank:image.rank,altText:image.alt_text},draftLayout,{fetch:etsyFetch,altText:updateExistingImageAltText},async(name:string,action:any)=>{
+        checkpoint.altTextAttempt=name;manifest.etsyPublish=checkpoint;
+        const saved=await admin.from('review_projects').update({manifest}).eq('id',projectId);if(saved.error)throw saved.error;
+        return await action();
+      });
+    }
+    draft.images=await readImageState({fetch:etsyFetch},listingId,token,expectedDraftImages);
     const draftFiles=(await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`,token)).results||[];
     verifyNewListingAssets(draft,draftFiles,checkpoint,altText);
     verifyFields({title:listing.title,description:listing.description,tags:listing.tags,price:numberValue(manifest.price,14.99)},listingSnapshot(draft),{});

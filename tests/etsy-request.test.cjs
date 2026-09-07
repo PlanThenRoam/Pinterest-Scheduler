@@ -1,0 +1,8 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const {stripTypeScriptTypes}=require('node:module');
+const source=fs.readFileSync('supabase/functions/etsy-publish/index.ts','utf8');
+const helper=source.slice(source.indexOf('async function etsyFetch('),source.indexOf('async function accessToken('));
+function fixture(responses){let calls=0;const waits=[];const c=vm.createContext({Headers,AbortSignal,Response,console,etsyKey:'test',etsySecret:'test',apiRoot:'https://example.test',setTimeout:(f,ms)=>{waits.push(ms);f();},fetch:async()=>{const value=responses[calls++];if(value instanceof Error)throw value;return new Response(JSON.stringify(value.body||{}),{status:value.status,headers:value.headers});}});vm.runInContext(stripTypeScriptTypes(helper),c);return {run:()=>c.etsyFetch('/images','test',{method:'POST'}),calls:()=>calls,waits};}
+test('definite Etsy 429 obeys Retry-After before retrying',async()=>{const s=fixture([{status:429,headers:{'retry-after':'2'}},{status:200,body:{listing_image_id:'10'}}]);assert.equal((await s.run()).listing_image_id,'10');assert.equal(s.calls(),2);assert.deepEqual(s.waits,[2000]);});
+test('ambiguous write failures and timeouts are never retried',async()=>{for(const response of [{status:500,body:{error:'uncertain'}},Error('network timeout')]){const s=fixture([response]);await assert.rejects(s.run());assert.equal(s.calls(),1);assert.deepEqual(s.waits,[]);}});
+test('long daily quota delay is retained instead of blocking the function',async()=>{const s=fixture([{status:429,headers:{'retry-after':'3600'}}]);await assert.rejects(s.run(),/longer pause/);assert.equal(s.calls(),1);});

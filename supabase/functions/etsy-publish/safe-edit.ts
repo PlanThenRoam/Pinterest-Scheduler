@@ -1,3 +1,4 @@
+import {syncConfirmedImageAlt} from './image-state.ts';
 import { validateAssetBlob } from './assets.ts';
 import { listingSnapshot, equivalent, preflightFiles, verifyFields } from './safety.ts';
 
@@ -55,7 +56,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (Array.isArray(listing.manifest.existingImages)) {
         const captured = listing.manifest.existingImages.find((x:any)=>Number(x.rank)===Number(image.rank));
         const actual = images.find((x:any)=>Number(x.rank)===Number(image.rank));
-        if(!actual)throw new Error(`Image ${image.rank} is missing. Restore the listing in Etsy before preparing its replacement.`);
+        if(!actual&&captured)throw new Error(`Image ${image.rank} changed since this draft was prepared. Review a fresh update.`);
         if (String(captured?.id||'')!==String(actual?.listing_image_id||'')) throw new Error(`Image ${image.rank} changed since this draft was prepared. Review a fresh update.`);
       }
     }
@@ -79,11 +80,15 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     if (Object.keys(listing.fields).some(key => key !== 'personalization')) await step('Update selected listing fields', () => api.updateFields(credential.shop_id, listingId, token, listing.fields));
     if (listing.scopes.includes('personalization')) await step('Update personalisation', () => api.personalization(credential.shop_id, listingId, token, listing.fields.personalization));
     const expectedImages = new Map<number, string>();
+    let expectedLayout=images.map((x:any)=>({...x}));
     for (const image of listing.images || []) {
-      const response = await step(`Replace image ${image.rank}`, () => api.uploadImage(admin, credential.shop_id, listingId, token, image.item, Number(image.rank), image.altText, true));
+      const response = await step(`Replace image ${image.rank}`, () => api.uploadImage(admin, credential.shop_id, listingId, token, image.item, Number(image.rank), image.altText, expectedLayout.some((x:any)=>Number(x.rank)===Number(image.rank))));
       const uploaded = response?.results?.[0] || response;
       if (!uploaded?.listing_image_id) throw new Error(`Etsy did not confirm image ${image.rank}'s ID. Inspect the listing before retrying.`);
       expectedImages.set(Number(image.rank), String(uploaded.listing_image_id));
+      expectedLayout=expectedLayout.filter((x:any)=>Number(x.rank)!==Number(image.rank));
+      expectedLayout.push({listing_image_id:String(uploaded.listing_image_id),rank:Number(image.rank),alt_text:image.altText});
+      await syncConfirmedImageAlt(admin,credential,token,listingId,image,expectedLayout,api,step);
 
     }
     for (const image of listing.altTextUpdates || []) await step(`Update alt text ${image.rank}`, () => api.altText(credential.shop_id, listingId, token, image));
