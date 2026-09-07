@@ -1,4 +1,4 @@
-const CACHE_NAME='ptr-seller-tools-v24';
+const CACHE_NAME='ptr-seller-tools-v25';
 const APP_SHELL=['./','./index.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
