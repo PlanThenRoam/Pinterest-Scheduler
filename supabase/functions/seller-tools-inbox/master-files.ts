@@ -41,7 +41,7 @@ for(const t of masterTools){const schema=masterOutputSchemas[t.name]||(['upload_
 export const masterToolNames = new Set(masterTools.map(x=>x.name));
 
 function ensure(ok:unknown,message:string):asserts ok {if(!ok)throw new Error(message);}
-function result(r:any){if(r.error)throw r.error;return r.data;}
+function result(r:any){if(r.error)throw new Error(typeof r.error.message==='string'?r.error.message:'Master storage request failed.');return r.data;}
 function checkRevision(value:unknown){ensure(Number.isInteger(value)&&Number(value)>=0,'Read the current master revision before saving.');return Number(value);}
 function checkMetadata(args:any,creating=false){
  const data:any={};
@@ -171,7 +171,9 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
   const r=await read(args.master_id);checkRevision(args.expected_revision);await uploadIdentity(userId,r.id,args.idempotency_key);
   const sources:any[]=[];let downloadedTotal=0;
   if(name==='import_review_images_to_master'){
-   const p=result(await db.from('review_projects').select('*').eq('id',args.project_id).eq('user_id',userId).maybeSingle());
+   // Review Box access uses owner RLS; this table has no user_id column.
+   // The source paths below must also belong to the authenticated owner.
+   const p=result(await db.from('review_projects').select('*').eq('id',args.project_id).maybeSingle());
    ensure(p&&p.kind==='etsy'&&r.listing_id&&String(p.manifest?.listingId)===r.listing_id,'The review project must belong to this owner and match the master’s linked planner listing.');
    ensure(p.revision===args.project_revision,'The review project changed. Read the current project before importing.');
    for(const [i,role] of IMAGE_ROLES.entries()){

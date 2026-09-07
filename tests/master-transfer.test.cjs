@@ -9,9 +9,9 @@ const roles=['thumbnail','listing-image-1','listing-image-2','listing-image-3','
 const png=Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6v8AAAAASUVORK5CYII=','base64'));
 function harness(){
  const master={id:'master',user_id:'owner',listing_id:'123',revision:0,files:[{role:'pdf',path:'preserve.pdf',checksum:'unchanged'}]};
- const project={id:'10000000-0000-4000-a000-000000000001',user_id:'owner',revision:1,kind:'etsy',manifest:{listingId:'123',altText:roles.map(r=>'Alt '+r)},media:roles.map((role,i)=>({role,name:`${i+1}.png`,path:`owner/10000000-0000-4000-a000-000000000001/${i+1}.png`,mime:'image/png'}))};
+ const project={id:'10000000-0000-4000-a000-000000000001',revision:1,kind:'etsy',manifest:{listingId:'123',altText:roles.map(r=>'Alt '+r)},media:roles.map((role,i)=>({role,name:`${i+1}.png`,path:`owner/10000000-0000-4000-a000-000000000001/${i+1}.png`,mime:'image/png'}))};
  const uploads=new Map(),objects=new Map(project.media.map(f=>['etsy-assets/'+f.path,png]));let commits=0,writes=0;
- function query(table){let filters={},op='read',value;const q={select(){return q},eq(k,v){filters[k]=v;return q},order(){return q},limit(){return q},insert(v){op='insert';value=v;return q},then(a,b){return Promise.resolve(run()).then(a,b)},maybeSingle:async()=>run(),single:async()=>run()};
+ function query(table){let filters={},op='read',value;const q={select(){return q},eq(k,v){if(table==='review_projects'&&k==='user_id')throw Error('column review_projects.user_id does not exist');filters[k]=v;return q},order(){return q},limit(){return q},insert(v){op='insert';value=v;return q},then(a,b){return Promise.resolve(run()).then(a,b)},maybeSingle:async()=>run(),single:async()=>run()};
  function run(){if(op==='insert'){assert.equal(table,'seller_master_uploads');if(uploads.has(value.id))return {error:{code:'23505'}};uploads.set(value.id,{...value,status:'prepared',expires_at:new Date(Date.now()+600000).toISOString()});return {data:null};}
  let row=table==='seller_master_records'?master:table==='review_projects'?project:uploads.get(filters.id);if(row&&!Object.entries(filters).every(([k,v])=>row[k]===v))row=null;return {data:row||null};}return q;}
  const api={from:query,storage:{from(bucket){return {download:async p=>({data:objects.has(bucket+'/'+p)?new Blob([objects.get(bucket+'/'+p)]):null,error:objects.has(bucket+'/'+p)?null:Error('missing')}),createSignedUploadUrl:async p=>({data:{signedUrl:'https://example.test/'+p,token:'test'}}),upload:async(p,bytes)=>{assert.equal(bucket,'seller-master-files');if(objects.has(bucket+'/'+p))return {error:{statusCode:'409',message:'already exists'}};writes++;objects.set(bucket+'/'+p,bytes);return {data:{path:p}};}}}},rpc:async(name,args)=>{assert.equal(name,'commit_seller_master');const u=uploads.get(args.p_upload);if(u.status==='committed')return {data:{master_id:master.id,revision:u.result_revision,already_committed:true}};assert.equal(args.p_expected,master.revision);master.files=plain(ctx.mergeMasterFiles(master.files,args.p_files));master.revision++;u.status='committed';u.result_revision=master.revision;commits++;return {data:{master_id:master.id,revision:master.revision,saved:true}};}};
@@ -28,7 +28,7 @@ test('six-image import preserves master identity, PDF, order, alt text and bytes
  assert.equal(saved.etsy_updated,false);assert.equal(saved.published,false);assert.equal(saved.scheduled,false);
 });
 test('wrong planner, another owner and incomplete image sets never write masters',async()=>{
- for(const change of [h=>h.master.listing_id='other',h=>h.project.user_id='someone',h=>h.project.media.pop(),h=>h.project.media.push({...h.project.media[0]})]){
+ for(const change of [h=>h.master.listing_id='other',h=>h.project.media[0].path='someone/'+h.project.id+'/1.png',h=>h.project.media.pop(),h=>h.project.media.push({...h.project.media[0]})]){
   const h=harness();change(h);await assert.rejects(ctx.handleMasterTool('import_review_images_to_master',importArgs,h.context));assert.deepEqual(h.counts(),{commits:0,writes:0});
  }
 });
@@ -69,3 +69,5 @@ test('MCP discovery exposes all master actions without reading private data; cal
  for(const name of ['list_master_files','get_master_file','prepare_master_upload','commit_master_upload','upload_master_files','import_review_images_to_master']){const denied=await call('tools/call',{name,arguments:{}});assert.equal(denied.status,401);assert.ok(denied.headers.get('www-authenticate'));assert.equal((await denied.json()).result.isError,true);}
  assert.equal((await call('tools/call',{name:'list_master_files'},'Bearer invalid')).status,401);
 });
+
+test('plain database errors preserve their message for connector diagnostics',()=>{assert.throws(()=>ctx.result({error:{code:'42703',message:'column review_projects.user_id does not exist'}}),/column review_projects.user_id does not exist/);});

@@ -1,5 +1,5 @@
 'use strict';
-const APP_BUILD = 28;
+const APP_BUILD = 29;
 const demoMode = new URLSearchParams(location.search).get('demo') === '1';
 let shopListings = [], listingState = 'active', listingError = '', activeEtsyView = 'listings';
 let detailId = null, editBusy = false, loadPromise = null, versionCompatible = false, performanceEntries = [];
