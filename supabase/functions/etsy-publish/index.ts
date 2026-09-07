@@ -254,7 +254,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:26, api_version:'3.2.0', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:27, api_version:'3.3.0', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -332,6 +332,7 @@ Deno.serve(async (req: Request) => {
     if(listing.editMode){
       projectId="";
       return json(await runEdit(admin,credential,token,project,listing,{
+        userId:userData.user.id,
         fetch:etsyFetch,storageFile,updateFields:updateSelectedListingFields,personalization:updatePersonalization,
         uploadImage,altText:updateExistingImageAltText,uploadFile:uploadPdf,
       }));

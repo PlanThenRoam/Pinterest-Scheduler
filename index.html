@@ -20,7 +20,8 @@
 .safe-preview{display:none;position:absolute;inset:15.1% 8.9% 22.4%;border:2px dashed #daf4b5;pointer-events:none;box-shadow:0 0 0 999px rgba(20,65,54,.14)}
 .mediaframe.show-safe .safe-preview{display:block}
 </style>
-<link rel="stylesheet" href="workspace.css?v=26">
+<link rel="stylesheet" href="workspace.css?v=27">
+<link rel="stylesheet" href="./master-files.css?v=27">
 </head>
 <body>
 <div id="updateBar" class="update">A fresh version is ready.<button id="reloadApp">Refresh now</button></div>
@@ -40,16 +41,18 @@
   <div class="hero"><div class="eyebrow">Pinterest Review Box</div><h1>Your Next Pins, Ready To Review.</h1><p>Review images, copy and destinations, then prepare a manual posting plan.</p></div>
   <div id="pinterestList"></div>
  </section>
+ <section id="masters" class="screen"><div class="hero"><div class="eyebrow">Master Files</div><h1>Your Files. One Current Version.</h1><p>Keep planners, blueprints and images together. Replace files with confidence and return to earlier versions whenever you need.</p></div><p id="masterSummary" class="muted"></p><div class="mastertoolbar"><label for="masterSearch" class="visuallyhidden">Search master files</label><input id="masterSearch" type="search" placeholder="Search planners, blueprints and images…"><label for="masterCategory" class="visuallyhidden">Category</label><select id="masterCategory"><option value="">All Categories</option><option value="planner">Planners</option><option value="blueprint">Blueprints</option><option value="image">Images</option><option value="other">Other</option></select><button id="masterAdd" class="btn primary">Add Master</button><button id="masterRefresh" class="btn secondary">Refresh</button></div><div id="masterGrid" class="mastergrid"></div></section>
  <section id="queue" class="screen"><div class="hero"><div class="eyebrow">Queue & history</div><h1>Your publishing trail.</h1><p>Open current and completed projects, inspect publishing attempts, and restore saved revisions.</p></div><div id="queueList"></div></section>
  <section id="settings" class="screen"><div class="hero"><div class="eyebrow">Settings</div><h1>Quiet controls. Nothing extra.</h1><p>Check the genuine status of each connection and manage your account.</p></div>
   <div class="card"><h2>Connections</h2><div id="connections"></div></div>
   <div class="card"><h2>Performance</h2><div id="performanceReadout"></div><details><summary>Add A Period From Etsy Stats</summary><p class="muted">Enter shop visits, not listing views. Compare equivalent periods before judging a change.</p><form id="performanceForm"><div class="formgrid"><label>From<input name="from" type="date" required></label><label>To<input name="to" type="date" required></label><label>Visits<input name="visits" type="number" min="0" step="1" required></label><label>Orders<input name="orders" type="number" min="0" step="1" required></label><label>Revenue (GBP)<input name="revenue" type="number" min="0" step="0.01" required></label></div><button class="btn secondary" type="submit">Save Period</button></form></details></div>
-  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version <span id="appVersion">26</span> · secure owner-only storage<br><span id="backendVersion">Checking backend compatibility…</span></p></div>
+  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version <span id="appVersion">27</span> · secure owner-only storage<br><span id="backendVersion">Checking backend compatibility…</span></p></div>
  </section>
 </main>
 <nav id="nav" class="nav hidden">
  <button data-screen="etsy" class="active"><b>✦</b>Etsy<span id="etsyCount" class="inboxcount hidden">0</span></button>
  <button data-screen="pinterest"><b>●</b>Pins<span id="pinCount" class="inboxcount hidden">0</span></button>
+ <button data-screen="masters"><b>▤</b>Files</button>
  <button data-screen="queue"><b>☷</b>Queue</button>
  <button data-screen="settings"><b>⚙</b>Settings</button>
 </nav>
@@ -58,6 +61,8 @@
 <div id="scheduleModal" class="modal"><div class="modalcard"><div class="modalhead"><h2>Plan Manual Posting</h2><button class="iconbtn" data-close="scheduleModal">×</button></div><div class="field"><label>Date and time</label><input id="scheduleWhen" type="datetime-local"></div><button id="confirmSchedule" class="btn primary" style="width:100%;margin-top:11px">Save Posting Plan</button></div></div>
 <div id="detailModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle"><div class="modalcard"><div class="modalhead"><h2 id="detailTitle">Project</h2><button class="iconbtn" data-close="detailModal">×</button></div><div id="detailBody"></div></div></div>
 <div id="assetModal" class="modal" role="dialog" aria-modal="true" aria-label="Asset preview"><div class="modalcard"><div class="modalhead"><h2>Full Preview</h2><button class="iconbtn" data-close="assetModal">×</button></div><img id="assetImage" class="previewimage" alt="Asset preview"><p><a id="assetLink" class="btn secondary" target="_blank" rel="noopener">Open Or Download Original</a></p></div></div>
+<div id="masterModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="masterTitle"><div class="modalcard"><div class="modalhead"><h2 id="masterTitle">Master Files</h2><button class="iconbtn" data-close="masterModal" aria-label="Close">×</button></div><div id="masterBody"></div></div></div>
+<div id="masterCreateModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="masterCreateTitle"><div class="modalcard"><div class="modalhead"><h2 id="masterCreateTitle">Add A Master</h2><button class="iconbtn" data-close="masterCreateModal" aria-label="Close">×</button></div><form id="masterCreateForm"></form></div></div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
 <script>
@@ -120,7 +125,8 @@ function etsyFieldLabel(k){return ({title:'Title',description:'Description',pric
 function etsyValue(v){if(Array.isArray(v))return v.join(', ');if(v&&typeof v==='object')return JSON.stringify(v);return String(v??'')}
 function etsyBodyScoped(p){const m=p.manifest||{};if(m.mode!=='edit')return etsyBody(p);const scopes=Array.isArray(m.updateScope)?m.updateScope:m.updateScope==='images_only'?['images']:[],fields=m.updateFields||{},roles=new Set((p.media||[]).map(x=>x.role)),legacyRoles=['thumbnail','listing-image-1','listing-image-2','listing-image-3','listing-image-4','listing-image-5'],images=Array.isArray(m.imageReplacements)&&m.imageReplacements.length?m.imageReplacements:legacyRoles.map((role,i)=>({role,rank:i+1,altText:m.altText?.[i]})),imageComplete=!scopes.includes('images')||images.length&&images.every(x=>roles.has(x.role)&&x.altText),files=m.fileReplacements||[],filesComplete=!scopes.includes('files')||files.length&&files.every(x=>roles.has(x.role)),complete=scopes.length&&imageComplete&&filesComplete,changed=scopes.map(k=>`<div class="scene"><b>✓</b><span><strong>${esc(etsyFieldLabel(k))}</strong>${k==='images'?` · ${images.length} replacement${images.length===1?'':'s'} with alt text`:k==='files'?` · ${files.length} individual replacement${files.length===1?'':'s'}`:`<br>${esc(etsyValue(fields[k]))}`}</span></div>`).join(''),gallery=scopes.includes('images')?`<div class="gallery">${images.map(image=>p._urls?.[image.role]?`<img src="${esc(p._urls[image.role])}" alt="${esc(image.altText||'Listing image')}" loading="lazy">`:`<div class="placeholder" style="min-height:130px">Rank ${esc(image.rank)} waiting</div>`).join('')}</div>`:'';return `<div class="notice"><strong>Field-scoped Etsy update:</strong> Only the items listed below will change. Every omitted listing field remains untouched.</div><div class="scenes">${changed||'<div class="notice">No changes selected yet.</div>'}</div>${gallery}${scopes.includes('files')?`<div class="notice"><strong>Digital files:</strong> ${esc(files.map(x=>x.filename).join(', '))}</div>`:''}${!complete?'<div class="notice"><strong>Update locked:</strong> One or more approved values or attachments are missing.</div>':''}<div class="actions"><button class="btn primary" style="grid-column:1/-1" onclick="publishEtsy('${p.id}')" ${publishEnabled('etsy')&&complete?'':'disabled'}>${p.status==='publishing'?'Updating…':'Apply selected Etsy changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')">Review / edit</button><button class="btn danger" onclick="clearProject('${p.id}')">Clear</button></div>`}
 </script>
-<script src="core.js?v=26"></script>
-<script src="workspace.js?v=26"></script>
+<script src="core.js?v=27"></script>
+<script src="workspace.js?v=27"></script>
+<script src="./master-files.js?v=27"></script>
 </body>
 </html>

@@ -1,21 +1,21 @@
 {
   "name": "planthenroam-seller-tools",
-  "version": "0.2.0+codex.20260906144527",
-  "description": "Plan complete TikTok, Etsy and Pinterest packs with the owner, then send approved assets to the private PlanThenRoam review app.",
+  "version": "0.2.0+codex.20260907110837",
+  "description": "Manage private master files, version history, scoped Etsy listing updates and Pinterest review packs.",
   "author": {
     "name": "PlanThenRoam"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "PlanThenRoam Seller Tools",
-    "shortDescription": "Approve content plans, then send finished packs.",
-    "longDescription": "Plans and sends TikTok, Pinterest and Etsy packs. Existing Etsy updates contain only six replacement images and matching alt text.",
+    "shortDescription": "Current master files and precise listing updates.",
+    "longDescription": "Retrieve and save the latest planners, blueprints and assets with version history, then prepare selected Etsy updates or Pinterest packs for review.",
     "developerName": "PlanThenRoam",
     "category": "Productivity",
     "capabilities": [
       "MCP"
     ],
-    "defaultPrompt": "Show me the complete project plan first. Wait for my approval, then send the approved pack to my PlanThenRoam Seller Tools Review Box."
+    "defaultPrompt": "Find my current master files or review projects and carry out the requested edits. Save completed master edits as a new version; keep Etsy publishing separate."
   },
   "mcpServers": "./.mcp.json",
   "apps": "./.app.json"

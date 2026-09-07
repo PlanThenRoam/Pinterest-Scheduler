@@ -1,9 +1,11 @@
-# Release 26 status
+# Seller Tools Release 27
 
-The saved checkpoint has been resumed. Frontend integration, backend safeguards and 20 regression tests are complete. See README.md for capabilities, limits, tests and deployment instructions.
+Master Files is implemented with private uploads, current downloads, version history, conflict protection, restore and Etsy review staging. Backend app version 27 / API 3.3.0.
 
-Sign-in remains required for real data. The optional sample-data mode uses fictional records and cannot contact private publishing endpoints.
+Validation: 30 regression tests pass. Rolled-back database checks cover atomic version commits, idempotent retry, stale-save rejection, restores and owner-only access.
 
-Automatic replacement when a listing already has five digital files is intentionally blocked. Pinterest supports manual preparation and posting plans; it does not claim automatic publishing.
+The catalogue contains 18 planner records linked to current Etsy listings. Planner binaries have not been imported: numbered copies must be reconciled with the approved source before designating the masters. No live Etsy listings were changed during implementation.
 
-Production deployment must be confirmed from Supabase and GitHub, not inferred from this file.
+New connector tools and workflow instructions are included. ChatGPT’s existing thread may retain its older action catalogue; a fresh chat with the updated connection is required to check tool discovery. No local personal marketplace exists in this environment, so local plugin reinstall is not applicable.
+
+Etsy replacement still requires a free file slot. Word files are wrapped in ZIP for Etsy delivery. Saving or restoring a master does not publish it.

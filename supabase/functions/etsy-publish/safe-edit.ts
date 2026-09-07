@@ -41,6 +41,15 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     }
     const updates = [...(listing.fileUpdates || [])].sort((a, b) => (a.action === 'add' ? 1 : 0) - (b.action === 'add' ? 1 : 0));
     if (listing.scopes.includes('files')) preflightFiles(files, updates);
+    const masterPublications:any[]=[];
+    for(const source of listing.scopes.includes('files') ? project.manifest.masterSources||[] : []) {
+      const update=updates.find((x:any)=>x.role===source.asset_role);
+      if(!update)continue;
+      if(!api.userId || update.item?.checksum!==source.asset_checksum)throw new Error('The master attachment changed. Prepare a fresh master-file update.');
+      const {data:version,error:versionError}=await admin.from('seller_master_versions').select('files').eq('master_id',source.master_id).eq('user_id',api.userId).eq('revision',source.master_revision).maybeSingle();
+      if(versionError||!version?.files?.some((f:any)=>f.role===source.role&&f.checksum===source.checksum))throw new Error('The referenced master revision could not be verified.');
+      masterPublications.push({master_id:source.master_id,user_id:api.userId,role:source.role,listing_id:listingId,checksum:source.checksum,master_revision:source.master_revision,project_id:project.id});
+    }
     const images = original.images || [];
     const ranks = new Set<number>();
     for (const image of listing.images || []) {
@@ -101,6 +110,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (!actual || String(actual.alt_text || '') !== String(replacement.altText)) throw new Error(`Image ${replacement.rank} verification needs review.`);
     }
     const completedAt = new Date().toISOString();
+    if(masterPublications.length){const {error:trackingError}=await admin.from('seller_master_publications').upsert(masterPublications.map(x=>({...x,published_at:completedAt})),{onConflict:'master_id,role,listing_id'});if(trackingError)throw trackingError;}
     const audit = { runId, scopes: listing.scopes, before, approvedFields: listing.fields, verified: true, completedAt };
     const { error } = await admin.from('review_projects').update({ status: 'published', platform_id: listingId, published_at: completedAt, last_error: null, manifest: { ...project.manifest, etsyUpdateAudit: audit } }).eq('id', project.id);
     if (error) throw error;

@@ -1,5 +1,5 @@
 'use strict';
-const APP_BUILD = 26;
+const APP_BUILD = 27;
 const demoMode = new URLSearchParams(location.search).get('demo') === '1';
 let shopListings = [], listingState = 'active', listingError = '', activeEtsyView = 'listings';
 let detailId = null, editBusy = false, loadPromise = null, versionCompatible = false, performanceEntries = [];
@@ -73,7 +73,7 @@ async function loadData(showToast=false) {
     if(a.error)throw a.error;if(b.error)throw b.error;
     projects=a.data||[];connections=b.data||[];performanceEntries=c.data?.value?.entries||[];
     render();
-    await Promise.all([hydrateMedia().catch(e=>toast('Some previews could not load: '+e.message)),loadAppVersion(),loadListings(false)]);
+    await Promise.all([hydrateMedia().catch(e=>toast('Some previews could not load: '+e.message)),loadAppVersion(),loadListings(false),window.MasterFiles?.load(false)]);
     render();$('#syncState').textContent='Private · updated '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     if(showToast)toast('Workspace refreshed');
   })();
@@ -230,7 +230,7 @@ async function openAsset(id,role){const p=projects.find(x=>x.id===id);if(!p)retu
 function renderPerformance(){const latest=performanceEntries.at(-1);$('#performanceReadout').innerHTML=latest?`<p>${esc(latest.from)} to ${esc(latest.to)} · Manually entered from Etsy Stats</p><p><strong>${latest.visits}</strong> visits · <strong>${latest.orders}</strong> orders · <strong>${money(latest.revenue)}</strong> revenue</p><p>Shop conversion: <strong>${latest.visits?(latest.orders/latest.visits*100).toFixed(2)+'%':'Not available without visits'}</strong></p>`:'<p class="muted">No performance data entered. Unknown values are not shown as zero.</p>';}
 async function savePerformance(event){event.preventDefault();try{const fd=new FormData(event.currentTarget),entry=SellerCore.performance(Object.fromEntries(fd));const entries=[...performanceEntries,entry];if(!demoMode){const {error}=await sb.from('app_settings').upsert({key:'seller_performance',value:{entries},updated_at:new Date().toISOString()});if(error)throw error;}performanceEntries=entries;renderPerformance();toast('Performance period saved.');}catch(e){toast(e.message);}}
 function subscribe(){if(demoMode)return;if(realtime)sb.removeChannel(realtime);realtime=sb.channel('review-projects-live').on('postgres_changes',{event:'*',schema:'public',table:'review_projects'},()=>{clearTimeout(subscribe.timer);subscribe.timer=setTimeout(()=>loadData().catch(e=>toast(e.message)),600);}).subscribe();}
-async function authChanged(s){if(demoMode)return;session=s;if(!s){projects=[];shopListings=[];connections=[];performanceEntries=[];detailId=null;$$('.modal').forEach(x=>x.classList.remove('open'));$('#nav').classList.add('hidden');showScreen('authScreen');$('#syncState').textContent='Private workspace';if(realtime){sb.removeChannel(realtime);realtime=null;}return;}$('#nav').classList.remove('hidden');$('#accountEmail').textContent=s.user.email||'Signed in';showScreen((location.hash||'#etsy').slice(1)==='authScreen'?'etsy':(location.hash||'#etsy').slice(1));try{await loadData();subscribe();}catch(e){toast(e.message);}}
+async function authChanged(s){if(demoMode)return;session=s;if(!s){projects=[];shopListings=[];connections=[];performanceEntries=[];detailId=null;window.MasterFiles?.reset();$$('.modal').forEach(x=>x.classList.remove('open'));$('#nav').classList.add('hidden');showScreen('authScreen');$('#syncState').textContent='Private workspace';if(realtime){sb.removeChannel(realtime);realtime=null;}return;}$('#nav').classList.remove('hidden');$('#accountEmail').textContent=s.user.email||'Signed in';showScreen((location.hash||'#etsy').slice(1)==='authScreen'?'etsy':(location.hash||'#etsy').slice(1));try{await loadData();subscribe();}catch(e){toast(e.message);}}
 
 $('#editForm').onsubmit=saveEdit;$('#editForm').oninput=()=>{$('#editForm').dataset.dirty='true';};$('#confirmSchedule').onclick=saveSchedule;
 $('#listingSearch').oninput=renderListingGrid;$('#listingState').onchange=event=>{listingState=event.target.value;loadListings();};

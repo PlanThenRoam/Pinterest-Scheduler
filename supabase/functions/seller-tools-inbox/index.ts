@@ -1,12 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 
+import { masterTools, masterToolNames, handleMasterTool } from './master-files.ts';
+
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 26;
-const API_CAPABILITY_VERSION = "3.2.0";
+const APP_VERSION = 27;
+const API_CAPABILITY_VERSION = "3.3.0";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -30,6 +32,7 @@ const CREATIVE_CAPABILITIES = {
 };
 
 const tools = [
+ ...masterTools,
  {name:"list_etsy_shop_listings",description:"Find the owner's current Etsy listings by product name before preparing an update. Use this whenever the owner names an existing product; do not ask them for a listing ID.",inputSchema:{type:"object",additionalProperties:false,properties:{query:{type:"string",description:"Optional product name or destination to match."},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true}},
  {name:"prepare_etsy_listing_update",description:"Prepare an isolated update for one existing Etsy listing. Accepts title, description, exactly 13 tags, price, individual image replacements, individual image alt-text changes, and digital-file additions or replacements. Only supplied fields or assets can change; everything omitted remains untouched.",inputSchema:{type:"object",additionalProperties:false,required:["product_name"],properties:{product_name:{type:"string",minLength:2},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]},title:{type:"string",minLength:1,maxLength:140},description:{type:"string",minLength:1},tags:{type:"array",minItems:13,maxItems:13,uniqueItems:true,items:{type:"string",minLength:1,maxLength:20}},price:{type:"number",exclusiveMinimum:0},images:{type:"array",minItems:1,maxItems:10,items:{type:"object",additionalProperties:false,required:["role","rank","alt_text"],properties:{role:{type:"string",description:"Asset role to attach, such as thumbnail or listing-image-1."},rank:{type:"integer",minimum:1,maximum:10},alt_text:{type:"string",minLength:1,maxLength:500}}}},alt_text:{type:"array",minItems:1,maxItems:10,items:{type:"object",additionalProperties:false,required:["listing_image_id","rank","text"],properties:{listing_image_id:{type:"string",pattern:"^\\d+$"},rank:{type:"integer",minimum:1,maximum:10},text:{type:"string",minLength:1,maxLength:500}}}},digital_files:{type:"array",minItems:1,maxItems:5,items:{type:"object",additionalProperties:false,required:["action","role","filename"],properties:{action:{type:"string",enum:["add","replace"]},role:{type:"string",description:"Asset role to attach, such as customer-pdf or customer-docx."},filename:{type:"string",minLength:1,maxLength:70},listing_file_id:{type:"string",pattern:"^\\d+$",description:"Required only when action is replace."}}}}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
  {name:"create_review_project",description:"Create one private Etsy or Pinterest project after the owner has approved its complete content plan.",inputSchema:{type:"object",additionalProperties:false,required:["kind","title","manifest"],properties:{kind:{type:"string",enum:["etsy","pinterest"]},title:{type:"string",minLength:1,maxLength:180},manifest:{type:"object",description:"Complete manifest. Etsy needs title, description, price, quantity, exactly 13 unique tags, six image alt texts and optional taxonomyId; Pinterest needs 1–50 pins."}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:false}},
@@ -141,6 +144,10 @@ Deno.serve(async(req:Request)=>{
  if(method!=="tools/call")return fail(id,-32601,"Method not found");
  const name=params?.name,args=params?.arguments||{};
  try{
+  if(masterToolNames.has(name)){
+   const admin=createClient(projectUrl,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
+   return rpc(id,output(await handleMasterTool(name,args,{db,admin,userId:userData.user.id})));
+  }
   if(name==="list_etsy_shop_listings"){
    const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
    const q=normal(args.query);const listings=q?(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title))):(data.listings||[]);
@@ -171,7 +178,7 @@ Deno.serve(async(req:Request)=>{
   if(name==="list_review_projects"){
    let query=db.from("review_projects").select("id,kind,title,status,manifest,revision,revision_request,scheduled_for,updated_at").in("kind",["etsy","pinterest"]).order("updated_at",{ascending:false}).limit(50);
    if(args.kind)query=query.eq("kind",args.kind);if(args.status)query=query.eq("status",args.status);
-   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true},projects:data,etsy_listings}));
+   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true,master_files:true},master_files_workflow:"Use list_master_files and get_master_file before editing. Save through prepare_master_upload and commit_master_upload. Master saves never publish to Etsy.",projects:data,etsy_listings}));
   }
   if(name==="get_creative_capabilities")return rpc(id,output(CREATIVE_CAPABILITIES));
   if(name==="list_creative_styles"){

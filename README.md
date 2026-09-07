@@ -1,8 +1,16 @@
 # PlanThenRoam Seller Tools
 
-Private, phone-first review workspace for Etsy listing edits and Pinterest content packs. Release 26 keeps owner sign-in and private storage.
+Private, phone-first review workspace for Etsy listing edits and Pinterest content packs. Release 27 keeps owner sign-in and private storage.
 
-## Release 26
+## Release 27
+
+- Master Files catalogue for planners, blueprints, images and other assets, separate from review projects.
+- Private Word/PDF/image/ZIP uploads with SHA-256 verification, immutable storage, atomic version changes and optimistic concurrency.
+- Current downloads, version history, restore, listing links and verified publishing records.
+- ChatGPT actions to retrieve current masters, prepare signed uploads, commit a version and stage selected Etsy file updates.
+- Word files remain DOCX in Master Files and are wrapped in ZIP when staged for Etsy.
+
+## Existing Listing Tools
 
 - Search live Etsy listings by title and state, then prepare an update from current listing data.
 - Independently edit title, description, 13 tags, price, selected images, alt text and digital file additions/replacements.
@@ -20,7 +28,7 @@ Use Node 24 or newer. Run `npm ci --ignore-scripts` then `npm test`.
 
 The release metadata, frontend build, service-worker cache and connector app version must agree. Regression tests enforce this and run on GitHub pushes.
 
-Apply the release-26 migration before deploying the updated `etsy-publish` and `seller-tools-inbox` functions. Include `safe-edit.ts` and `safety.ts` with the publisher. Both functions validate the caller themselves using Supabase Auth and owner checks; preserve their existing gateway configuration. Deploy the static frontend after the backend. Verify the authenticated connector status and unauthenticated access denial after release.
+Apply all tracked migrations, including `seller_master_files`, before deploying the updated `etsy-publish` and `seller-tools-inbox` functions. Include `safe-edit.ts` and `safety.ts` with the publisher and `master-files.ts` with the inbox. Run `tests/master-database.sql` through an administrator connection to verify permissions, conflicts and restores without retaining fixtures. Both functions validate the caller themselves using Supabase Auth and owner checks; preserve their existing gateway configuration. Deploy the static frontend after the backend. Verify the authenticated connector status and unauthenticated access denial after release.
 
 Changing an Etsy listing requires the owner's final approval in the app. Test publishing failures with mocks, never by editing production listings.
 
@@ -55,3 +63,15 @@ A ZIP must contain `manifest.json` plus the named files. Required manifest rules
 - `kind: "pinterest"` with `title` and 1–50 `pins`; each Pin includes `imageFile`, `title`, `description`, `altText`, `link`, and `board`.
 
 The installed PWA checks for updates on launch and hourly. Navigation and same-origin assets use network-first caching so a normal reopen receives the current version without reinstalling.
+
+## Master File Workflow
+
+`list_master_files` → `get_master_file` → edit and verify locally → `prepare_master_upload` → upload bytes → `commit_master_upload`. Reuse the master ID and file roles. Reserve all changed files in the same upload session; untouched roles are retained. Both Word and PDF are customer deliverables.
+
+Each file is limited to 50 MB; each save to 100 MB and 20 changed files. Download URLs expire after 15 minutes and signed uploads after two hours. Retry a committed upload ID safely. A conflict means another save won: read and reconcile the latest version first. Do not auto-advance a stale revision.
+
+The master tables and bucket are private. Browsers have owner-scoped SELECT access only. The authenticated, owner-checked inbox issues signed uploads and uses a service-only, security-invoker database transaction to commit versions. Old objects are retained, not overwritten or deleted. Incomplete uploads cannot replace current files.
+
+Saving, linking and restoring never publish. `attach_master_files_to_review` stages selected customer downloads; final Etsy approval remains in the app. The publisher records master hashes only after verifying the live update. Changes made directly on Etsy are not automatically observed by that record. Existing listings show an unknown published master until a tracked master update succeeds.
+
+ChatGPT needs the refreshed connector tool catalogue in a new chat to discover newly added actions. Source instructions are tracked in this repository. Merely changing a message in another chat does not save a file. Existing chat attachments are not automatically chosen as approved masters.
