@@ -1,14 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 
+import { cancelReview } from './cancel-review.ts';
+
 import { masterTools, masterToolNames, handleMasterTool } from './master-files.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 33;
-const API_CAPABILITY_VERSION = "3.4.5";
+const APP_VERSION = 34;
+const API_CAPABILITY_VERSION = "3.4.6";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -50,7 +52,7 @@ const toolDefinitions = [
  {name:"save_creative_style",description:"Save or replace a reusable ChatGPT-facing style for Pinterest and Etsy assets.",inputSchema:{type:"object",additionalProperties:false,required:["name","style"],properties:{name:{type:"string",minLength:1,maxLength:80},channels:{type:"array",items:{type:"string",enum:["pinterest","etsy"]}},style:{type:"object"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"list_creative_styles",description:"List reusable owner styles without binary assets.",inputSchema:{type:"object",additionalProperties:false,properties:{}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
  {name:"apply_creative_style",description:"Apply one saved style to a project as manifest.creativeStyle without changing content or assets. Creates a recoverable version first.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","style_name"],properties:{project_id:{type:"string",format:"uuid"},style_name:{type:"string"},mark_ready:{type:"boolean"}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}},
- {name:"clear_review_project",description:"Archive one named review project while preserving its files and revision history. Requires owner confirmation.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","confirmed"],properties:{project_id:{type:"string",format:"uuid"},confirmed:{type:"boolean",const:true}}},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}}
+ {name:"clear_review_project",description:"Permanently cancel a pending review submission and delete its stored assets. Does not undo published changes. Requires owner confirmation.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","confirmed"],properties:{project_id:{type:"string",format:"uuid"},confirmed:{type:"boolean",const:true}}},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}}
 ];
 
 const authSchemes=[{type:'oauth2',scopes:['openid','email']}];
@@ -253,7 +255,9 @@ Deno.serve(async(req:Request)=>{
    const {error}=await db.from("review_projects").update(changes).eq("id",project.id);if(error)throw error;return rpc(id,output({project_id:project.id,updated:true,revision:changes.revision}));
   }
   if(name==="clear_review_project"){
-   if(args.confirmed!==true)throw new Error("The owner must explicitly confirm archiving.");if(project.status==="publishing")throw new Error("Wait for publishing to finish.");const {error}=await db.from("review_projects").update({manifest:{...project.manifest,archived:true},last_error:null}).eq("id",project.id);if(error)throw error;return rpc(id,output({project_id:project.id,archived:true,deleted:false,assets_preserved:true}));
+   if(args.confirmed!==true)throw new Error("Confirm cancellation before deleting the submission.");
+   const admin=createClient(projectUrl,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
+   return rpc(id,output(await cancelReview(admin,project,userData.user.id)));
   }
   return fail(id,-32601,"Unknown tool");
  }catch(error){return fail(id,-32000,error instanceof Error?error.message:"Tool failed")}
