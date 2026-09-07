@@ -75,3 +75,11 @@ The master tables and bucket are private. Browsers have owner-scoped SELECT acce
 Saving, linking and restoring never publish. `attach_master_files_to_review` stages selected customer downloads; final Etsy approval remains in the app. The publisher records master hashes only after verifying the live update. Changes made directly on Etsy are not automatically observed by that record. Existing listings show an unknown published master until a tracked master update succeeds.
 
 ChatGPT needs the refreshed connector tool catalogue in a new chat to discover newly added actions. Source instructions are tracked in this repository. Merely changing a message in another chat does not save a file. Existing chat attachments are not automatically chosen as approved masters.
+
+## Master Files connector (release 28 / API 3.4.0)
+
+The MCP `initialize` and `tools/list` endpoints expose public capability metadata with no private data. Every `tools/call` still validates the owner's Supabase session and owner access. Tool descriptors declare OAuth requirements. Responses are not cached. `list_review_projects` includes the canonical registration names so a stale ChatGPT tool catalogue can be identified without pretending a capability flag proves client availability.
+
+`upload_master_files` accepts native ChatGPT file inputs using `openai/fileParams`, with separate explicit file-to-role assignments. `import_review_images_to_master` copies a complete six-image set from an owned Review Box project linked to the same planner. Both verify bytes, preserve master identity/history, keep stable thumbnail/photo positions, and use idempotency keys to resume uploads without duplicate objects. Commit results report each saved file. `get_master_file` returns current or historical verified references and temporary private downloads. Neither save route calls Etsy, publishes or schedules. Only customer PDFs can be selected for this shop's separate Etsy download update.
+
+If ChatGPT still advertises seven old Review Box tools, inspect and refresh the registered connection's metadata, verify its URL, and start a fresh conversation. Reconnecting OAuth alone is not proof that tool metadata changed. The runtime's active action catalogue cannot be edited by changing this repository.

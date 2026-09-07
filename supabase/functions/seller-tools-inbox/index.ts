@@ -7,8 +7,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 27;
-const API_CAPABILITY_VERSION = "3.3.0";
+const APP_VERSION = 28;
+const API_CAPABILITY_VERSION = "3.4.0";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -31,7 +31,7 @@ const CREATIVE_CAPABILITIES = {
  rules:["approved copy is never rewritten automatically","planner pages must be genuine PDF renders","planner pages stay upright, undistorted, fully visible, evenly spaced and viewport locked","safe areas and collision checks are mandatory","reviews and ratings require a verified source","no invented logos, watermarks or product content","promotion expiry blocks rendering","exactly five hashtags","no fixed price unless explicitly supplied","no automatic publishing"]
 };
 
-const tools = [
+const toolDefinitions = [
  ...masterTools,
  {name:"list_etsy_shop_listings",description:"Find the owner's current Etsy listings by product name before preparing an update. Use this whenever the owner names an existing product; do not ask them for a listing ID.",inputSchema:{type:"object",additionalProperties:false,properties:{query:{type:"string",description:"Optional product name or destination to match."},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]}}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true}},
  {name:"prepare_etsy_listing_update",description:"Prepare an isolated update for one existing Etsy listing. Accepts title, description, exactly 13 tags, price, individual image replacements, individual image alt-text changes, and digital-file additions or replacements. Only supplied fields or assets can change; everything omitted remains untouched.",inputSchema:{type:"object",additionalProperties:false,required:["product_name"],properties:{product_name:{type:"string",minLength:2},state:{type:"string",enum:["active","draft","inactive","expired","sold_out"]},title:{type:"string",minLength:1,maxLength:140},description:{type:"string",minLength:1},tags:{type:"array",minItems:13,maxItems:13,uniqueItems:true,items:{type:"string",minLength:1,maxLength:20}},price:{type:"number",exclusiveMinimum:0},images:{type:"array",minItems:1,maxItems:10,items:{type:"object",additionalProperties:false,required:["role","rank","alt_text"],properties:{role:{type:"string",description:"Asset role to attach, such as thumbnail or listing-image-1."},rank:{type:"integer",minimum:1,maximum:10},alt_text:{type:"string",minLength:1,maxLength:500}}}},alt_text:{type:"array",minItems:1,maxItems:10,items:{type:"object",additionalProperties:false,required:["listing_image_id","rank","text"],properties:{listing_image_id:{type:"string",pattern:"^\\d+$"},rank:{type:"integer",minimum:1,maximum:10},text:{type:"string",minLength:1,maxLength:500}}}},digital_files:{type:"array",minItems:1,maxItems:5,items:{type:"object",additionalProperties:false,required:["action","role","filename"],properties:{action:{type:"string",enum:["add","replace"]},role:{type:"string",description:"Asset role to attach, such as customer-pdf or customer-docx."},filename:{type:"string",minLength:1,maxLength:70},listing_file_id:{type:"string",pattern:"^\\d+$",description:"Required only when action is replace."}}}}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:false,openWorldHint:true}},
@@ -53,8 +53,14 @@ const tools = [
  {name:"clear_review_project",description:"Archive one named review project while preserving its files and revision history. Requires owner confirmation.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","confirmed"],properties:{project_id:{type:"string",format:"uuid"},confirmed:{type:"boolean",const:true}}},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}}
 ];
 
-function rpc(id: unknown, result: unknown, status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,result}),{status,headers:{...cors,"content-type":"application/json"}})}
-function fail(id: unknown, code:number,message:string,status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,error:{code,message}}),{status,headers:{...cors,"content-type":"application/json"}})}
+const authSchemes=[{type:'oauth2',scopes:['openid','email']}];
+const tools=toolDefinitions.map((t:any)=>({...t,securitySchemes:authSchemes,_meta:{...t._meta,securitySchemes:authSchemes}}));
+const registration={endpoint,tool_count:tools.length,tool_names:tools.map(t=>t.name),metadata_version:API_CAPABILITY_VERSION,authentication:'owner OAuth required for every tool call',file_transfer:'upload_master_files accepts native ChatGPT file attachments; import_review_images_to_master copies existing private review images',client_catalogue_note:'Server capabilities do not prove which actions the current ChatGPT connection exposes. Compare its action names with tools/list.'};
+const challenge=`Bearer resource_metadata="${endpoint}/.well-known/oauth-protected-resource", error="invalid_token", error_description="Sign in to Seller Tools to continue"`;
+function unauthenticated(id:unknown,message:string){return new Response(JSON.stringify({jsonrpc:'2.0',id:id??null,result:{isError:true,content:[{type:'text',text:message}],_meta:{'mcp/www_authenticate':[challenge]}}}),{status:401,headers:{...cors,'content-type':'application/json','cache-control':'no-store','www-authenticate':challenge}});}
+
+function rpc(id: unknown, result: unknown, status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,result}),{status,headers:{...cors,"content-type":"application/json","cache-control":"no-store"}})}
+function fail(id: unknown, code:number,message:string,status=200){return new Response(JSON.stringify({jsonrpc:"2.0",id,error:{code,message}}),{status,headers:{...cors,"content-type":"application/json","cache-control":"no-store"}})}
 function cleanName(value:string){return (value||"asset").normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g,"-").replace(/^-+|-+$/g,"").slice(-120)||"asset"}
 function clone<T>(value:T):T{return JSON.parse(JSON.stringify(value))}
 function pointerParts(path:string){if(!path.startsWith("/")||path.length>300)throw new Error("Patch paths must be valid JSON Pointer paths.");const parts=path.slice(1).split("/").map(x=>x.replace(/~1/g,"/").replace(/~0/g,"~"));if(parts.some(x=>["__proto__","prototype","constructor"].includes(x)))throw new Error("Unsafe patch path.");return parts}
@@ -126,22 +132,24 @@ Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers:cors});
  const url=new URL(req.url);
  if(req.method==="GET"&&url.pathname.includes(".well-known/oauth-protected-resource"))return new Response(JSON.stringify({resource:endpoint,authorization_servers:[projectUrl+"/auth/v1"],scopes_supported:["openid","email"]}),{headers:{...cors,"content-type":"application/json"}});
- const auth=req.headers.get("authorization")||"";
- if(!auth.startsWith("Bearer "))return new Response(JSON.stringify({error:"authentication_required"}),{status:401,headers:{...cors,"content-type":"application/json","www-authenticate":`Bearer resource_metadata="${endpoint}/.well-known/oauth-protected-resource"`}});
- const token=auth.slice(7);
- const db=createClient(projectUrl,publishableKey,{global:{headers:{Authorization:auth}},auth:{persistSession:false}});
- const {data:userData,error:userError}=await db.auth.getUser(token);
- if(userError||!userData.user)return new Response(JSON.stringify({error:"invalid_token"}),{status:401,headers:{...cors,"content-type":"application/json"}});
- const {data:owner}=await db.from("app_owners").select("user_id").eq("user_id",userData.user.id).maybeSingle();
- if(!owner)return new Response(JSON.stringify({error:"owner_access_required"}),{status:403,headers:{...cors,"content-type":"application/json"}});
- if(req.method!=="POST")return new Response("Method not allowed",{status:405,headers:cors});
+ if(req.method!=="POST")return new Response("Method not allowed",{status:405,headers:{...cors,'cache-control':'no-store'}});
  let body:any;try{body=await req.json()}catch{return fail(null,-32700,"Invalid JSON",400)}
  const {id,method,params}=body;
- if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:API_CAPABILITY_VERSION},appVersion:APP_VERSION,apiCapabilityVersion:API_CAPABILITY_VERSION});
+ // Discovery is public metadata only. Every tools/call still requires a valid
+ // owner session before any database, file, import or publishing action.
+ if(method==="initialize")return rpc(id,{protocolVersion:"2025-06-18",capabilities:{tools:{listChanged:false}},serverInfo:{name:"PlanThenRoam Seller Tools",version:API_CAPABILITY_VERSION},appVersion:APP_VERSION,apiCapabilityVersion:API_CAPABILITY_VERSION,instructions:'Find the existing master before saving. Save actual ChatGPT attachments with upload_master_files, or copy approved private review images using import_review_images_to_master. Use a stable idempotency key for retries. Saving masters never changes Etsy, publishes or schedules. Only PDFs are customer downloads for this shop.'});
  if(method==="ping")return rpc(id,{});
  if(method==="notifications/initialized")return new Response(null,{status:202,headers:cors});
  if(method==="tools/list")return rpc(id,{tools});
  if(method!=="tools/call")return fail(id,-32601,"Method not found");
+ const auth=req.headers.get("authorization")||"";
+ if(!auth.startsWith("Bearer "))return unauthenticated(id,'Authentication required. Sign in to Seller Tools.');
+ const token=auth.slice(7);
+ const db=createClient(projectUrl,publishableKey,{global:{headers:{Authorization:auth}},auth:{persistSession:false}});
+ const {data:userData,error:userError}=await db.auth.getUser(token);
+ if(userError||!userData.user)return unauthenticated(id,'Your Seller Tools session has expired. Sign in again.');
+ const {data:owner}=await db.from("app_owners").select("user_id").eq("user_id",userData.user.id).maybeSingle();
+ if(!owner)return new Response(JSON.stringify({error:"owner_access_required"}),{status:403,headers:{...cors,"content-type":"application/json",'cache-control':'no-store'}});
  const name=params?.name,args=params?.arguments||{};
  try{
   if(masterToolNames.has(name)){
@@ -178,7 +186,7 @@ Deno.serve(async(req:Request)=>{
   if(name==="list_review_projects"){
    let query=db.from("review_projects").select("id,kind,title,status,manifest,revision,revision_request,scheduled_for,updated_at").in("kind",["etsy","pinterest"]).order("updated_at",{ascending:false}).limit(50);
    if(args.kind)query=query.eq("kind",args.kind);if(args.status)query=query.eq("status",args.status);
-   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true,master_files:true},master_files_workflow:"Use list_master_files and get_master_file before editing. Save through prepare_master_upload and commit_master_upload. Master saves never publish to Etsy.",projects:data,etsy_listings}));
+   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true,master_files:true},master_files_workflow:"Use list_master_files and get_master_file before editing. Save through prepare_master_upload and commit_master_upload. Master saves never publish to Etsy.",mcp_registration:registration,projects:data,etsy_listings}));
   }
   if(name==="get_creative_capabilities")return rpc(id,output(CREATIVE_CAPABILITIES));
   if(name==="list_creative_styles"){

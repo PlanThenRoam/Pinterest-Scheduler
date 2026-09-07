@@ -1,6 +1,7 @@
 {
-  "app_version": 27,
-  "api_version": "3.3.0",
-  "minimum_backend_version": 27,
-  "released": "2026-09-07"
+  "app_version": 28,
+  "api_version": "3.4.0",
+  "minimum_backend_version": 28,
+  "released": "2026-09-07",
+  "api_capability_version": "3.4.0"
 }
