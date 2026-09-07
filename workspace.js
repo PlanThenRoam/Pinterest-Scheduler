@@ -1,11 +1,12 @@
 'use strict';
-const APP_BUILD = 32;
+const APP_BUILD = 33;
 const demoMode = new URLSearchParams(location.search).get('demo') === '1';
 let shopListings = [], listingState = 'active', listingError = '', activeEtsyView = 'listings';
 let editSnapshot=null, editReturnToDetail=false, editNewDraft=false;
 const preparingListings=new Set();
 let detailId = null, editBusy = false, loadPromise = null, versionCompatible = false, performanceEntries = [];
 let demoVersions = {}, demoRuns = [], inFlightPublishes = new Set();
+window.sellerUpdateBlocked=()=>editBusy||inFlightPublishes.size>0||Boolean(document.querySelector('.modal.open'));
 const legacySaveEdit = initialSaveEdit;
 const legacyEtsyBody = etsyBody;
 const legacyPinForm = pinForm;
@@ -50,7 +51,9 @@ async function loadAppVersion() {
     const api=await fetch(SELLER_TOOLS_ENDPOINT,{method:'POST',headers:{authorization:'Bearer '+session.access_token,apikey:SUPABASE_KEY,'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:'version',method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'seller-tools-web',version:String(APP_BUILD)}}}),signal:AbortSignal.timeout(7000)});
     const data=await api.json();
     const backend=data.result?.appVersion;
-    versionCompatible=api.ok && Number(backend)>=release.minimum_backend_version;
+    const publisherHealth=await fetch(SUPABASE_URL+'/functions/v1/etsy-publish/health',{cache:'no-store',signal:AbortSignal.timeout(7000)});
+    const publisherVersion=await publisherHealth.json();
+    versionCompatible=api.ok && publisherHealth.ok && Number(backend)>=release.minimum_backend_version && Number(publisherVersion.app_version)>=release.minimum_backend_version && APP_BUILD===release.app_version;
     $('#backendVersion').textContent=versionCompatible?`Backend ${backend} · compatible`:'Backend compatibility not verified';
   } catch { versionCompatible=false;$('#backendVersion').textContent='Connection check unavailable. Refresh before publishing.'; }
 }
@@ -162,7 +165,7 @@ function scopedForm(p){
     return `<fieldset class="fieldblock"><label><input type="checkbox" name="scope_${key}" ${c.scope.includes(key)?'checked':''}> Change ${esc(etsyFieldLabel(key))}</label><details><summary class="muted">Current value</summary><div class="currentvalue">${esc(SellerCore.value(base[key]))}</div></details><div class="field">${editor}</div></fieldset>`;
   }).join('');
   const maxRank=Math.max(0,...(m.existingImages||[]).map(x=>Number(x.rank)));
-  const imageRows=[...(m.existingImages||[]),...(maxRank<10?[{rank:maxRank+1,id:'',altText:'',url:''}]:[])].map(image=>{
+  const imageRows=[...(m.existingImages||[]),...(maxRank<20?[{rank:maxRank+1,id:'',altText:'',url:''}]:[])].map(image=>{
     const proposed=c.images.find(x=>Number(x.rank)===Number(image.rank)), alt=c.alt.find(x=>String(x.listingImageId)===String(image.id));
     return `<div class="assetrow">${image.url?viewAsset(image.url,image.altText||'Current image'):''}<h3>${image.id?'Image '+image.rank:'Add Image '+image.rank}</h3>${proposed?`<p class="muted">Attached replacement: ${esc((p.media||[]).find(x=>x.role===proposed.role)?.name||proposed.role)}</p><label><input type="checkbox" name="drop_image_${image.rank}"> Remove this proposed replacement</label>`:''}<label>Choose ${image.id?'replacement':'new'} image<input type="file" name="image_${image.rank}" accept="image/png,image/jpeg"></label><div class="field"><label>Alt text<textarea name="image_alt_${image.rank}" maxlength="500">${esc(proposed?.altText??alt?.altText??image.altText??'')}</textarea></label></div>${image.id?`<label><input type="checkbox" name="alt_only_${image.rank}" ${alt?'checked':''}> Change alt text only</label>`:''}</div>`;
   }).join('');

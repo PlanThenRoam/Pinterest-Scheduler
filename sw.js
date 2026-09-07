@@ -1,5 +1,5 @@
-const CACHE_NAME='ptr-seller-tools-v32';
-const APP_SHELL=['./','./index.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./core.js?v=32','./workspace.js?v=32','./workspace.css?v=32','./release.json','./master-files.js?v=32','./master-files.css?v=32'];
+const CACHE_NAME='ptr-seller-tools-v33';
+const APP_SHELL=['./','./index.html','./oauth-consent.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./core.js?v=33','./workspace.js?v=33','./workspace.css?v=33','./release.json','./master-files.js?v=33','./master-files.css?v=33'];
 
 self.addEventListener('install',event=>{
  self.skipWaiting();

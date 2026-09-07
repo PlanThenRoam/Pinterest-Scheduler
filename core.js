@@ -20,13 +20,13 @@ const SellerCore = (() => {
     for (const scope of c.scope) if (!['images','files','alt_text'].includes(scope) && !(scope in c.fields)) result.push(`The selected ${labels[scope] || scope} is missing.`);
     if ('title' in c.fields && (!String(c.fields.title).trim() || String(c.fields.title).length > 140)) result.push('Title must contain 1–140 characters.');
     if ('description' in c.fields && !String(c.fields.description).trim()) result.push('Description cannot be empty.');
-    if ('price' in c.fields && (!Number.isFinite(Number(c.fields.price)) || Number(c.fields.price) <= 0)) result.push('Enter a price greater than zero.');
+    if ('price' in c.fields && (!Number.isFinite(Number(c.fields.price)) || Number(c.fields.price) <= 0 || Math.abs(Number(c.fields.price)*100-Math.round(Number(c.fields.price)*100))>1e-8)) result.push('Enter a price greater than zero.');
     if ('tags' in c.fields) {
       const tags = Array.isArray(c.fields.tags) ? c.fields.tags.map(x=>String(x).trim()) : [];
       if (tags.length !== 13 || new Set(tags.map(x=>x.toLowerCase())).size !== 13 || tags.some(x=>!x || x.length>20)) result.push('Use 13 unique tags, each 1–20 characters.');
     }
-    if (c.scope.includes('images') && (!c.images.length || c.images.some(x=>!roles.has(x.role) || !String(x.altText || '').trim() || String(x.altText).length>500 || !Number.isInteger(Number(x.rank)) || x.rank<1 || x.rank>10))) result.push('Each image needs its attachment, position and alt text.');
-    if (c.scope.includes('alt_text') && (!c.alt.length || c.alt.some(x=>!/^\d+$/.test(String(x.listingImageId)) || !String(x.altText || '').trim() || String(x.altText).length>500 || x.rank<1 || x.rank>10))) result.push('Select an existing image and provide its alt text.');
+    if (c.scope.includes('images') && (!c.images.length || c.images.some(x=>!roles.has(x.role) || !String(x.altText || '').trim() || String(x.altText).length>500 || !Number.isInteger(Number(x.rank)) || x.rank<1 || x.rank>20))) result.push('Each image needs its attachment, position and alt text.');
+    if (c.scope.includes('alt_text') && (!c.alt.length || c.alt.some(x=>!/^\d+$/.test(String(x.listingImageId)) || !String(x.altText || '').trim() || String(x.altText).length>500 || x.rank<1 || x.rank>20))) result.push('Select an existing image and provide its alt text.');
     if (c.scope.includes('files') && (!c.files.length || c.files.some(x=>!roles.has(x.role) || !x.filename || !['add','replace'].includes(x.action) || (x.action==='replace' && !/^\d+$/.test(String(x.listingFileId)))))) result.push('Each digital file needs its attachment and an add or replace action.');
     const existing = project.manifest?.existingFiles;
     if (c.scope.includes('files') && Array.isArray(existing)) {
