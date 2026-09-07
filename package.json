@@ -1,7 +1,7 @@
 {
   "name": "planthenroam-seller-tools",
   "private": true,
-  "version": "29.0.0",
+  "version": "30.0.0",
   "scripts": {
     "test": "node --test tests/*.test.cjs"
   },

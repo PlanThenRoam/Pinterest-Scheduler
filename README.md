@@ -87,3 +87,7 @@ If ChatGPT still advertises seven old Review Box tools, inspect and refresh the 
 ### Release 29 / API 3.4.1
 
 Repairs Review Box imports against the deployed schema, retaining owner OAuth, RLS and private source-path checks. Database errors now preserve their diagnostic message. The schema regression, ownership restrictions and idempotent retries are covered by the automated tests.
+
+### Release 30 / API 3.4.2
+
+The listing and Pin editors keep Cancel Editing and Save visible while scrolling. Cancel preserves an existing saved draft; newly prepared drafts are archived when cancelled. Cancel Update on the review card archives a saved proposal without affecting Etsy. Reopening a listing resumes its draft, and saves check the revision originally opened in the editor. Master forms warn before discarding unsaved changes. Listing download selections accept PDFs only.

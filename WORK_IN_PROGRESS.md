@@ -1,5 +1,7 @@
-# Seller Tools Release 29
+# Seller Tools Release 30
 
-Fixes Review Box image import querying a nonexistent user_id column. Access remains protected by owner OAuth, Review Box RLS, exact listing association and owner-prefixed private file paths. Regression fixtures now match the deployed schema. Plain database errors retain their diagnostic message.
+QA repair: persistent Cancel Editing and Save controls, cancellation of new drafts into the archive, resume existing drafts, stale-editor revision protection, guarded in-flight saves, PDF-only listing upload controls, and unsaved Master Files form protection. Asset previews stack above editors and keyboard focus stays inside dialogs.
 
-Live acceptance completed: the authenticated ChatGPT connector saved 108 images into 18 existing masters, all at revision 1 with six ordered images. All 108 private downloads matched their saved sizes and SHA-256 checksums. A repeated import returned the existing revision without duplication. Review Box and returned Etsy listing data remained unchanged; no publishing or scheduling was invoked. All 39 tests pass.
+Automated regression tests cover cancel/keep editing, saved draft preservation, new-draft cancellation, draft reuse, concurrent revision changes, in-flight save cancellation, file-input dirty state, Pin editing and Master Files discard guards.
+
+Browser validation and deployment pending. No live listing or master changes are part of this QA.

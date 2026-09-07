@@ -1,7 +1,9 @@
 'use strict';
-const APP_BUILD = 29;
+const APP_BUILD = 30;
 const demoMode = new URLSearchParams(location.search).get('demo') === '1';
 let shopListings = [], listingState = 'active', listingError = '', activeEtsyView = 'listings';
+let editSnapshot=null, editReturnToDetail=false, editNewDraft=false;
+const preparingListings=new Set();
 let detailId = null, editBusy = false, loadPromise = null, versionCompatible = false, performanceEntries = [];
 let demoVersions = {}, demoRuns = [], inFlightPublishes = new Set();
 const legacySaveEdit = initialSaveEdit;
@@ -102,13 +104,18 @@ function renderListingGrid() {
 }
 function switchEtsyView(view){activeEtsyView=view;$('#liveListings').classList.toggle('hidden',view!=='listings');$('#etsyList').classList.toggle('hidden',view!=='review');$$('[data-etsy-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.etsyView===view)));}
 async function prepareListing(id){
+  if(preparingListings.has(id)||editBusy)return;
+  if(projects.some(p=>p.kind==='etsy'&&String(p.manifest?.listingId)===String(id)&&(p.status==='publishing'||inFlightPublishes.has(p.id))))return toast('This listing is being updated. Wait for it to finish.');
+  const existing=projects.find(p=>p.kind==='etsy'&&p.manifest?.mode==='edit'&&String(p.manifest.listingId)===String(id)&&!p.manifest.archived&&!['published','publishing'].includes(p.status));
+  if(existing){switchEtsyView('review');openEdit(existing.id);toast('Opened your existing draft.');return;}
+  preparingListings.add(id);
   try{
     toast('Reading the current listing…');
     let projectId;
     if(demoMode){const source=structuredClone(projects.find(x=>x.id==='demo-edit'));source.id='demo-'+crypto.randomUUID();source.title=shopListings.find(x=>x.listing_id===id).title;source.status='editing';source.revision=1;source.manifest.listingId=id;source.manifest.existingSnapshot.title=source.title;source.manifest.updateScope=[];source.manifest.updateFields={};source.manifest.imageReplacements=[];source.manifest.altTextUpdates=[];source.manifest.fileUpdates=[];projects.unshift(source);projectId=source.id;render();}
     else{const data=await publisher({action:'prepare_edit',listing_id:id});projectId=data.project.id;await loadData();}
-    switchEtsyView('review');openEdit(projectId);
-  }catch(e){toast(e.message);}
+    switchEtsyView('review');openEdit(projectId);editNewDraft=true;
+  }catch(e){toast(e.message);}finally{preparingListings.delete(id);}
 }
 function publishEnabled(platform){return platform==='etsy' && (demoMode || isConnected(platform)&&conn(platform)?.metadata?.publish_enabled===true&&versionCompatible);}
 function etsyFieldLabel(key){return SellerCore.labels[key]||key;}
@@ -119,20 +126,39 @@ function etsyBodyScoped(p){
   const files=c.scope.includes('files')?c.files.map(x=>`<div class="notice"><strong>${x.action==='add'?'Add file':'Replace file'}</strong><p>${x.action==='replace'?esc((p.manifest.existingFiles||[]).find(f=>String(f.id)===String(x.listingFileId))?.name||'Existing file '+x.listingFileId)+' → ':''}${esc(x.filename)}</p><button class="btn secondary" onclick="openAsset('${p.id}','${esc(x.role)}')">Preview new file</button></div>`).join(''):'';
   const images=c.scope.includes('images')?`<div class="gallery">${c.images.map(x=>`<div>${p._urls?.[x.role]?viewAsset(p._urls[x.role],x.altText):'<p>Preview loading</p>'}<p>Position ${x.rank}: ${esc(x.altText)}</p></div>`).join('')}</div>`:'';
   const alt=c.scope.includes('alt_text')?c.alt.map(x=>`<div class="compare"><div><strong>Image ${x.rank}: Current Alt Text</strong><p>${esc((p.manifest.existingImages||[]).find(i=>String(i.id)===String(x.listingImageId))?.altText||'No alt text')}</p></div><div><strong>Proposed Alt Text</strong><p>${esc(x.altText)}</p></div></div>`).join(''):'';
-  return `<p class="notice">Review the selected changes below. Publishing checks the live listing again before applying them.</p>${fields}${images}${alt}${files}${errors.length?`<ul class="validation">${errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${p.last_error?`<p class="notice error">${esc(p.last_error)}</p>`:''}<div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')" ${locked?'disabled':''}>Edit selected changes</button><button class="btn primary" onclick="publishEtsy('${p.id}')" ${locked||errors.length||!publishEnabled('etsy')?'disabled':''}>${p.status==='published'?'Completed':p.status==='publishing'?'Updating…':demoMode?'Simulate update':'Apply selected changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openHistory('${p.id}')">Revision & publish history</button><button class="btn secondary" onclick="clearProject('${p.id}')" ${p.status==='publishing'?'disabled':''}>${p.manifest.archived?'Restore archive':'Archive project'}</button></div>`;
+  return `<p class="notice">Review the selected changes below. Publishing checks the live listing again before applying them.</p>${fields}${images}${alt}${files}${errors.length?`<ul class="validation">${errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${p.last_error?`<p class="notice error">${esc(p.last_error)}</p>`:''}<div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')" ${locked?'disabled':''}>Edit selected changes</button><button class="btn primary" onclick="publishEtsy('${p.id}')" ${locked||errors.length||!publishEnabled('etsy')?'disabled':''}>${p.status==='published'?'Completed':p.status==='publishing'?'Updating…':demoMode?'Simulate update':'Apply selected changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openHistory('${p.id}')">Revision & publish history</button><button class="btn secondary" onclick="clearProject('${p.id}')" ${p.status==='publishing'?'disabled':''}>${p.manifest.archived?'Restore archive':['published','publishing'].includes(p.status)?'Archive project':'Cancel Update'}</button></div>`;
 }
 function openEdit(id){
   const p=projects.find(x=>x.id===id);if(!p)return;
+  if(editBusy)return toast('Wait for the save to finish.');
+  if(p.manifest?.archived)return toast('Restore this archived project before editing.');
+  if($('#editModal').classList.contains('open'))return toast('Finish or cancel the current edit first.');
   if(['publishing','published'].includes(p.status))return toast('Open the live listing to prepare a fresh update.');
+  editSnapshot=structuredClone(p);editNewDraft=false;editReturnToDetail=$('#detailModal').classList.contains('open');
   editingId=id;$('#editTitle').textContent=p.kind==='pinterest'?'Edit Pins':'Edit Listing';
   $('#editForm').innerHTML=p.kind==='etsy'&&p.manifest?.mode==='edit'?scopedForm(p):p.kind==='etsy'?etsyForm(p):legacyPinForm(p);
   $('#detailModal').classList.remove('open');$('#editModal').classList.add('open');$('#editForm').dataset.dirty='false';
+  const oldSubmit=$('#editForm button[type=submit]');$('#saveEditButton').textContent=oldSubmit?.textContent||'Save For Review';oldSubmit?.closest('.stickyactions')?.remove();oldSubmit?.remove();
+  $('#editForm').scrollTop=0;$('#cancelEdit').focus();
+}
+async function cancelEdit(){
+  if(editBusy)return toast('Wait for the save to finish.');
+  if($('#editForm').dataset.dirty==='true'&&!confirm('Discard unsaved edits? Previously saved changes will be kept.'))return;
+  const id=editingId,returnToDetail=editReturnToDetail;
+  if(editNewDraft){
+    editBusy=true;
+    try{await updateProject(id,{manifest:{...editSnapshot.manifest,archived:true}},editSnapshot.revision);}
+    catch(e){toast(e.message);return;}finally{editBusy=false;}
+  }
+  $('#editModal').classList.remove('open');$('#editForm').innerHTML='';$('#editForm').dataset.dirty='false';editingId=null;editSnapshot=null;editNewDraft=false;
+  if(returnToDetail)await openProject(id);else switchEtsyView('listings');
+  toast('Editing cancelled. No Etsy changes made.');
 }
 function scopedForm(p){
   const m=p.manifest,c=SellerCore.changes(m),base=m.existingSnapshot||{};
   const fields=['title','description','price','tags'].map(key=>{
     const val=key in c.fields?c.fields[key]:base[key];
-    const editor=key==='tags'?`<div class="taginputs">${Array.from({length:13},(_,i)=>`<label>Tag ${i+1}<input name="tag_${i}" maxlength="20" value="${esc(val?.[i]||'')}"></label>`).join('')}</div>`:key==='description'?`<textarea name="field_description">${esc(val||'')}</textarea>`:`<input name="field_${key}" type="${key==='price'?'number':'text'}" ${key==='price'?'step="0.01" min="0.01"':'maxlength="140"'} value="${esc(val??'')}">`;
+    const editor=key==='tags'?`<div class="taginputs">${Array.from({length:13},(_,i)=>`<label>Tag ${i+1}<input name="tag_${i}" maxlength="20" value="${esc(val?.[i]||'')}"></label>`).join('')}</div>`:key==='description'?`<textarea name="field_description" aria-label="Description">${esc(val||'')}</textarea>`:`<input name="field_${key}" aria-label="${esc(etsyFieldLabel(key))}" type="${key==='price'?'number':'text'}" ${key==='price'?'step="0.01" min="0.01"':'maxlength="140"'} value="${esc(val??'')}">`;
     return `<fieldset class="fieldblock"><label><input type="checkbox" name="scope_${key}" ${c.scope.includes(key)?'checked':''}> Change ${esc(etsyFieldLabel(key))}</label><details><summary class="muted">Current value</summary><div class="currentvalue">${esc(SellerCore.value(base[key]))}</div></details><div class="field">${editor}</div></fieldset>`;
   }).join('');
   const maxRank=Math.max(0,...(m.existingImages||[]).map(x=>Number(x.rank)));
@@ -140,9 +166,9 @@ function scopedForm(p){
     const proposed=c.images.find(x=>Number(x.rank)===Number(image.rank)), alt=c.alt.find(x=>String(x.listingImageId)===String(image.id));
     return `<div class="assetrow">${image.url?viewAsset(image.url,image.altText||'Current image'):''}<h3>${image.id?'Image '+image.rank:'Add Image '+image.rank}</h3>${proposed?`<p class="muted">Attached replacement: ${esc((p.media||[]).find(x=>x.role===proposed.role)?.name||proposed.role)}</p><label><input type="checkbox" name="drop_image_${image.rank}"> Remove this proposed replacement</label>`:''}<label>Choose ${image.id?'replacement':'new'} image<input type="file" name="image_${image.rank}" accept="image/png,image/jpeg"></label><div class="field"><label>Alt text<textarea name="image_alt_${image.rank}" maxlength="500">${esc(proposed?.altText??alt?.altText??image.altText??'')}</textarea></label></div>${image.id?`<label><input type="checkbox" name="alt_only_${image.rank}" ${alt?'checked':''}> Change alt text only</label>`:''}</div>`;
   }).join('');
-  const fileRows=(m.existingFiles||[]).map(file=>`<div class="assetrow"><h3>${esc(file.name)}</h3><span class="muted">Current download · position ${file.rank}</span><label>Choose replacement file<input type="file" name="replace_${esc(file.id)}"></label></div>`).join('');
+  const fileRows=(m.existingFiles||[]).map(file=>`<div class="assetrow"><h3>${esc(file.name)}</h3><span class="muted">Current download · position ${file.rank}</span><label>Choose replacement file<input type="file" name="replace_${esc(file.id)}" accept=".pdf,application/pdf"></label></div>`).join('');
   const pending=c.files.map((x,i)=>`<div class="notice">${x.action==='replace'?'Replace':'Add'}: ${esc(x.filename)} <label><input type="checkbox" name="drop_file_${i}"> Remove proposed change</label></div>`).join('');
-  return `<p class="notice">Tick each text field you want to change. Choosing a file selects that upload. Save for review before applying anything to Etsy.</p>${fields}<fieldset class="fieldblock"><legend>Images And Alt Text</legend><p class="muted">Inspect full images before saving. Alt-text-only changes keep the existing image.</p>${imageRows}</fieldset><fieldset class="fieldblock"><legend>Digital Files</legend><p class="muted">${(m.existingFiles||[]).length}/5 current files. Maximum 20 MB per file. A replacement needs one free slot so the original remains available during upload.</p>${fileRows}${pending}<label>Add digital files<input type="file" name="add_files" multiple></label></fieldset><div id="editErrors" aria-live="polite"></div><div class="stickyactions"><button type="submit" class="btn primary" style="width:100%">Save For Review</button></div>`;
+  return `<p class="notice">Tick each text field you want to change. Choosing a file selects that upload. Save for review before applying anything to Etsy.</p>${fields}<fieldset class="fieldblock"><legend>Images And Alt Text</legend><p class="muted">Inspect full images before saving. Alt-text-only changes keep the existing image.</p>${imageRows}</fieldset><fieldset class="fieldblock"><legend>Digital Files</legend><p class="muted">${(m.existingFiles||[]).length}/5 current files. PDF only, maximum 20 MB per file. A replacement needs one free slot so the original remains available during upload.</p>${fileRows}${pending}<label>Add digital files<input type="file" name="add_files" accept=".pdf,application/pdf" multiple></label></fieldset><div id="editErrors" aria-live="polite"></div><div class="stickyactions"><button type="submit" class="btn primary" style="width:100%">Save For Review</button></div>`;
 }
 async function attachUpload(p,file,role){
   if(file.size>20*1024*1024 || !file.size)throw new Error(file.name+' must be between 1 byte and 20 MB.');
@@ -154,10 +180,14 @@ async function attachUpload(p,file,role){
 }
 async function saveEdit(event){
   event.preventDefault();if(editBusy)return;
-  const p=projects.find(x=>x.id===editingId);if(!p)return;
-  if(p.kind!=='etsy'||p.manifest?.mode!=='edit'){try{await legacySaveEdit(event);}catch(e){toast(e.message);}return;}
-  editBusy=true;const submit=$('#editForm button[type=submit]');submit.disabled=true;submit.textContent='Saving…';
+  const p=editSnapshot;if(!p)return;
+  const current=projects.find(x=>x.id===p.id);
+  if(!current||current.revision!==p.revision||current.manifest?.archived||['published','publishing'].includes(current.status))return toast('This draft changed while you were editing. Cancel and reopen it before saving.');
+  if(p.kind!=='etsy'||p.manifest?.mode!=='edit'){editBusy=true;$('#saveEditButton').disabled=true;try{await legacySaveEdit(event);if(!$('#editModal').classList.contains('open')){$('#editForm').dataset.dirty='false';editSnapshot=null;editingId=null;}}catch(e){toast(e.message);}finally{editBusy=false;$('#saveEditButton').disabled=false;}return;}
+  editBusy=true;const submit=$('#saveEditButton');submit.disabled=true;submit.textContent='Saving…';
   const fd=new FormData(event.currentTarget),m=structuredClone(p.manifest),c=SellerCore.changes(m),uploaded=[];
+  for(const control of $('#editForm').elements)control.disabled=true;
+  let saveAttempted=false;
   try{
     m.updateFields={...c.fields};
     for(const key of ['title','description','price','tags']){delete m.updateFields[key];if(fd.has('scope_'+key))m.updateFields[key]=key==='tags'?Array.from({length:13},(_,i)=>String(fd.get('tag_'+i)||'').trim()):key==='price'?Number(fd.get('field_price')):String(fd.get('field_'+key)||'').trim();}
@@ -170,6 +200,7 @@ async function saveEdit(event){
         const role='listing-image-'+rank+'-'+crypto.randomUUID();m.imageReplacements=m.imageReplacements.filter(x=>Number(x.rank)!==rank);m.imageReplacements.push({role,rank,altText});tasks.push({file,role});
       }else if(name.startsWith('replace_')||name==='add_files'){
         const existingId=name.startsWith('replace_')?name.slice(8):undefined,role='digital-file-'+crypto.randomUUID();
+        if(!/\.pdf$/i.test(file.name)||file.type&&file.type!=='application/pdf')throw new Error('Only PDF files can be added to this shop’s Etsy downloads.');
         if(existingId)m.fileUpdates=m.fileUpdates.filter(x=>String(x.listingFileId)!==existingId);
         m.fileUpdates.push({action:existingId?'replace':'add',role,filename:file.name,...(existingId?{listingFileId:existingId}:{})});tasks.push({file,role});
       }
@@ -179,16 +210,19 @@ async function saveEdit(event){
     m.updateScope=[...Object.keys(m.updateFields),...(m.imageReplacements.length?['images']:[]),...(m.altTextUpdates.length?['alt_text']:[]),...(m.fileUpdates.length?['files']:[])];
     const errors=SellerCore.errors({...p,manifest:m,media:[...(p.media||[]),...tasks.map(x=>({role:x.role}))]});if(errors.length)throw new Error(errors.join(' '));
     for(const task of tasks)uploaded.push(await attachUpload(p,task.file,task.role));
+    saveAttempted=true;
     await updateProject(p.id,{manifest:m,media:[...(p.media||[]),...uploaded],status:'ready',last_error:null});
     if(demoMode){const current=projects.find(x=>x.id===p.id);current._urls={...(current._urls||{}),...Object.fromEntries(uploaded.map(x=>[x.role,x.demoUrl]))};}
     $('#editModal').classList.remove('open');$('#editForm').dataset.dirty='false';switchEtsyView('review');openProject(p.id);toast('Saved. Review your changes before applying them.');
-  }catch(e){$('#editErrors').innerHTML=`<p class="notice error">${esc(e.message)}</p>`;if(!demoMode && uploaded.length)await sb.storage.from(BUCKET.etsy).remove(uploaded.map(x=>x.path));}
-  finally{editBusy=false;submit.disabled=false;submit.textContent='Save For Review';}
+  }catch(e){$('#editErrors').innerHTML=`<p class="notice error">${esc(e.message)}</p>`;if(!saveAttempted && !demoMode && uploaded.length)await sb.storage.from(BUCKET.etsy).remove(uploaded.map(x=>x.path));}
+  finally{editBusy=false;for(const control of $('#editForm').elements)control.disabled=false;submit.disabled=false;submit.textContent='Save For Review';}
 }
-async function updateProject(id,changes){
+async function updateProject(id,changes,expectedRevision=editBusy&&editingId===id&&editSnapshot?editSnapshot.revision:undefined){
   const p=projects.find(x=>x.id===id);if(!p)throw new Error('Project not found.');
+  const expected=expectedRevision??p.revision;
+  if(p.revision!==expected)throw new Error('The project changed in another session. Cancel and reopen before saving.');
   if(demoMode){(demoVersions[id]||= []).unshift({revision:p.revision,title:p.title,manifest:structuredClone(p.manifest),media:structuredClone(p.media),created_at:new Date().toISOString()});Object.assign(p,changes,{revision:p.revision+1,updated_at:new Date().toISOString()});render();return;}
-  const {data,error}=await sb.from('review_projects').update(changes).eq('id',id).eq('revision',p.revision).neq('status','publishing').select('id').maybeSingle();
+  const {data,error}=await sb.from('review_projects').update(changes).eq('id',id).eq('revision',expected).neq('status','publishing').select('id').maybeSingle();
   if(error)throw error;if(!data)throw new Error('The project changed in another session. Refresh before saving.');
   Object.assign(p,changes);
   await loadData().catch(e=>toast('Saved, but refresh failed: '+e.message));
@@ -211,7 +245,7 @@ function renderQueue(){
 }
 async function openProject(id){detailId=id;$('#detailModal').classList.add('open');renderDetail();try{await hydrateMedia(projects.filter(x=>x.id===id));renderDetail();}catch(e){toast(e.message);}}
 function renderDetail(){const p=projects.find(x=>x.id===detailId);if(!p)return;$('#detailTitle').textContent=p.title;$('#detailBody').innerHTML=projectCard(p);if(p.status==='published'||p.manifest?.archived)$('#detailBody').querySelectorAll('button').forEach(b=>{if(/publishEtsy|openEdit/.test(b.getAttribute('onclick')||''))b.disabled=true;});}
-async function clearProject(id){const p=projects.find(x=>x.id===id);if(!p||p.status==='publishing')return;const archived=!!p.manifest?.archived;try{await updateProject(id,{manifest:{...p.manifest,archived:!archived}});toast(archived?'Project restored':'Project archived. Files and history retained.');}catch(e){toast(e.message);}}
+async function clearProject(id){const p=projects.find(x=>x.id===id);if(!p||p.status==='publishing')return;const archived=!!p.manifest?.archived;if(!archived&&p.manifest?.mode==='edit'&&p.status!=='published'&&!confirm('Cancel this proposed update? Etsy stays unchanged. The draft and its history will be kept in the archive.'))return;try{await updateProject(id,{manifest:{...p.manifest,archived:!archived}});toast(archived?'Project restored':'Project archived. Files and history retained.');}catch(e){toast(e.message);}}
 async function openHistory(id){
   const p=projects.find(x=>x.id===id);if(!p)return;detailId=null;$('#detailTitle').textContent='History: '+p.title;$('#detailBody').innerHTML='<p class="loading">Loading history…</p>';$('#detailModal').classList.add('open');
   try{
@@ -232,16 +266,21 @@ async function savePerformance(event){event.preventDefault();try{const fd=new Fo
 function subscribe(){if(demoMode)return;if(realtime)sb.removeChannel(realtime);realtime=sb.channel('review-projects-live').on('postgres_changes',{event:'*',schema:'public',table:'review_projects'},()=>{clearTimeout(subscribe.timer);subscribe.timer=setTimeout(()=>loadData().catch(e=>toast(e.message)),600);}).subscribe();}
 async function authChanged(s){if(demoMode)return;session=s;if(!s){projects=[];shopListings=[];connections=[];performanceEntries=[];detailId=null;window.MasterFiles?.reset();$$('.modal').forEach(x=>x.classList.remove('open'));$('#nav').classList.add('hidden');showScreen('authScreen');$('#syncState').textContent='Private workspace';if(realtime){sb.removeChannel(realtime);realtime=null;}return;}$('#nav').classList.remove('hidden');$('#accountEmail').textContent=s.user.email||'Signed in';showScreen((location.hash||'#etsy').slice(1)==='authScreen'?'etsy':(location.hash||'#etsy').slice(1));try{await loadData();subscribe();}catch(e){toast(e.message);}}
 
-$('#editForm').onsubmit=saveEdit;$('#editForm').oninput=()=>{$('#editForm').dataset.dirty='true';};$('#confirmSchedule').onclick=saveSchedule;
+$('#editForm').onsubmit=saveEdit;$('#editForm').oninput=$('#editForm').onchange=()=>{$('#editForm').dataset.dirty='true';};$('#cancelEdit').onclick=cancelEdit;$('#confirmSchedule').onclick=saveSchedule;
 $('#listingSearch').oninput=renderListingGrid;$('#listingState').onchange=event=>{listingState=event.target.value;loadListings();};
 $$('[data-etsy-view]').forEach(button=>button.onclick=()=>switchEtsyView(button.dataset.etsyView));
 $('#performanceForm').onsubmit=savePerformance;
 $('#refreshData').onclick=()=>loadData(true).catch(e=>toast(e.message));
-$('#signOut').onclick=()=>demoMode?location.assign(location.pathname):sb.auth.signOut();
+$('#signOut').onclick=()=>{if(editBusy)return toast('Wait for the save to finish.');if($('#editModal').classList.contains('open')&&$('#editForm').dataset.dirty==='true'&&!confirm('Sign out and discard unsaved edits?'))return;return demoMode?location.assign(location.pathname):sb.auth.signOut();};
 $('#signIn').onclick=async()=>{const email=$('#email').value.trim();if(!email)return toast('Enter your email.');$('#signIn').disabled=true;try{const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});toast(error?error.message:'Check your email for the secure sign-in link.');}finally{$('#signIn').disabled=false;}};
-$$('[data-close]').forEach(button=>{button.setAttribute('aria-label','Close');button.onclick=()=>{if(button.dataset.close==='editModal'&&$('#editForm').dataset.dirty==='true'&&!confirm('Discard unsaved edits?'))return;$('#'+button.dataset.close).classList.remove('open');};});
+$$('[data-close]').forEach(button=>{if(button.classList.contains('iconbtn'))button.setAttribute('aria-label','Close');button.onclick=()=>{if(button.dataset.close==='editModal')return cancelEdit();$('#'+button.dataset.close).classList.remove('open');};});
 document.addEventListener('click',event=>{const target=event.target.closest('[data-preview]');if(!target)return;$('#assetImage').src=target.dataset.preview;$('#assetImage').alt=target.dataset.alt||'Full image preview';$('#assetImage').classList.remove('hidden');$('#assetLink').href=target.dataset.preview;$('#assetModal').classList.add('open');});
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){const modal=$$('.modal.open').at(-1);modal?.querySelector('[data-close]')?.click();}});
-$('#reloadApp').onclick=()=>{if($('#editModal').classList.contains('open')&&$('#editForm').dataset.dirty==='true'&&!confirm('Refresh and discard unsaved edits?'))return;location.reload();};
+document.addEventListener('keydown',event=>{
+ const modal=$$('.modal.open').sort((a,b)=>Number(getComputedStyle(a).zIndex)-Number(getComputedStyle(b).zIndex)).at(-1);if(!modal)return;
+ if(event.key==='Escape'){event.preventDefault();modal.querySelector('[data-close]')?.click();}
+ if(event.key==='Tab'){const controls=[...modal.querySelectorAll('button,a[href],input,textarea,select,summary,[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);const first=controls[0],last=controls.at(-1);if(!first)return;if(event.shiftKey&&(document.activeElement===first||!modal.contains(document.activeElement))){event.preventDefault();last.focus();}else if(!event.shiftKey&&(document.activeElement===last||!modal.contains(document.activeElement))){event.preventDefault();first.focus();}}
+});
+window.addEventListener('beforeunload',event=>{if(editBusy||$('#editModal').classList.contains('open')&&$('#editForm').dataset.dirty==='true'){event.preventDefault();event.returnValue='';}});
+$('#reloadApp').onclick=()=>{if(editBusy)return toast('Wait for the save to finish.');if($('#editModal').classList.contains('open')&&$('#editForm').dataset.dirty==='true'&&!confirm('Refresh and discard unsaved edits?'))return;location.reload();};
 if(demoMode){demoData();$('#nav').classList.remove('hidden');$('#sampleBanner').classList.remove('hidden');$('#syncState').textContent='Sample mode · no private data or live publishing';$('#accountEmail').textContent='Fictional sample workspace';versionCompatible=true;render();showScreen('etsy');loadAppVersion();}
 else{sb.auth.onAuthStateChange((_event,s)=>setTimeout(()=>authChanged(s),0));sb.auth.getSession().then(({data})=>authChanged(data.session));}
