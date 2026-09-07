@@ -1,5 +1,5 @@
 'use strict';
-const APP_BUILD = 31;
+const APP_BUILD = 32;
 const demoMode = new URLSearchParams(location.search).get('demo') === '1';
 let shopListings = [], listingState = 'active', listingError = '', activeEtsyView = 'listings';
 let editSnapshot=null, editReturnToDetail=false, editNewDraft=false;
@@ -126,7 +126,7 @@ function etsyBodyScoped(p){
   const files=c.scope.includes('files')?c.files.map(x=>`<div class="notice"><strong>${x.action==='add'?'Add file':'Replace file'}</strong><p>${x.action==='replace'?esc((p.manifest.existingFiles||[]).find(f=>String(f.id)===String(x.listingFileId))?.name||'Existing file '+x.listingFileId)+' → ':''}${esc(x.filename)}</p><button class="btn secondary" onclick="openAsset('${p.id}','${esc(x.role)}')">Preview new file</button></div>`).join(''):'';
   const images=c.scope.includes('images')?`<div class="gallery">${c.images.map(x=>`<div>${p._urls?.[x.role]?viewAsset(p._urls[x.role],x.altText):'<p>Preview loading</p>'}<p>Position ${x.rank}: ${esc(x.altText)}</p></div>`).join('')}</div>`:'';
   const alt=c.scope.includes('alt_text')?c.alt.map(x=>`<div class="compare"><div><strong>Image ${x.rank}: Current Alt Text</strong><p>${esc((p.manifest.existingImages||[]).find(i=>String(i.id)===String(x.listingImageId))?.altText||'No alt text')}</p></div><div><strong>Proposed Alt Text</strong><p>${esc(x.altText)}</p></div></div>`).join(''):'';
-  return `<p class="notice">Review the selected changes below. Publishing checks the live listing again before applying them.</p>${fields}${images}${alt}${files}${errors.length?`<ul class="validation">${errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${p.last_error?`<p class="notice error">${esc(p.last_error)}</p>`:''}<div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')" ${locked?'disabled':''}>Edit selected changes</button><button class="btn primary" onclick="publishEtsy('${p.id}')" ${locked||errors.length||!publishEnabled('etsy')?'disabled':''}>${p.status==='published'?'Completed':p.status==='publishing'?'Updating…':demoMode?'Simulate update':'Apply selected changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openHistory('${p.id}')">Revision & publish history</button><button class="btn secondary" onclick="clearProject('${p.id}')" ${p.status==='publishing'?'disabled':''}>${p.manifest.archived?'Restore archive':['published','publishing'].includes(p.status)?'Archive project':'Cancel Update'}</button></div>`;
+  return `<p class="notice">Review the selected changes below. Publishing checks the live listing again before applying them.</p>${fields}${images}${alt}${files}${errors.length?`<ul class="validation">${errors.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${p.last_error?`<p class="notice error">${esc(p.last_error)}</p>`:''}<div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')" ${locked?'disabled':''}>Edit selected changes</button><button class="btn primary" onclick="publishEtsy('${p.id}')" ${locked||errors.length||!publishEnabled('etsy')?'disabled':''}>${p.status==='published'?'Completed':p.status==='publishing'?'Updating…':demoMode?'Simulate update':p.status==='failed'&&/Image \d+ verification needs review/.test(p.last_error||'')?'Finish image update':'Apply selected changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openHistory('${p.id}')">Revision & publish history</button><button class="btn secondary" onclick="clearProject('${p.id}')" ${p.status==='publishing'?'disabled':''}>${p.manifest.archived?'Restore archive':['published','publishing'].includes(p.status)?'Archive project':'Cancel Update'}</button></div>`;
 }
 function openEdit(id){
   const p=projects.find(x=>x.id===id);if(!p)return;
@@ -236,7 +236,14 @@ async function publishEtsy(id){
   try{
     if(demoMode){await updateProject(id,{status:'published',manifest:{...p.manifest,etsyUpdateAudit:{verified:true,completedAt:new Date().toISOString()}}});toast('Sample update completed. No Etsy data changed.');return;}
     toast('Applying changes. Keep this screen open.');
-    await publisher({project_id:id,expected_revision:p.revision});await loadData();toast('Etsy confirmed the update.');
+    if(p.status==='failed'&&p.manifest?.updateScope?.length===1&&p.manifest.updateScope[0]==='images'&&/Image \d+ verification needs review/.test(p.last_error||'')){
+      const live=await publisher(null,'?state=active');
+      const listing=live.listings.find(x=>String(x.listing_id)===String(p.manifest.listingId||p.platform_id));
+      if(!listing?.images?.length)throw new Error('The live images could not be checked. No changes made.');
+      const expected_image_ids=Object.fromEntries(listing.images.map(x=>[x.rank,x.listing_image_id]));
+      await publisher({action:'recover_image_alt_text',project_id:id,expected_revision:p.revision,confirmed_existing_images:true,expected_image_ids});
+    }else await publisher({project_id:id,expected_revision:p.revision});
+    await loadData();toast('Etsy confirmed the update.');
   }catch(e){toast(e.message);await loadData().catch(()=>{});}
   finally{inFlightPublishes.delete(id);render();}
 }
