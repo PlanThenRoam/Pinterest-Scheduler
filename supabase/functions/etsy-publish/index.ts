@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 import { runEdit } from './safe-edit.ts';
+import { recoverImageAltText } from './image-recovery.ts';
 import { listingSnapshot } from './safety.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
@@ -255,7 +256,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:31, api_version:'3.4.3', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:32, api_version:'3.4.4', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -280,6 +281,7 @@ Deno.serve(async (req: Request) => {
         listing_id: String(item.listing_id), title: item.title, state: item.state,
         thumbnail: item.images?.[0]?.url_170x135 || item.images?.[0]?.url_570xN || "",
         image_count: item.images?.length || 0, price: moneyValue(item.price), currency: item.price?.currency_code || "GBP", url: item.url,
+        images: (item.images || []).map((image: any) => ({ listing_image_id: String(image.listing_image_id), rank: Number(image.rank), alt_text: image.alt_text ?? null, url_fullxfull: image.url_fullxfull, url_570xN: image.url_570xN })),
       })) });
     }
     const body = await req.json();
@@ -330,6 +332,7 @@ Deno.serve(async (req: Request) => {
     if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
     if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
     const listing = validateProject(project);
+    if(body.action === 'recover_image_alt_text') return json(await recoverImageAltText(admin,credential,token,project,listing,body,{fetch:etsyFetch,altText:updateExistingImageAltText}));
     if(listing.editMode){
       projectId="";
       return json(await runEdit(admin,credential,token,project,listing,{

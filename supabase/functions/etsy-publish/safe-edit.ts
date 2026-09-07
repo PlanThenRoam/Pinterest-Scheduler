@@ -22,6 +22,8 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     attempted = true;
     const result = await action();
     steps[steps.length - 1].status = 'confirmed';
+    const resource = result?.results?.[0] || result;
+    if (resource?.listing_image_id) steps[steps.length - 1].image_id = String(resource.listing_image_id);
     await writeRun({ steps });
     return result;
   };
@@ -79,7 +81,16 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     await writeRun({ before_state: { fields: before, images, files } });
     if (Object.keys(listing.fields).some(key => key !== 'personalization')) await step('Update selected listing fields', () => api.updateFields(credential.shop_id, listingId, token, listing.fields));
     if (listing.scopes.includes('personalization')) await step('Update personalisation', () => api.personalization(credential.shop_id, listingId, token, listing.fields.personalization));
-    for (const image of listing.images || []) await step(`Replace image ${image.rank}`, () => api.uploadImage(admin, credential.shop_id, listingId, token, image.item, Number(image.rank), image.altText, true));
+    const expectedImages = new Map<number, string>();
+    for (const image of listing.images || []) {
+      const response = await step(`Replace image ${image.rank}`, () => api.uploadImage(admin, credential.shop_id, listingId, token, image.item, Number(image.rank), image.altText, true));
+      const uploaded = response?.results?.[0] || response;
+      if (!uploaded?.listing_image_id) throw new Error(`Etsy did not confirm image ${image.rank}'s ID. Inspect the listing before retrying.`);
+      expectedImages.set(Number(image.rank), String(uploaded.listing_image_id));
+      // Overwriting a slot can retain its previous alt text. Set the approved
+      // text against the confirmed new ID; never upload the image a second time.
+      await step(`Update replacement alt text ${image.rank}`, () => api.altText(credential.shop_id, listingId, token, { listingImageId: uploaded.listing_image_id, rank: Number(image.rank), altText: image.altText }));
+    }
     for (const image of listing.altTextUpdates || []) await step(`Update alt text ${image.rank}`, () => api.altText(credential.shop_id, listingId, token, image));
     const expectedFiles = files.map((x: any) => ({ ...x }));
     if (listing.scopes.includes('files')) for (const file of updates) {
@@ -95,6 +106,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     }
     const current = await api.fetch(`/listings/${listingId}?includes=Images,Personalization`, token);
     const currentFiles = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results || [];
+    await writeRun({ after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles } });
     verifyFields(before, listingSnapshot(current), listing.fields);
     const ids = (items: any[]) => items.map(x => String(x.listing_file_id)).sort();
     if (!equivalent(ids(expectedFiles), ids(currentFiles))) throw new Error('Digital file verification needs review. The live file IDs differ from the expected set.');
@@ -107,7 +119,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     }
     for (const replacement of listing.images || []) {
       const actual = (current.images || []).find((x: any) => Number(x.rank) === Number(replacement.rank));
-      if (!actual || String(actual.alt_text || '') !== String(replacement.altText)) throw new Error(`Image ${replacement.rank} verification needs review.`);
+      if (!actual || String(actual.listing_image_id) !== expectedImages.get(Number(replacement.rank)) || String(actual.alt_text || '') !== String(replacement.altText)) throw new Error(`Image ${replacement.rank} verification needs review.`);
     }
     const completedAt = new Date().toISOString();
     if(masterPublications.length){const {error:trackingError}=await admin.from('seller_master_publications').upsert(masterPublications.map(x=>({...x,published_at:completedAt})),{onConflict:'master_id,role,listing_id'});if(trackingError)throw trackingError;}

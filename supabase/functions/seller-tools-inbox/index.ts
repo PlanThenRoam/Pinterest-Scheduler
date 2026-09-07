@@ -7,8 +7,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 31;
-const API_CAPABILITY_VERSION = "3.4.3";
+const APP_VERSION = 32;
+const API_CAPABILITY_VERSION = "3.4.4";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
