@@ -21,3 +21,9 @@ Authenticated `list_review_projects` returned app 35/API 4.0.0 and the 18-action
 Compared all 18 active Etsy listings before/after backend cutover: listing snapshots, image identities, order and alt text are unchanged. No Etsy writes or Pinterest posts were issued.
 
 GitHub checks passed for commit 962e06fe7a9c956a75d82813cb95a9dea3b13064. Cleanup was then improved to batch object removals; focused cleanup tests passed again. Browser acceptance and Pinterest credentials/owner connection remain outstanding external requirements.
+
+Frontend release 35 is live at the existing GitHub Pages URL. Deployment 34147907289 succeeded for merge 9cc84308f21dc2ec779e6b91c77e221b2ee67829. Direct HTTP checks returned the new studio shell and release 35/API 4.0.0. Downloaded Japan, NC500 and South Korea DOCX files and verified all three SHA-256 checksums.
+
+Fixed the inherited Cron credential mismatch using a dedicated private Vault credential, service-only verification function and cleanup-only worker version 9. No secret values were exposed or written to the repository. Added two credential-boundary tests; 67 tests now pass. The current ChatGPT session still holds the previous connector schemas, so refresh its PlanThenRoam connection to load the new actions/required revision fields.
+
+Remaining external blockers: Pinterest app credentials are not configured and owner OAuth consent is needed. Browser CDP failed again with a service timeout, so private browser acceptance and real platform publication are not claimed. Existing Etsy listings remained unchanged.
