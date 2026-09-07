@@ -1,8 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
+import { validateAssetBlob, verifyNewListingAssets } from './assets.ts';
 import { runEdit } from './safe-edit.ts';
 import { recoverImageAltText } from './image-recovery.ts';
-import { listingSnapshot } from './safety.ts';
+import { listingSnapshot, verifyFields } from './safety.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -59,17 +60,17 @@ function validateProject(project: any) {
     if (Object.keys(fields).some((key) => !scopes.includes(key)) || scopes.some((scope: string) => !["images","alt_text","files"].includes(scope) && !Object.prototype.hasOwnProperty.call(fields, scope))) throw new Error("The approved Etsy fields do not match the update scope.");
     if ("title" in fields && (!String(fields.title).trim() || String(fields.title).length > 140)) throw new Error("Etsy titles must be 1–140 characters.");
     if ("description" in fields && !String(fields.description).trim()) throw new Error("The Etsy description cannot be empty.");
-    if ("price" in fields && !(Number(fields.price) > 0)) throw new Error("The Etsy price must be greater than zero.");
+    if ("price" in fields && (!Number.isFinite(Number(fields.price)) || Number(fields.price)<=0 || Math.abs(Number(fields.price)*100-Math.round(Number(fields.price)*100))>1e-8)) throw new Error("The Etsy price must be positive with at most two decimal places.");
     if ("tags" in fields) { const fieldTags=Array.isArray(fields.tags)?fields.tags.map((x:any)=>String(x).trim()).filter(Boolean):[]; if(fieldTags.length!==13||new Set(fieldTags.map((x:string)=>x.toLowerCase())).size!==13||fieldTags.some((x:string)=>x.length>20)) throw new Error("Etsy tags require exactly 13 unique entries, each 20 characters or fewer."); fields.tags=fieldTags; }
     const allImages = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
     let imageReplacements = Array.isArray(manifest.imageReplacements) ? manifest.imageReplacements : [];
     if (scopes.includes("images")) {
       if (!imageReplacements.length && Array.isArray(manifest.altText) && manifest.altText.length === 6) imageReplacements = ["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5"].map((role,i)=>({role,rank:i+1,altText:manifest.altText[i]}));
       if (!imageReplacements.length) throw new Error("Choose at least one Etsy image to replace.");
-      for (const replacement of imageReplacements) { replacement.item=mediaByRole(project,String(replacement.role)); if(!replacement.item)throw new Error(`Attach image replacement ${replacement.role}.`); if(!(Number.isInteger(Number(replacement.rank))&&Number(replacement.rank)>=1&&Number(replacement.rank)<=10&&String(replacement.altText||"").trim()))throw new Error(`Image replacement ${replacement.role} needs a valid rank and alt text.`); }
+      for (const replacement of imageReplacements) { replacement.item=mediaByRole(project,String(replacement.role)); if(!replacement.item)throw new Error(`Attach image replacement ${replacement.role}.`); if(!(Number.isInteger(Number(replacement.rank))&&Number(replacement.rank)>=1&&Number(replacement.rank)<=20&&String(replacement.altText||"").trim()&&String(replacement.altText).length<=500))throw new Error(`Image replacement ${replacement.role} needs a valid rank and alt text.`); }
     }
     const altTextUpdates = Array.isArray(manifest.altTextUpdates) ? manifest.altTextUpdates : [];
-    if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 10) throw new Error("Choose one to ten existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>10 || !String(image?.altText||"").trim()) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
+    if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 20) throw new Error("Choose one to twenty existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>20 || !String(image?.altText||"").trim() || String(image.altText).length>500) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
     const fileUpdates = Array.isArray(manifest.fileUpdates) ? manifest.fileUpdates.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
     if (scopes.includes("files")) { if (!fileUpdates.length || fileUpdates.length > 5) throw new Error("Choose one to five digital-file additions or replacements."); for (const [i,file] of fileUpdates.entries()) { if (!["add","replace"].includes(String(file?.action)) || !file?.role || !file.filename || !file.item) throw new Error(`Digital-file update ${i+1} is incomplete or its asset is not attached.`); if (file.action==="replace" && !/^\d+$/.test(String(file.listingFileId||""))) throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`); } }
     return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], altTextUpdates: scopes.includes("alt_text") ? altTextUpdates : [], fileUpdates: scopes.includes("files") ? fileUpdates : [], fields, scopes, pdf: null, editMode: true };
@@ -81,7 +82,7 @@ function validateProject(project: any) {
   const images = imageItems(project);
   if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
   const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
-  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value))) throw new Error("Add alt text for all six Etsy listing images.");
+  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value || value.length>500))) throw new Error("Add alt text for all six Etsy listing images.");
   const pdf = mediaByRole(project, "customer-pdf");
   if (!editMode && !pdf) throw new Error("Attach the customer PDF before publishing.");
   return { manifest, title, description, tags, images, pdf, editMode };
@@ -256,7 +257,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:32, api_version:'3.4.4', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:33, api_version:'3.4.5', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -279,6 +280,7 @@ Deno.serve(async (req: Request) => {
       const listings = await etsyFetch(`/shops/${credential.shop_id}/listings?state=${state}&limit=100&includes=Images,Personalization`, token);
       return json({ ok: true, listings: (listings.results || []).map((item: any) => ({
         listing_id: String(item.listing_id), title: item.title, state: item.state,
+        snapshot: listingSnapshot(item),
         thumbnail: item.images?.[0]?.url_170x135 || item.images?.[0]?.url_570xN || "",
         image_count: item.images?.length || 0, price: moneyValue(item.price), currency: item.price?.currency_code || "GBP", url: item.url,
         images: (item.images || []).map((image: any) => ({ listing_image_id: String(image.listing_image_id), rank: Number(image.rank), alt_text: image.alt_text ?? null, url_fullxfull: image.url_fullxfull, url_570xN: image.url_570xN })),
@@ -341,6 +343,8 @@ Deno.serve(async (req: Request) => {
         uploadImage,altText:updateExistingImageAltText,uploadFile:uploadPdf,
       }));
     }
+    for(const item of listing.images) Object.assign(item,await validateAssetBlob(item,await storageFile(admin,item),'image'));
+    Object.assign(listing.pdf,await validateAssetBlob(listing.pdf,await storageFile(admin,listing.pdf),'pdf'));
     const manifest = { ...(project.manifest || {}) };
     const checkpoint = { ...(manifest.etsyPublish || {}) };
     const {data:claimed,error:claimError}=await admin.from("review_projects").update({status:"publishing",last_error:null}).eq("id",projectId).eq("revision",project.revision).in("status",["ready","approved","failed"]).select("id").maybeSingle();
@@ -370,7 +374,15 @@ Deno.serve(async (req: Request) => {
     const altText = Array.isArray(manifest.altText) ? manifest.altText : [];
     let imageCount = Math.max(0, Number(checkpoint.imagesUploaded) || 0);
     for (let index = imageCount; index < listing.images.length; index += 1) {
-      await uploadImage(admin, credential.shop_id, listingId, token, listing.images[index], index + 1, String(altText[index] || ""));
+      if(checkpoint.imageUploadAttempted)throw new Error('A previous image upload has an uncertain outcome. Inspect the Etsy draft before retrying.');
+      checkpoint.imageUploadAttempted=true;manifest.etsyPublish=checkpoint;
+      const {error:attemptError}=await admin.from('review_projects').update({manifest}).eq('id',projectId);if(attemptError)throw attemptError;
+      const response=await uploadImage(admin, credential.shop_id, listingId, token, listing.images[index], index + 1, String(altText[index] || ""));
+      const uploaded=response?.results?.[0]||response;
+      if(!uploaded?.listing_image_id)throw new Error('Etsy did not confirm the new image ID. Inspect the draft before retrying.');
+      checkpoint.imageIds=checkpoint.imageIds||[];checkpoint.imageIds[index]=String(uploaded.listing_image_id);
+      await updateExistingImageAltText(credential.shop_id,listingId,token,{listingImageId:uploaded.listing_image_id,rank:index+1,altText:altText[index]});
+      checkpoint.imageUploadAttempted=false;
       checkpoint.imagesUploaded = index + 1;
       manifest.etsyPublish = checkpoint;
       await admin.from("review_projects").update({ manifest }).eq("id", projectId);
@@ -381,12 +393,21 @@ Deno.serve(async (req: Request) => {
       manifest.etsyPublish=checkpoint;
       const {error:beforeUploadError}=await admin.from('review_projects').update({manifest}).eq('id',projectId);
       if(beforeUploadError)throw beforeUploadError;
-      await uploadPdf(admin, credential.shop_id, listingId, token, listing.pdf);
+      const response=await uploadPdf(admin, credential.shop_id, listingId, token, listing.pdf);
+      const uploaded=response?.results?.[0]||response;
+      if(!uploaded?.listing_file_id)throw new Error('Etsy did not confirm the new PDF ID. Inspect the draft before retrying.');
+      checkpoint.fileId=String(uploaded.listing_file_id);
       checkpoint.fileUploaded = true;
       manifest.etsyPublish = checkpoint;
       await admin.from("review_projects").update({ manifest }).eq("id", projectId);
     }
-    await activate(credential.shop_id, listingId, token);
+    const draft=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
+    const draftFiles=(await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`,token)).results||[];
+    verifyNewListingAssets(draft,draftFiles,checkpoint,altText);
+    verifyFields({title:listing.title,description:listing.description,tags:listing.tags,price:numberValue(manifest.price,14.99)},listingSnapshot(draft),{});
+    if(draft.state!=='active')await activate(credential.shop_id, listingId, token);
+    const activated=await etsyFetch(`/listings/${listingId}`,token);
+    if(activated.state!=='active')throw new Error('Etsy has not confirmed activation. Inspect the existing draft before retrying.');
     checkpoint.activated = true;
     checkpoint.publishedAt = new Date().toISOString();
     manifest.etsyPublish = checkpoint;

@@ -1,3 +1,4 @@
+import { validateAssetBlob } from './assets.ts';
 import { listingSnapshot, equivalent, preflightFiles, verifyFields } from './safety.ts';
 
 // Etsy changes span multiple HTTP calls. Persist attempts before each write and
@@ -57,26 +58,27 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     for (const image of listing.images || []) {
       if (ranks.has(Number(image.rank))) throw new Error('Choose each image position only once.');
       ranks.add(Number(image.rank));
+      if (Array.isArray(listing.manifest.existingImages)) {
+        const captured = listing.manifest.existingImages.find((x:any)=>Number(x.rank)===Number(image.rank));
+        const actual = images.find((x:any)=>Number(x.rank)===Number(image.rank));
+        if (String(captured?.id||'')!==String(actual?.listing_image_id||'')) throw new Error(`Image ${image.rank} changed since this draft was prepared. Review a fresh update.`);
+      }
     }
     for (const image of listing.altTextUpdates || []) {
       if (ranks.has(Number(image.rank))) throw new Error('An image position has more than one change.');
       ranks.add(Number(image.rank));
       if (!images.some((x: any) => String(x.listing_image_id) === String(image.listingImageId) && Number(x.rank) === Number(image.rank))) throw new Error('An image moved or was replaced. Reopen the listing before editing its alt text.');
     }
+    const resultingRanks=[...new Set([...images.map((x:any)=>Number(x.rank)),...(listing.images||[]).map((x:any)=>Number(x.rank))])].sort((a,b)=>a-b);
+    if(resultingRanks.some((rank,i)=>rank!==i+1))throw new Error('Add images in consecutive positions after the current final image.');
     const stored = new Map<string, Blob>();
     for (const entry of [...(listing.images || []), ...(listing.scopes.includes('files') ? updates : [])]) {
       const item = entry.item;
       if (!stored.has(item.path)) {
         const blob = await api.storageFile(admin, item);
-        if (!blob.size || blob.size > 20 * 1024 * 1024) throw new Error(`${item.name} must be between 1 byte and 20 MB.`);
-        if (item.checksum) {
-          const bytes = await blob.arrayBuffer();
-          const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(x => x.toString(16).padStart(2, '0')).join('');
-          if (digest !== item.checksum) throw new Error(`The saved attachment ${item.name} failed its integrity check.`);
-        }
         stored.set(item.path, blob);
       }
-      entry.item = { ...item, blob: stored.get(item.path), name: entry.filename || item.name };
+      entry.item = await validateAssetBlob({...item,name:entry.filename||item.name},stored.get(item.path)!,(listing.images||[]).includes(entry)?'image':'pdf');
     }
     await writeRun({ before_state: { fields: before, images, files } });
     if (Object.keys(listing.fields).some(key => key !== 'personalization')) await step('Update selected listing fields', () => api.updateFields(credential.shop_id, listingId, token, listing.fields));
@@ -108,6 +110,8 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     const currentFiles = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results || [];
     await writeRun({ after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles } });
     verifyFields(before, listingSnapshot(current), listing.fields);
+    const expectedCount=images.length+(listing.images||[]).filter((x:any)=>!images.some((old:any)=>Number(old.rank)===Number(x.rank))).length;
+    if(current.images?.length!==expectedCount||new Set((current.images||[]).map((x:any)=>Number(x.rank))).size!==expectedCount)throw new Error('Image count or order verification needs review.');
     const ids = (items: any[]) => items.map(x => String(x.listing_file_id)).sort();
     if (!equivalent(ids(expectedFiles), ids(currentFiles))) throw new Error('Digital file verification needs review. The live file IDs differ from the expected set.');
     for (const previous of images) {
