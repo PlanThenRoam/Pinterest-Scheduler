@@ -11,3 +11,13 @@ Pinterest OAuth handler deployed successfully. Its live health response reports 
 Browser verification infrastructure has timed out, and the attempted local preview was blocked by the environment. Live visual/private-flow acceptance remains unverified. No customer Etsy listings or Pinterest pins were changed during the rebuild.
 
 Release deployment and post-deployment results are recorded below as they complete.
+
+## Deployment verification
+
+Applied `seller_studio_current_docx_and_pinterest` to the existing Supabase project. Deployed seller-tools-inbox (function version 36, app 35/API 4.0.0), etsy-publish (21), pinterest-publish (1), pinterest-oauth (1), and the cleanup-only queue-worker (8).
+
+Authenticated `list_review_projects` returned app 35/API 4.0.0 and the 18-action catalogue. Authenticated `list_master_files` returned 18 planners and exactly the three preserved DOCX backups. Cleanup completed: zero pending jobs after deleting 229 superseded objects.
+
+Compared all 18 active Etsy listings before/after backend cutover: listing snapshots, image identities, order and alt text are unchanged. No Etsy writes or Pinterest posts were issued.
+
+GitHub checks passed for commit 962e06fe7a9c956a75d82813cb95a9dea3b13064. Cleanup was then improved to batch object removals; focused cleanup tests passed again. Browser acceptance and Pinterest credentials/owner connection remain outstanding external requirements.
