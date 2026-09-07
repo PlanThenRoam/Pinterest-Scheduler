@@ -83,3 +83,7 @@ The MCP `initialize` and `tools/list` endpoints expose public capability metadat
 `upload_master_files` accepts native ChatGPT file inputs using `openai/fileParams`, with separate explicit file-to-role assignments. `import_review_images_to_master` copies a complete six-image set from an owned Review Box project linked to the same planner. Both verify bytes, preserve master identity/history, keep stable thumbnail/photo positions, and use idempotency keys to resume uploads without duplicate objects. Commit results report each saved file. `get_master_file` returns current or historical verified references and temporary private downloads. Neither save route calls Etsy, publishes or schedules. Only customer PDFs can be selected for this shop's separate Etsy download update.
 
 If ChatGPT still advertises seven old Review Box tools, inspect and refresh the registered connection's metadata, verify its URL, and start a fresh conversation. Reconnecting OAuth alone is not proof that tool metadata changed. The runtime's active action catalogue cannot be edited by changing this repository.
+
+### Release 29 / API 3.4.1
+
+Repairs Review Box imports against the deployed schema, retaining owner OAuth, RLS and private source-path checks. Database errors now preserve their diagnostic message. The schema regression, ownership restrictions and idempotent retries are covered by the automated tests.

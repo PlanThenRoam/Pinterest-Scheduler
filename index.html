@@ -20,8 +20,8 @@
 .safe-preview{display:none;position:absolute;inset:15.1% 8.9% 22.4%;border:2px dashed #daf4b5;pointer-events:none;box-shadow:0 0 0 999px rgba(20,65,54,.14)}
 .mediaframe.show-safe .safe-preview{display:block}
 </style>
-<link rel="stylesheet" href="workspace.css?v=28">
-<link rel="stylesheet" href="./master-files.css?v=28">
+<link rel="stylesheet" href="workspace.css?v=29">
+<link rel="stylesheet" href="./master-files.css?v=29">
 </head>
 <body>
 <div id="updateBar" class="update">A fresh version is ready.<button id="reloadApp">Refresh now</button></div>
@@ -46,7 +46,7 @@
  <section id="settings" class="screen"><div class="hero"><div class="eyebrow">Settings</div><h1>Quiet controls. Nothing extra.</h1><p>Check the genuine status of each connection and manage your account.</p></div>
   <div class="card"><h2>Connections</h2><div id="connections"></div></div>
   <div class="card"><h2>Performance</h2><div id="performanceReadout"></div><details><summary>Add A Period From Etsy Stats</summary><p class="muted">Enter shop visits, not listing views. Compare equivalent periods before judging a change.</p><form id="performanceForm"><div class="formgrid"><label>From<input name="from" type="date" required></label><label>To<input name="to" type="date" required></label><label>Visits<input name="visits" type="number" min="0" step="1" required></label><label>Orders<input name="orders" type="number" min="0" step="1" required></label><label>Revenue (GBP)<input name="revenue" type="number" min="0" step="0.01" required></label></div><button class="btn secondary" type="submit">Save Period</button></form></details></div>
-  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version <span id="appVersion">28</span> · secure owner-only storage<br><span id="backendVersion">Checking backend compatibility…</span></p></div>
+  <div class="card"><h2>Account</h2><p id="accountEmail" class="muted"></p><div class="actions"><button id="refreshData" class="btn secondary">Refresh inbox</button><button id="signOut" class="btn danger">Sign out</button></div><p class="muted small">App version <span id="appVersion">29</span> · secure owner-only storage<br><span id="backendVersion">Checking backend compatibility…</span></p></div>
  </section>
 </main>
 <nav id="nav" class="nav hidden">
@@ -125,8 +125,8 @@ function etsyFieldLabel(k){return ({title:'Title',description:'Description',pric
 function etsyValue(v){if(Array.isArray(v))return v.join(', ');if(v&&typeof v==='object')return JSON.stringify(v);return String(v??'')}
 function etsyBodyScoped(p){const m=p.manifest||{};if(m.mode!=='edit')return etsyBody(p);const scopes=Array.isArray(m.updateScope)?m.updateScope:m.updateScope==='images_only'?['images']:[],fields=m.updateFields||{},roles=new Set((p.media||[]).map(x=>x.role)),legacyRoles=['thumbnail','listing-image-1','listing-image-2','listing-image-3','listing-image-4','listing-image-5'],images=Array.isArray(m.imageReplacements)&&m.imageReplacements.length?m.imageReplacements:legacyRoles.map((role,i)=>({role,rank:i+1,altText:m.altText?.[i]})),imageComplete=!scopes.includes('images')||images.length&&images.every(x=>roles.has(x.role)&&x.altText),files=m.fileReplacements||[],filesComplete=!scopes.includes('files')||files.length&&files.every(x=>roles.has(x.role)),complete=scopes.length&&imageComplete&&filesComplete,changed=scopes.map(k=>`<div class="scene"><b>✓</b><span><strong>${esc(etsyFieldLabel(k))}</strong>${k==='images'?` · ${images.length} replacement${images.length===1?'':'s'} with alt text`:k==='files'?` · ${files.length} individual replacement${files.length===1?'':'s'}`:`<br>${esc(etsyValue(fields[k]))}`}</span></div>`).join(''),gallery=scopes.includes('images')?`<div class="gallery">${images.map(image=>p._urls?.[image.role]?`<img src="${esc(p._urls[image.role])}" alt="${esc(image.altText||'Listing image')}" loading="lazy">`:`<div class="placeholder" style="min-height:130px">Rank ${esc(image.rank)} waiting</div>`).join('')}</div>`:'';return `<div class="notice"><strong>Field-scoped Etsy update:</strong> Only the items listed below will change. Every omitted listing field remains untouched.</div><div class="scenes">${changed||'<div class="notice">No changes selected yet.</div>'}</div>${gallery}${scopes.includes('files')?`<div class="notice"><strong>Digital files:</strong> ${esc(files.map(x=>x.filename).join(', '))}</div>`:''}${!complete?'<div class="notice"><strong>Update locked:</strong> One or more approved values or attachments are missing.</div>':''}<div class="actions"><button class="btn primary" style="grid-column:1/-1" onclick="publishEtsy('${p.id}')" ${publishEnabled('etsy')&&complete?'':'disabled'}>${p.status==='publishing'?'Updating…':'Apply selected Etsy changes'}</button></div><div class="actions"><button class="btn secondary" onclick="openEdit('${p.id}')">Review / edit</button><button class="btn danger" onclick="clearProject('${p.id}')">Clear</button></div>`}
 </script>
-<script src="core.js?v=28"></script>
-<script src="workspace.js?v=28"></script>
-<script src="./master-files.js?v=28"></script>
+<script src="core.js?v=29"></script>
+<script src="workspace.js?v=29"></script>
+<script src="./master-files.js?v=29"></script>
 </body>
 </html>
