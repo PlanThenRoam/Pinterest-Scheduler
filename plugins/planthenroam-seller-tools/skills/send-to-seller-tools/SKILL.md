@@ -12,7 +12,7 @@ Use the seller-tools MCP server when the owner asks to prepare, send, import, up
 Use the Master Files catalogue when the owner asks to work on a planner, blueprint or asset stored in Seller Tools. It is a shared source of current files for chats with this connection. Search with `list_master_files`; do not infer the current version from a filename, chat attachment or memory.
 
 1. Call `get_master_file` with the stable `master_id`. Download the current source files using the returned temporary URLs. Keep the `current_revision` and the existing file roles.
-2. Make only the requested edits using the relevant document or image workflow. For a planner, update the editable Word and matching PDF together unless the owner requests Word-only work. Both are customer deliverables. Preserve unrelated assets.
+2. Make only the requested edits using the relevant document or image workflow. For a planner, update the editable Word and matching PDF together when both are maintained, unless the owner requests work on only one format. Word files and blueprints are private editable master sources. Only PDFs are delivered through the owner's live Etsy listings. Preserve unrelated assets.
 3. Compute each changed file’s SHA-256 checksum and byte size. Call `prepare_master_upload` with the same master ID, `expected_revision`, changed files and a short change note. Use the same role to replace an existing file, such as `docx` or `pdf`.
 4. Upload each file’s raw bytes to its returned signed upload URL using PUT, its MIME Content-Type and `x-upsert: false`, or the Supabase `uploadToSignedUrl` client method. Call `commit_master_upload` only after the uploads finish. The server verifies all bytes before atomically advancing the version.
 5. Report the saved revision only after commit succeeds. Retrying the same upload ID is safe. On a version conflict, retrieve the latest master and reconcile the changes; never silently retry against the newer revision with stale content.
@@ -21,7 +21,7 @@ A request to edit a master includes saving the completed edit back to it. This d
 
 Use `create_master_file` for a genuinely new master after checking for duplicates. Use `update_master_details` for the title, category or Etsy listing link, and `restore_master_version` for an explicitly requested rollback. History remains recoverable.
 
-To prepare an Etsy update, use the linked listing, prepare its current review project, and call `attach_master_files_to_review` with explicit add/replacement choices. Replacements must identify the current Etsy file ID. This tool packages Word files in ZIP for customer delivery. The owner reviews the selected changes before publishing. Saving, restoring or linking a master never publishes.
+To prepare an Etsy digital-file update, use the linked listing, prepare its current review project, and call `attach_master_files_to_review` with only the customer PDF roles and explicit add/replacement choices. Replacements must identify the current Etsy file ID. Do not select Word files, private blueprints or ZIPs containing them for Etsy delivery. Do not change listing copy or promise Word delivery as part of a master-file save. The owner reviews the selected changes before publishing. Saving, restoring or linking a master never publishes.
 
 ## Existing Etsy listing image updates
 
