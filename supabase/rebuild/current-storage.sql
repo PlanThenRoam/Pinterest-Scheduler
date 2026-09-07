@@ -56,6 +56,11 @@ begin
  return new;
 end $$;
 
+do $$ begin
+ if exists(select 1 from public.seller_master_records r where (select count(*) from jsonb_array_elements(r.files) f where f->>'role'='docx')>1) then raise exception 'Multiple current DOCX files require review'; end if;
+ if exists(select 1 from public.seller_master_records r cross join lateral jsonb_array_elements(r.files) f where f->>'role'='docx' and not exists(select 1 from storage.objects o where o.bucket_id='seller-master-files' and o.name=f->>'path')) then raise exception 'A current DOCX object is missing'; end if;
+end $$;
+
 -- Queue all superseded master objects, preserving the exact current DOCX.
 insert into public.seller_storage_cleanup(user_id,bucket,path)
 select r.user_id,'seller-master-files',o.name
@@ -67,3 +72,39 @@ on conflict(bucket,path) do nothing;
 update public.seller_master_records r set files=(select coalesce(jsonb_agg(f),'[]'::jsonb) from jsonb_array_elements(r.files) f where f->>'role'='docx'),category='planner';
 delete from public.seller_master_versions;
 delete from public.review_project_versions;
+
+
+-- Queue superseded review objects atomically with the current-media change.
+create or replace function private.queue_replaced_review_assets()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ insert into public.seller_storage_cleanup(user_id,bucket,path)
+ select a.user_id,case old.kind when 'etsy' then 'etsy-assets' else 'pinterest-media' end,f->>'path'
+ from jsonb_array_elements(coalesce(old.media,'[]'::jsonb)||jsonb_build_array(jsonb_build_object('path',old.preview_path))) f
+ join public.app_owners a on f->>'path' like a.user_id::text||'/'||old.id::text||'/%'
+ where (f->>'path') is distinct from new.preview_path
+ and not exists(select 1 from jsonb_array_elements(coalesce(new.media,'[]'::jsonb)) n where n->>'path'=f->>'path')
+ on conflict(bucket,path) do nothing;
+ return new;
+end $$;
+drop trigger if exists queue_replaced_review_assets on public.review_projects;
+create trigger queue_replaced_review_assets after update of media on public.review_projects
+for each row execute function private.queue_replaced_review_assets();
+
+-- Old preview versions must not leave downloadable objects behind.
+insert into public.seller_storage_cleanup(user_id,bucket,path)
+select a.user_id,o.bucket_id,o.name from storage.objects o
+join public.app_owners a on split_part(o.name,'/',1)=a.user_id::text
+join public.review_projects r on split_part(o.name,'/',2)=r.id::text
+where o.bucket_id in ('etsy-assets','pinterest-media')
+and not exists(select 1 from jsonb_array_elements(coalesce(r.media,'[]'::jsonb)) f where f->>'path'=o.name)
+and o.name is distinct from r.preview_path
+on conflict(bucket,path) do nothing;
+
+
+-- Completed submissions retain only minimal idempotency receipts.
+-- The media update queues their former private review assets for deletion.
+update public.review_projects set media='[]'::jsonb,preview_path=null,title='Published submission',
+ manifest=jsonb_build_object('published',true) where status='published';
+update public.seller_publish_runs set before_state='{}'::jsonb,after_state='{}'::jsonb,steps='[]'::jsonb
+where status in ('succeeded','blocked','dismissed');

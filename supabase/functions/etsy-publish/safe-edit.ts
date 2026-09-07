@@ -10,7 +10,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
   const { error: lockError } = await admin.from('seller_publish_runs').insert({
     id: runId, project_id: project.id, listing_key: listingId, revision: project.revision, status: 'running',
   });
-  if (lockError) throw new Error('This listing already has a running or unresolved update. Review its publishing history first.');
+  if (lockError) throw new Error('This listing already has a running or unresolved update. Check the current result before retrying.');
   const steps: any[] = [];
   let attempted = false, claimed = false;
   const writeRun = async (changes: any) => {
@@ -24,6 +24,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     const result = await action();
     steps[steps.length - 1].status = 'confirmed';
     const resource = result?.results?.[0] || result;
+    if (resource?.listing_file_id) steps[steps.length - 1].file_id = String(resource.listing_file_id);
     if (resource?.listing_image_id) steps[steps.length - 1].image_id = String(resource.listing_image_id);
     await writeRun({ steps });
     return result;
@@ -54,6 +55,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (Array.isArray(listing.manifest.existingImages)) {
         const captured = listing.manifest.existingImages.find((x:any)=>Number(x.rank)===Number(image.rank));
         const actual = images.find((x:any)=>Number(x.rank)===Number(image.rank));
+        if(!actual)throw new Error(`Image ${image.rank} is missing. Restore the listing in Etsy before preparing its replacement.`);
         if (String(captured?.id||'')!==String(actual?.listing_image_id||'')) throw new Error(`Image ${image.rank} changed since this draft was prepared. Review a fresh update.`);
       }
     }
@@ -120,10 +122,10 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     }
     const completedAt = new Date().toISOString();
 
-    const audit = { runId, scopes: listing.scopes, before, approvedFields: listing.fields, verified: true, completedAt };
-    const { error } = await admin.from('review_projects').update({ status: 'published', platform_id: listingId, published_at: completedAt, last_error: null, manifest: { ...project.manifest, etsyUpdateAudit: audit } }).eq('id', project.id);
+    const audit = { runId, scopes: listing.scopes, verified: true, completedAt };
+    const { error } = await admin.from('review_projects').update({ status: 'published', platform_id: listingId, published_at: completedAt, last_error: null, manifest: {submissionFingerprint:project.manifest.submissionFingerprint,published:true},media:[],preview_path:null,title:'Published submission' }).eq('id', project.id);
     if (error) throw error;
-    await writeRun({ status: 'succeeded', after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles }, finished_at: completedAt });
+    await writeRun({ status: 'succeeded', before_state: {}, after_state: {verified:true}, finished_at: completedAt });
     return { ok: true, updated: true, verified: true, updated_fields: listing.scopes, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` };
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Etsy update failed.';

@@ -10,7 +10,7 @@ export async function validateAssetBlob(item:any, blob:Blob, kind:'image'|'pdf')
     if(!(png&&/\.png$/i.test(item.name)||jpeg&&/\.jpe?g$/i.test(item.name)))throw new Error('Use a genuine PNG or JPEG for Etsy listing images. Convert other formats before review.');
   }
   if(item.checksum){const digest=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('');if(digest!==item.checksum)throw new Error(`${item.name}: attachment integrity check failed.`);}
-  return {...item,blob};
+  return {...item,mime:kind==='pdf'?'application/pdf':bytes[0]===137?'image/png':'image/jpeg',blob};
 }
 
 export function verifyNewListingAssets(current:any, files:any[], checkpoint:any, altText:string[]) {
