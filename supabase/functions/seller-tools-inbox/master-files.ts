@@ -1,4 +1,5 @@
-import { zipSync } from 'npm:fflate@0.8.2';
+import { drainStorageCleanup } from './storage-cleanup.ts';
+import { zipSync, unzipSync } from 'npm:fflate@0.8.2';
 
 export const MASTER_BUCKET = 'seller-master-files';
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -38,6 +39,16 @@ const masterOutputSchemas:Record<string,any>={
  commit_master_upload:{type:'object',required:['master_id','revision','files','etsy_updated','published','scheduled'],properties:{master_id:uuid,revision,files:{type:'array',items:{type:'object',required:['role','name','size','checksum','path','status'],properties:{role:{type:'string'},name:{type:'string'},size:{type:'integer'},checksum:{type:'string'},path:{type:'string'},status:{type:'string',enum:['saved']},position:{type:'integer',minimum:1,maximum:6},alt_text:{type:'string'}}}},etsy_updated:{type:'boolean',const:false},published:{type:'boolean',const:false},scheduled:{type:'boolean',const:false},already_committed:{type:'boolean'},saved:{type:'boolean'}}}
 };
 for(const t of masterTools){const schema=masterOutputSchemas[t.name]||(['upload_master_files','import_review_images_to_master'].includes(t.name)?masterOutputSchemas.commit_master_upload:null);if(schema)t.outputSchema=schema;}
+const retainedMasterActions=new Set(['list_master_files','get_master_file','create_master_file','prepare_master_upload','commit_master_upload','upload_master_files']);
+for(let i=masterTools.length-1;i>=0;i--)if(!retainedMasterActions.has(masterTools[i].name))masterTools.splice(i,1);
+masterTools.push(tool('delete_master_file','Permanently delete the current private Word backup for one planner. Never changes Etsy.',{master_id:uuid,expected_revision:revision},['master_id','expected_revision']));
+for(const t of masterTools){
+ if(t.name==='get_master_file'){delete t.inputSchema.properties.revision;t.description='Read the current private Word backup. Older versions are not retained.';}
+ if(t.inputSchema.properties.category)t.inputSchema.properties.category.enum=['planner'];
+ if(t.name==='prepare_master_upload'){const f=t.inputSchema.properties.files;f.maxItems=1;f.items.properties.role={type:'string',enum:['docx']};t.description='Reserve upload of one current private DOCX backup. Upload bytes then commit. Previous backup is deleted only after verification.';}
+ if(t.name==='upload_master_files'){t.inputSchema.properties.files.maxItems=1;t.inputSchema.properties.assignments.maxItems=1;t.inputSchema.properties.assignments.items.properties.role={type:'string',enum:['docx']};t.description='Save one actual Word DOCX as the current private backup. Replaces and deletes the previous file; never publishes.';}
+ if(t.name==='list_master_files')t.description='Find each planner and its current private Word backup.';
+}
 export const masterToolNames = new Set(masterTools.map(x=>x.name));
 
 function ensure(ok:unknown,message:string):asserts ok {if(!ok)throw new Error(message);}
@@ -75,6 +86,7 @@ export async function verifyMasterBytes(file:any,bytes:Uint8Array){
  const head=new TextDecoder('latin1').decode(bytes.slice(0,16));
  if(file.mime===MIME.pdf)ensure(head.startsWith('%PDF-'),`${file.name}: not a PDF file.`);
  if(file.mime===MIME.docx||file.mime===MIME.zip)ensure(bytes[0]===80&&bytes[1]===75&&bytes[2]===3&&bytes[3]===4,`${file.name}: not a Word/ZIP file.`);
+ if(file.mime===MIME.docx){let entries:any;try{entries=unzipSync(bytes,{filter:(f:any)=>['[Content_Types].xml','word/document.xml'].includes(f.name)&&f.originalSize<20000000});}catch{throw new Error(`${file.name}: invalid Word document archive.`);}ensure(entries['[Content_Types].xml']&&entries['word/document.xml'],`${file.name}: archive is not a Word DOCX document.`);}
  if(file.mime===MIME.png)ensure(bytes[0]===137&&head.slice(1,4)==='PNG',`${file.name}: not a PNG file.`);
  if(file.mime===MIME.jpg)ensure(bytes[0]===255&&bytes[1]===216&&bytes[2]===255,`${file.name}: not a JPEG file.`);
  if(file.mime===MIME.webp)ensure(head.startsWith('RIFF')&&head.slice(8,12)==='WEBP',`${file.name}: not a WebP file.`);
@@ -113,6 +125,7 @@ export async function downloadChatGPTFile(raw:string){
 
 export async function handleMasterTool(name:string,args:any,ctx:any){
  const {admin,userId,db}=ctx;
+ ensure(masterToolNames.has(name),'This storage action is no longer supported.');
  const read=async(id:string)=>{const r=result(await db.from('seller_master_records').select('*').eq('id',id).eq('user_id',userId).maybeSingle());ensure(r,'Master not found or access denied.');return r;};
  const rpc=async(r:any,values:any)=>result(await admin.rpc('commit_seller_master',{p_user:userId,p_master:r.id,p_expected:checkRevision(args.expected_revision),p_files:[],p_reason:args.reason||'Updated master details',...values}));
  if(name==='list_master_files'){
@@ -121,7 +134,14 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
   const all=result(await q)||[];const query=String(args.query||'').toLowerCase().trim();
   return {masters:all.filter((x:any)=>!query||x.title.toLowerCase().includes(query)).map((x:any)=>({...x,files:orderedMasterFiles(x.files)})),limit:200,workflow:'get_master_file → prepare_master_upload → upload bytes → commit_master_upload. Saving never publishes to Etsy.'};
  }
+ if(name==='delete_master_file'){
+  const r=await read(args.master_id);
+  const saved=await rpc(r,{p_metadata:{delete_docx:true},p_reason:'Delete current Word backup'});
+  await drainStorageCleanup(admin,userId);
+  return {...saved,deleted:true,etsy_updated:false};
+ }
  if(name==='create_master_file'){
+  ensure(args.category==='planner','Storage contains planner Word backups only.');
   const data=checkMetadata(args,true);
   const saved=await admin.from('seller_master_records').insert({...data,user_id:userId}).select('*').single();
   if(saved.error?.code==='23505')throw new Error('A master with this title already exists. Open it to update its files.');
@@ -129,9 +149,8 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
  }
  if(name==='get_master_file'){
   const current=await read(args.master_id);let selected=current;
-  if(args.revision!=null){ensure(Number.isInteger(args.revision)&&args.revision>0,'Invalid revision.');selected=result(await db.from('seller_master_versions').select('*').eq('master_id',current.id).eq('user_id',userId).eq('revision',args.revision).single());}
-  const history=result(await db.from('seller_master_versions').select('revision,reason,created_at,restored_from').eq('master_id',current.id).eq('user_id',userId).order('revision',{ascending:false}).limit(100));
-  const publications=result(await db.from('seller_master_publications').select('*').eq('master_id',current.id).eq('user_id',userId));
+  ensure(args.revision==null,'Only the current backup is available.');
+  const history:any[]=[],publications:any[]=[];
   const files=[];for(const f of orderedMasterFiles(selected.files||[])){ensure(f.path.startsWith(userId+'/'+current.id+'/'),'Invalid master storage reference.');const signed=result(await admin.storage.from(MASTER_BUCKET).createSignedUrl(f.path,900,{download:f.name}));files.push({...f,download_url:signed.signedUrl});}
   return {master:{...selected,id:current.id,files},current_revision:current.revision,is_current:selected.revision===current.revision,history,publications,urls_expire_at:new Date(Date.now()+900000).toISOString()};
  }
@@ -140,6 +159,7 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
   if(!args.idempotency_key)ensure(r.revision===expected,'Version conflict: fetch the latest master before saving.');
   ensure(typeof args.reason==='string'&&args.reason.trim().length>0&&args.reason.length<=500,'Add a brief change note.');
   const files=validateUploadFiles(args.files);
+  ensure(files.length===1&&files[0].role==='docx'&&files[0].mime===MIME.docx,'Storage accepts one Word DOCX per planner.');
   const id=args.idempotency_key?await uploadIdentity(userId,r.id,args.idempotency_key):crypto.randomUUID();
   const stored=files.map(f=>({...f,path:`${userId}/${r.id}/${id}/${f.role}.${f.name.split('.').pop()?.toLowerCase()}`}));
   let u:any=args.idempotency_key?result(await admin.from('seller_master_uploads').select('*').eq('id',id).eq('user_id',userId).maybeSingle()):null;
@@ -160,11 +180,12 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
  if(name==='commit_master_upload'){
   const u=result(await admin.from('seller_master_uploads').select('*').eq('id',args.upload_id).eq('user_id',userId).maybeSingle());ensure(u,'Upload not found or access denied.');
   const report=()=>({files:orderedMasterFiles(u.files||[]).map((f:any)=>({...canonicalFile(f),status:'saved'})),etsy_updated:false,published:false,scheduled:false});
-  if(u.status==='committed')return {master_id:u.master_id,revision:u.result_revision,already_committed:true,...report()};
+  if(u.status==='committed'){await drainStorageCleanup(admin,userId);return {master_id:u.master_id,revision:u.result_revision,already_committed:true,...report()};}
   ensure(u.status==='prepared'&&Date.parse(u.expires_at)>Date.now(),'Upload expired or cancelled. Start a new upload.');
   const r=await read(u.master_id);ensure(r.revision===u.expected_revision,'Version conflict: the master changed. Fetch the latest version and reconcile your edits.');
   for(const f of u.files){ensure(f.path.startsWith(userId+'/'+r.id+'/'+u.id+'/'),'Invalid upload reference.');const blob=result(await admin.storage.from(MASTER_BUCKET).download(f.path));ensure(blob.size<=MAX_FILE_BYTES,'Uploaded file exceeds 50 MB.');await verifyMasterBytes(f,new Uint8Array(await blob.arrayBuffer()));}
   const saved=result(await admin.rpc('commit_seller_master',{p_user:userId,p_master:r.id,p_expected:u.expected_revision,p_files:u.files,p_reason:u.reason,p_upload:u.id}));
+  await drainStorageCleanup(admin,userId);
   return {...saved,...report()};
  }
  if(name==='upload_master_files'||name==='import_review_images_to_master'){

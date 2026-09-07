@@ -1,3 +1,4 @@
+import { listBoards } from '../pinterest-publish/api.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 
@@ -55,8 +56,27 @@ const toolDefinitions = [
  {name:"clear_review_project",description:"Permanently cancel a pending review submission and delete its stored assets. Does not undo published changes. Requires owner confirmation.",inputSchema:{type:"object",additionalProperties:false,required:["project_id","confirmed"],properties:{project_id:{type:"string",format:"uuid"},confirmed:{type:"boolean",const:true}}},annotations:{readOnlyHint:false,destructiveHint:true,idempotentHint:true,openWorldHint:false}}
 ];
 
+toolDefinitions.push(
+ {name:'list_pinterest_boards',description:'Retrieve the owner’s existing Pinterest boards. Select the best matching board before preparing a pin.',inputSchema:{type:'object',additionalProperties:false,properties:{}},annotations:{readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true}},
+ {name:'prepare_pin_review',description:'Prepare one pin for approval. Match the named planner to its existing Etsy listing and the selected existing Pinterest board. Never publishes.',inputSchema:{type:'object',additionalProperties:false,required:['product_name','board_id','title','description','idempotency_key'],properties:{product_name:{type:'string',minLength:2},board_id:{type:'string',pattern:'^[0-9]+$'},title:{type:'string',minLength:1,maxLength:100},description:{type:'string',minLength:1,maxLength:800},alt_text:{type:'string',maxLength:500},idempotency_key:{type:'string',minLength:8,maxLength:120}}},annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:true}}
+);
+async function submissionId(userId:string,key:string){
+ if(typeof key!=='string'||key.length<8||key.length>120)throw new Error('Provide a stable idempotency key for this submission.');
+ const bytes=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(userId+':'+key)));
+ bytes[6]=(bytes[6]&15)|80;bytes[8]=(bytes[8]&63)|128;
+ const h=[...bytes.subarray(0,16)].map(x=>x.toString(16).padStart(2,'0')).join('');return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
 const authSchemes=[{type:'oauth2',scopes:['openid','email']}];
-const tools=toolDefinitions.map((t:any)=>({...t,securitySchemes:authSchemes,_meta:{...t._meta,securitySchemes:authSchemes}}));
+const supportedActions=new Set([...masterToolNames,'list_etsy_shop_listings','prepare_etsy_listing_update','create_review_project','attach_project_asset','attach_project_asset_from_url','finalize_review_project','list_review_projects','update_review_project','clear_review_project','list_pinterest_boards','prepare_pin_review']);
+for(const definition of toolDefinitions){
+ if(definition.name==='create_review_project'){definition.inputSchema.properties.idempotency_key={type:'string',minLength:8,maxLength:120};definition.inputSchema.required.push('idempotency_key');}
+ if(definition.name==='prepare_etsy_listing_update'){
+  delete definition.inputSchema.properties.tags;delete definition.inputSchema.properties.price;delete definition.inputSchema.properties.alt_text;
+  definition.inputSchema.properties.digital_files.items.properties.action.enum=['replace'];
+  definition.description='Prepare title, description, individual image replacements with matching alt text, or PDF replacements for owner approval. Only these selected items change.';
+ }
+}
+const tools=toolDefinitions.filter(t=>supportedActions.has(t.name)).map((t:any)=>({...t,securitySchemes:authSchemes,_meta:{...t._meta,securitySchemes:authSchemes}}));
 const registration={endpoint,tool_count:tools.length,tool_names:tools.map(t=>t.name),metadata_version:API_CAPABILITY_VERSION,authentication:'owner OAuth required for every tool call',file_transfer:'upload_master_files accepts native ChatGPT file attachments; import_review_images_to_master copies existing private review images',client_catalogue_note:'Server capabilities do not prove which actions the current ChatGPT connection exposes. Compare its action names with tools/list.'};
 const challenge=`Bearer resource_metadata="${endpoint}/.well-known/oauth-protected-resource", error="invalid_token", error_description="Sign in to Seller Tools to continue"`;
 function unauthenticated(id:unknown,message:string){return new Response(JSON.stringify({jsonrpc:'2.0',id:id??null,result:{isError:true,content:[{type:'text',text:message}],_meta:{'mcp/www_authenticate':[challenge]}}}),{status:401,headers:{...cors,'content-type':'application/json','cache-control':'no-store','www-authenticate':challenge}});}
@@ -76,7 +96,7 @@ function validateCreativeIntegrity(manifest:any){
  if((template==="testimonial-review"||reviewFields.length)&&(!verified?.source||!verified?.text))throw new Error("Reviews and ratings require the exact verified review text and source; invented social proof is blocked.");
  const walk=(value:any,path="manifest")=>{if(!value||typeof value!=="object")return;for(const [key,item] of Object.entries(value)){const next=`${path}.${key}`;if(["logo","watermark","inventedLogo","inventedWatermark"].includes(key)&&item!==false&&item!==null&&item!==""&&item!=="none")throw new Error(`Logos and watermarks are not permitted (${next}).`);walk(item,next)}};walk(manifest);
 }
-async function snapshot(db:any,project:any,name?:string){const {error}=await db.from("review_project_versions").upsert({project_id:project.id,revision:project.revision,name:name||null,title:project.title,manifest:project.manifest,media:project.media||[]},{onConflict:"project_id,revision",ignoreDuplicates:true});if(error)throw error}
+async function snapshot(_db:any,_project:any,_name?:string){/* Current content only. Concurrency counters are maintained by the database. */}
 function validate(kind:string, manifest:any){
  validateCreativeIntegrity(manifest);
  if(!["etsy","pinterest"].includes(kind))throw new Error("Seller Tools supports Etsy and Pinterest projects only.");
@@ -86,7 +106,7 @@ function validate(kind:string, manifest:any){
    if(!/^\d+$/.test(listingId))throw new Error("Etsy updates require the exact existing listing ID.");
    const legacyImages=manifest.updateScope==="images_only";const fields=manifest.updateFields&&typeof manifest.updateFields==="object"?manifest.updateFields:{};
    const scopes=Array.isArray(manifest.updateScope)?manifest.updateScope.map(String):legacyImages?["images"]:[...Object.keys(fields),...(manifest.imageUpdate?["images"]:[]),...(manifest.altTextUpdates?.length?["alt_text"]:[]),...((manifest.fileUpdates?.length||manifest.fileReplacements?.length)?["files"]:[])];
-   const allowed=["title","description","price","quantity","tags","taxonomyId","shopSectionId","materials","styles","whoMade","whenMade","isSupply","isTaxable","autoRenew","state","personalization","images","alt_text","files"];
+   const allowed=["title","description","images","files"];
    if(!scopes.length||scopes.some((x:string)=>!allowed.includes(x)))throw new Error("Choose at least one supported Etsy field to update.");
    if(Object.keys(fields).some(x=>!allowed.includes(x)||["images","alt_text","files"].includes(x)))throw new Error("The Etsy update contains an unsupported field.");
    if(Object.keys(fields).some(x=>!scopes.includes(x))||scopes.some((x:string)=>!["images","alt_text","files"].includes(x)&&!Object.prototype.hasOwnProperty.call(fields,x)))throw new Error("Every Etsy update scope must have exactly one approved value.");
@@ -104,7 +124,7 @@ function validate(kind:string, manifest:any){
    if("tags" in fields){const tags=Array.isArray(fields.tags)?fields.tags.map((x:any)=>String(x).trim()).filter(Boolean):[];if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13||tags.some((x:string)=>x.length>20))throw new Error("Etsy tags require exactly 13 unique entries, each 20 characters or fewer.");fields.tags=tags;}
    if(scopes.includes("images")){const legacyAlt=Array.isArray(manifest.altText)?manifest.altText.map((x:any)=>String(x).trim()):[],replacements=Array.isArray(manifest.imageReplacements)&&manifest.imageReplacements.length?manifest.imageReplacements:(legacyAlt.length===6?["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5"].map((role,i)=>({role,rank:i+1,altText:legacyAlt[i]})):[]);if(!replacements.length||replacements.length>20)throw new Error("Image updates require one to twenty explicit replacements.");const ranks=new Set<number>();for(const [i,image] of replacements.entries()){const rank=Number(image?.rank),role=String(image?.role||""),alt=String(image?.altText||"").trim();if(!role||!Number.isInteger(rank)||rank<1||rank>20||!alt||alt.length>500)throw new Error(`Image replacement ${i+1} needs a role, rank from 1 to 20 and alt text.`);if(ranks.has(rank))throw new Error("Image replacement ranks must be unique.");ranks.add(rank);image.rank=rank;image.altText=alt;}manifest.imageReplacements=replacements;manifest.imageUpdate=true;}
    if(scopes.includes("alt_text")){const updates=Array.isArray(manifest.altTextUpdates)?manifest.altTextUpdates:[];if(!updates.length||updates.length>20)throw new Error("Alt-text updates require one to twenty existing Etsy images.");for(const [i,image] of updates.entries()){if(!/^\d+$/.test(String(image?.listingImageId||""))||!Number.isInteger(Number(image?.rank))||Number(image.rank)<1||Number(image.rank)>20||!String(image?.altText||"").trim()||String(image.altText).length>500)throw new Error(`Alt-text update ${i+1} needs an existing image ID, rank from 1 to 20 and text.`);image.altText=String(image.altText).trim().slice(0,500);}}
-   if(scopes.includes("files")){const files=Array.isArray(manifest.fileUpdates)?manifest.fileUpdates:[];if(!files.length||files.length>5)throw new Error("Digital-file updates require one to five explicit additions or replacements.");for(const [i,file] of files.entries()){if(!["add","replace"].includes(String(file?.action))||!file?.role||!file.filename)throw new Error(`Digital-file update ${i+1} needs add or replace, an asset role and filename.`);if(file.action==="replace"&&!/^\d+$/.test(String(file.listingFileId||"")))throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`);}}
+   if(scopes.includes("files")){const files=Array.isArray(manifest.fileUpdates)?manifest.fileUpdates:[];if(!files.length||files.length>5)throw new Error("Digital-file updates require one to five explicit additions or replacements.");for(const [i,file] of files.entries()){if(file?.action!=="replace"||!file?.role||!/\.pdf$/i.test(file.filename||""))throw new Error(`Digital-file update ${i+1} needs add or replace, an asset role and filename.`);if(file.action==="replace"&&!/^\d+$/.test(String(file.listingFileId||"")))throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`);}}
    if("personalization" in fields&&fields.personalization?.enabled!==false){const questions=fields.personalization?.personalization_questions;if(!Array.isArray(questions)||!questions.length)throw new Error("Personalisation requires at least one question or enabled:false.");for(const [i,q] of questions.entries()){if(!q?.question_text||String(q.question_text).length>45||!['text_input','dropdown','unlabeled_upload','labeled_upload'].includes(String(q.question_type)))throw new Error(`Personalisation question ${i+1} has an invalid label or type.`);if(q.instructions&&String(q.instructions).length>120)throw new Error(`Personalisation question ${i+1} instructions exceed 120 characters.`);if("required" in q&&typeof q.required!=="boolean")throw new Error(`Personalisation question ${i+1} required must be true or false.`);if(q.question_id!=null&&!/^\d+$/.test(String(q.question_id)))throw new Error(`Personalisation question ${i+1} has an invalid question ID.`);}}
    manifest.mode="edit";manifest.updateScope=[...new Set(scopes)];manifest.updateFields=fields;manifest.listingId=listingId;
   }else{
@@ -154,9 +174,24 @@ Deno.serve(async(req:Request)=>{
  if(!owner)return new Response(JSON.stringify({error:"owner_access_required"}),{status:403,headers:{...cors,"content-type":"application/json",'cache-control':'no-store'}});
  const name=params?.name,args=params?.arguments||{};
  try{
+  if(!supportedActions.has(name))throw new Error("This action is not part of the current Seller Studio workflow.");
   if(masterToolNames.has(name)){
    const admin=createClient(projectUrl,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
    return rpc(id,output(await handleMasterTool(name,args,{db,admin,userId:userData.user.id})));
+  }
+  if(name==='list_pinterest_boards')return rpc(id,output({boards:await listBoards()}));
+  if(name==='prepare_pin_review'){
+   const boards=await listBoards(),board=boards.find((x:any)=>x.id===args.board_id);if(!board)throw new Error('Choose an existing Pinterest board from list_pinterest_boards.');
+   const shop=await publisherRequest(auth,'?state=active'),q=normal(args.product_name),matches=(shop.listings||[]).filter((x:any)=>normal(x.title).includes(q));
+   if(matches.length!==1)throw new Error('The planner must match exactly one active Etsy listing. Use its specific name.');
+   if(!args.title?.trim()||args.title.length>100||!args.description?.trim()||args.description.length>800)throw new Error('Pin title or description exceeds the supported length.');
+   const manifest={pins:[{title:args.title,description:args.description,altText:args.alt_text||args.title,board:board.name,boardId:board.id,link:'https://www.etsy.com/listing/'+matches[0].listing_id,imageRole:'pin-1'}]};
+   const projectId=await submissionId(userData.user.id,args.idempotency_key);
+   const fingerprint=JSON.stringify(manifest);
+   const existing=await db.from('review_projects').select('id,status,manifest').eq('id',projectId).maybeSingle();if(existing.error)throw existing.error;
+   if(existing.data){if(existing.data.manifest.submissionFingerprint!==fingerprint)throw new Error('This idempotency key belongs to a different pin.');return rpc(id,output({project_id:projectId,status:existing.data.status,already_prepared:true}));}
+   const saved=await db.from('review_projects').insert({id:projectId,kind:'pinterest',title:args.title,manifest:{...manifest,submissionFingerprint:fingerprint},media:[],source:'chatgpt',status:'editing'}).select('id,status').single();if(saved.error)throw saved.error;
+   return rpc(id,output({project_id:projectId,status:saved.data.status,board:board.name,etsy_link:manifest.pins[0].link,next_action:'Attach pin-1, then finalize_review_project. Owner approval publishes.'}));
   }
   if(name==="list_etsy_shop_listings"){
    const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
@@ -164,6 +199,8 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output({listings}));
   }
   if(name==="prepare_etsy_listing_update"){
+   if(["price","tags","alt_text"].some(key=>key in args))throw new Error("Editing supports title, description, image replacements with alt text, and PDF replacements only.");
+   if((args.digital_files||[]).some((f:any)=>f.action!=="replace"||!/\.pdf$/i.test(f.filename)))throw new Error("Choose an existing customer PDF to replace.");
    const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
    const q=normal(args.product_name),matches=(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title)));
    if(matches.length===0)throw new Error(`No ${state} Etsy listing matched “${args.product_name}”. Use list_etsy_shop_listings to check the product name.`);
@@ -171,7 +208,7 @@ Deno.serve(async(req:Request)=>{
    const {data:drafts}=await db.from("review_projects").select("id,title,media").eq("kind","etsy").is("platform_id",null).in("status",["editing","ready","failed"]).order("created_at",{ascending:false}).limit(20);
    const reusable=(drafts||[]).find((p:any)=>normal(p.title).includes(q)||q.includes(normal(p.title).replace(" etsy listing update","")));
    const prepared=await publisherRequest(auth,"",{method:"POST",body:JSON.stringify({action:"prepare_edit",listing_id:matches[0].listing_id,reuse_project_id:reusable?.id||null})});
-   const requestedFields:any={};for(const key of ["title","description","tags","price"])if(Object.prototype.hasOwnProperty.call(args,key))requestedFields[key]=args[key];
+   const requestedFields:any={};for(const key of ["title","description"])if(Object.prototype.hasOwnProperty.call(args,key))requestedFields[key]=args[key];
    const imageReplacements=Array.isArray(args.images)?args.images.map((x:any)=>({role:String(x.role),rank:Number(x.rank),altText:String(x.alt_text)})):[];
    const altTextUpdates=Array.isArray(args.alt_text)?args.alt_text.map((x:any)=>({listingImageId:String(x.listing_image_id),rank:Number(x.rank),altText:String(x.text)})):[];
    const fileUpdates=Array.isArray(args.digital_files)?args.digital_files.map((x:any)=>({action:String(x.action),role:String(x.role),filename:String(x.filename),listingFileId:x.listing_file_id==null?undefined:String(x.listing_file_id)})):[];
@@ -180,9 +217,13 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output({...prepared,matched_listing:matches[0],accepted_fields:updateScope,message:updateScope.length?"Only the supplied Etsy fields and assets were selected. Everything else remains untouched.":"The listing is prepared. Supply only the fields or assets you want changed."}));
   }
   if(name==="create_review_project"){
+   if(args.kind==='pinterest')throw new Error('Use prepare_pin_review to match an existing board and Etsy listing.');
    if(!bucketFor[args.kind]||!args.title||typeof args.manifest!=="object")throw new Error("kind, title and manifest are required.");
    validate(args.kind,args.manifest);
-   const {data,error}=await db.from("review_projects").insert({kind:args.kind,title:String(args.title).slice(0,180),manifest:args.manifest,media:[],source:"chatgpt",status:"editing"}).select("id,kind,title,status,revision").single();
+   const projectId=await submissionId(userData.user.id,args.idempotency_key),fingerprint=JSON.stringify({kind:args.kind,title:args.title,manifest:args.manifest});
+   const existing=await db.from('review_projects').select('id,kind,title,status,revision,manifest').eq('id',projectId).maybeSingle();if(existing.error)throw existing.error;
+   if(existing.data){if(existing.data.manifest.submissionFingerprint!==fingerprint)throw new Error('This submission key belongs to different content.');const {manifest,...safe}=existing.data;return rpc(id,output({...safe,already_prepared:true}));}
+   const {data,error}=await db.from("review_projects").insert({id:projectId,kind:args.kind,title:String(args.title).slice(0,180),manifest:{...args.manifest,submissionFingerprint:fingerprint},media:[],source:"chatgpt",status:"editing"}).select("id,kind,title,status,revision").single();
    if(error)throw error;return rpc(id,output(data));
   }
   if(name==="list_review_projects"){
@@ -201,6 +242,7 @@ Deno.serve(async(req:Request)=>{
   const {data:project,error:projectError}=await db.from("review_projects").select("*").eq("id",args.project_id).single();
   if(projectError||!project)throw new Error("Project not found or access denied.");
   if(!["etsy","pinterest"].includes(project.kind))throw new Error("Seller Tools supports Etsy and Pinterest projects only.");
+  if(name!=="clear_review_project"&&["publishing","published","changes_requested"].includes(project.status))throw new Error("This submission is locked or cancelled. Refresh before making changes.");
   if(name==="attach_project_asset"||name==="attach_project_asset_from_url"){
    let bytes:Uint8Array,contentType=String(args.content_type||"application/octet-stream");
    if(name==="attach_project_asset"){if(typeof args.base64_data!=="string"||args.base64_data.length>9_000_000)throw new Error("Base64 asset is missing or exceeds the 6 MB direct-upload limit. Use the trusted URL tool for larger files.");bytes=Uint8Array.from(atob(args.base64_data),c=>c.charCodeAt(0))}

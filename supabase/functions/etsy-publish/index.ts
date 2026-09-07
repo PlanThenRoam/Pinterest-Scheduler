@@ -53,7 +53,7 @@ function validateProject(project: any) {
   if (editMode) {
     const fields = manifest.updateFields && typeof manifest.updateFields === "object" ? manifest.updateFields : {};
     const scopes = Array.isArray(manifest.updateScope) ? manifest.updateScope.map(String) : manifest.updateScope === "images_only" ? ["images"] : [];
-    const allowed = new Set(["title","description","price","quantity","tags","taxonomyId","shopSectionId","materials","styles","whoMade","whenMade","isSupply","isTaxable","autoRenew","state","personalization","images","alt_text","files"]);
+    const allowed = new Set(["title","description","images","files"]);
     if (!scopes.length) throw new Error("This Etsy update has no approved fields.");
     if (scopes.some((scope: string) => !allowed.has(scope))) throw new Error("This Etsy update contains an unsupported scope.");
     if (Object.keys(fields).some((key) => !allowed.has(key) || ["images","alt_text","files"].includes(key))) throw new Error("This Etsy update contains an unsupported field.");
@@ -193,7 +193,7 @@ async function uploadImage(admin: any, shopId: string, listingId: string, token:
 }
 
 async function updateExistingImageAltText(shopId:string,listingId:string,token:string,image:any){
-  const form=new FormData();form.set("listing_image_id",String(image.listingImageId));form.set("rank",String(image.rank));form.set("alt_text",String(image.altText).slice(0,500));form.set("overwrite","true");
+  const form=new FormData();form.set("listing_image_id",String(image.listingImageId));form.set("rank",String(image.rank));form.set("alt_text",String(image.altText).slice(0,500));form.set("overwrite","false");
   return await etsyFetch(`/shops/${shopId}/listings/${listingId}/images`,token,{method:"POST",body:form});
 }
 
@@ -257,7 +257,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:33, api_version:'3.4.5', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:34, api_version:'3.4.6', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -301,6 +301,8 @@ Deno.serve(async (req: Request) => {
       const listingId = String(body.listing_id || "");
       if (!/^\d+$/.test(listingId)) throw new Error("Choose an Etsy listing.");
       const existing = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
+      existing.images=(await etsyFetch(`/listings/${listingId}/images`,token)).results;
+      if(!Array.isArray(existing.images))throw new Error("Etsy image readback is unavailable.");
       const files = await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token);
       if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
       const manifest = {
@@ -334,6 +336,10 @@ Deno.serve(async (req: Request) => {
     if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
     if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
     const listing = validateProject(project);
+    if(body.action!=='recover_image_alt_text'&&(!listing.editMode||listing.images.length||listing.altTextUpdates.length)){
+      const {data:proof,error:proofError}=await admin.from('seller_publish_runs').select('id').eq('status','succeeded').contains('after_state',{image_association_verified:true}).limit(1).maybeSingle();
+      if(proofError||!proof)throw new Error('Image updates are paused until one Repair image update succeeds and is verified on Etsy. Your saved files and reviews are retained.');
+    }
     if(body.action === 'recover_image_alt_text') return json(await recoverImageAltText(admin,credential,token,project,listing,body,{fetch:etsyFetch,altText:updateExistingImageAltText}));
     if(listing.editMode){
       projectId="";
@@ -381,7 +387,6 @@ Deno.serve(async (req: Request) => {
       const uploaded=response?.results?.[0]||response;
       if(!uploaded?.listing_image_id)throw new Error('Etsy did not confirm the new image ID. Inspect the draft before retrying.');
       checkpoint.imageIds=checkpoint.imageIds||[];checkpoint.imageIds[index]=String(uploaded.listing_image_id);
-      await updateExistingImageAltText(credential.shop_id,listingId,token,{listingImageId:uploaded.listing_image_id,rank:index+1,altText:altText[index]});
       checkpoint.imageUploadAttempted=false;
       checkpoint.imagesUploaded = index + 1;
       manifest.etsyPublish = checkpoint;
@@ -402,6 +407,7 @@ Deno.serve(async (req: Request) => {
       await admin.from("review_projects").update({ manifest }).eq("id", projectId);
     }
     const draft=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
+    draft.images=(await etsyFetch(`/listings/${listingId}/images`,token)).results;
     const draftFiles=(await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`,token)).results||[];
     verifyNewListingAssets(draft,draftFiles,checkpoint,altText);
     verifyFields({title:listing.title,description:listing.description,tags:listing.tags,price:numberValue(manifest.price,14.99)},listingSnapshot(draft),{});

@@ -16,3 +16,12 @@ Remaining before release:
 - Migrate current DOCX backups, remove obsolete live tables/functions/assets and source files after dependency review. Nothing live deleted yet.
 
 Live baseline: GitHub main e3763cd049426af07ab80f35b3365a55ccf2b979 (app33). Supabase publisher20/inbox34 contain candidate app34 safety pause. These are pre-existing deployment differences, not introduced by this checkpoint.
+
+## Continuation
+Implemented current-DOCX storage admission, current-only reads, delete action, transactional replacement and durable old-object cleanup. Proposed SQL passed a BEGIN/ROLLBACK dry run against production: 18 planner records and zero records with multiple current files; no live changes persisted. Removed historical-version validation from PDF publishing because customer PDFs are review assets rather than storage masters in the agreed model.
+
+Connector catalogue and backend edit validation now restrict edits to title, description, images with matching alt text and PDF replacements. Added idempotency keys for new review submissions. Added existing Pinterest-board retrieval, planner-to-Etsy matching and a Pinterest publisher adapter with a persisted attempt guard/readback. These Pinterest paths remain untested live and require an authorised access token; no OAuth connection flow yet.
+
+Official Etsy OpenAPI specification retrieved at https://www.etsy.com/openapi/generated/oas/3.0.0.json clarifies listing_image_id is for assigning a previously deleted image. Removed the extra existing-ID reassignment after image upload in edit and new-listing flows. One upload carries image and alt_text; existing readback remains. The old image gate is STILL PRESENT and must be replaced only after appropriate integration verification. Do not claim live image behaviour verified.
+
+Focused rebuild tests: 15 passing. Legacy image-master/version tests intentionally conflict with revised scope; replace those tests while retaining byte-integrity and retry coverage. Remaining: complete stale-approval protection for connector writes, pin OAuth/setup and live readback, asset cleanup across all histories, create/edit retry reconciliation, authoritative live draft image check, browser visual QA, deployment/version/cache coordination, obsolete component deletion. No production deployment or destructive migration yet.

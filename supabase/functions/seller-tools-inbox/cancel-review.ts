@@ -1,5 +1,7 @@
 /** Permanent cancellation, with a publication lock retained for uncertain writes. */
 export async function cancelReview(admin:any, project:any, userId:string) {
+ const publish=project.manifest?.etsyPublish||{};
+ if(project.manifest?.pinAttempted||publish.creationAttempted||publish.imageUploadAttempted||publish.fileUploadAttempted)throw new Error('A platform submission has started. Verify its result before deleting this submission.');
  const checked=(r:any)=>{if(r.error)throw r.error;return r.data;};
  const runs=checked(await admin.from('seller_publish_runs').select('id,status').eq('project_id',project.id))||[];
  if(project.status==='publishing'||runs.some((r:any)=>['running','needs_review'].includes(r.status)))throw new Error('Publication is still unresolved. Check its live result before deleting this submission.');
