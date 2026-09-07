@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
+import { runEdit } from './safe-edit.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -10,7 +11,7 @@ const apiRoot = "https://openapi.etsy.com/v3/application";
 const templateListingId = "4568932542";
 const cors = {
   "access-control-allow-origin": "*",
-  "access-control-allow-headers": "authorization, apikey, content-type",
+  "access-control-allow-headers": "authorization, apikey, content-type, x-client-info",
   "access-control-allow-methods": "GET, POST, OPTIONS",
 };
 
@@ -39,8 +40,8 @@ function imageItems(project: any) {
 
 function validateProject(project: any) {
   if (!project || project.kind !== "etsy") throw new Error("Etsy project not found.");
-  if (!["ready", "approved", "failed", "publishing"].includes(project.status)) throw new Error("This Etsy project is not ready to publish.");
-  const manifest = project.manifest || {};
+  if (!["ready", "approved", "failed"].includes(project.status)) throw new Error("This Etsy project is not ready to publish, or another request is running.");
+  const manifest = structuredClone(project.manifest || {});
   const editMode = manifest.mode === "edit" || Boolean(manifest.listingId || manifest.etsyListingId);
   const title = String(manifest.title || project.title || "").trim();
   const description = String(manifest.description || "").trim();
@@ -65,9 +66,9 @@ function validateProject(project: any) {
       for (const replacement of imageReplacements) { replacement.item=mediaByRole(project,String(replacement.role)); if(!replacement.item)throw new Error(`Attach image replacement ${replacement.role}.`); if(!(Number.isInteger(Number(replacement.rank))&&Number(replacement.rank)>=1&&Number(replacement.rank)<=10&&String(replacement.altText||"").trim()))throw new Error(`Image replacement ${replacement.role} needs a valid rank and alt text.`); }
     }
     const altTextUpdates = Array.isArray(manifest.altTextUpdates) ? manifest.altTextUpdates : [];
-    if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 10) throw new Error("Choose one to ten existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>10 || !String(image?.altText||"").trim()) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
+    if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 10) throw new Error("Choose one to ten existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>10 || !String(image?.altText||"").trim()) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
     const fileUpdates = Array.isArray(manifest.fileUpdates) ? manifest.fileUpdates.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
-    if (scopes.includes("files")) { if (!fileUpdates.length || fileUpdates.length > 5) throw new Error("Choose one to five digital-file additions or replacements."); for (const [i,file] of fileUpdates.entries()) { if (!["add","replace"].includes(String(file?.action)) || !file?.role || !file.filename || !file.item) throw new Error(`Digital-file update ${i+1} is incomplete or its asset is not attached.`); if (file.action==="replace" && !/^\\d+$/.test(String(file.listingFileId||""))) throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`); } }
+    if (scopes.includes("files")) { if (!fileUpdates.length || fileUpdates.length > 5) throw new Error("Choose one to five digital-file additions or replacements."); for (const [i,file] of fileUpdates.entries()) { if (!["add","replace"].includes(String(file?.action)) || !file?.role || !file.filename || !file.item) throw new Error(`Digital-file update ${i+1} is incomplete or its asset is not attached.`); if (file.action==="replace" && !/^\d+$/.test(String(file.listingFileId||""))) throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`); } }
     return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], altTextUpdates, fileUpdates, fields, scopes, pdf: null, editMode: true };
   }
   if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
@@ -87,7 +88,7 @@ async function etsyFetch(path: string, accessToken: string, init: RequestInit = 
   const headers = new Headers(init.headers || {});
   headers.set("x-api-key", `${etsyKey}:${etsySecret}`);
   headers.set("authorization", `Bearer ${accessToken}`);
-  const response = await fetch(apiRoot + path, { ...init, headers });
+  const response = await fetch(apiRoot + path, { ...init, headers, signal: AbortSignal.timeout(25000) });
   const text = await response.text();
   let body: any = {};
   try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text }; }
@@ -170,6 +171,8 @@ async function createDraft(shopId: string, token: string, data: any, template: a
 }
 
 async function storageFile(admin: any, item: any) {
+  if (item?.blob instanceof Blob) return item.blob;
+  if (!item?.path) throw new Error('An attachment is missing.');
   const { data, error } = await admin.storage.from("etsy-assets").download(item.path);
   if (error || !data) throw new Error(`Could not read ${item.name || item.role} from private storage.`);
   return data;
@@ -230,46 +233,6 @@ async function updatePersonalization(shopId: string, listingId: string, token: s
   return await etsyFetch(path,token,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({personalization_questions:questions})});
 }
 
-async function associateDigitalFile(shopId:string,listingId:string,token:string,listingFileId:string,rank:number){
-  const form=new FormData();form.set("listing_file_id",listingFileId);form.set("rank",String(rank));
-  return await etsyFetch(`/shops/${shopId}/listings/${listingId}/files`,token,{method:"POST",body:form});
-}
-
-async function applyDigitalFileUpdates(admin:any,shopId:string,listingId:string,token:string,updates:any[]){
-  if(!updates.length)return;
-  const current=await etsyFetch(`/shops/${shopId}/listings/${listingId}/files`,token);
-  const existing=Array.isArray(current.results)?[...current.results]:[];
-  for(const update of updates){
-    if(update.action==="add"){
-      if(existing.length>=5)throw new Error("This listing already has Etsy's maximum of five digital files.");
-      const uploaded=await uploadPdf(admin,shopId,listingId,token,update.item,existing.length+1);
-      const newFile=uploaded.results?.[0]||uploaded;const newId=String(newFile.listing_file_id||"");
-      if(!newId)throw new Error(`Etsy did not confirm the upload of ${update.filename}.`);
-      existing.push({...newFile,listing_file_id:newId,rank:existing.length+1});continue;
-    }
-    const targetIndex=existing.findIndex((x:any)=>String(x.listing_file_id)===String(update.listingFileId));
-    if(targetIndex<0)throw new Error(`Existing Etsy file ${update.listingFileId} was not found.`);
-    const target=existing[targetIndex],rank=Number(target.rank)||targetIndex+1;
-    if(existing.length<5){
-      const uploaded=await uploadPdf(admin,shopId,listingId,token,update.item,rank);
-      const newFile=uploaded.results?.[0]||uploaded,newId=String(newFile.listing_file_id||"");
-      if(!newId)throw new Error(`Etsy did not confirm the upload of ${update.filename}. The original file was kept.`);
-      await etsyFetch(`/shops/${shopId}/listings/${listingId}/files/${target.listing_file_id}`,token,{method:"DELETE"});
-      existing[targetIndex]={...newFile,listing_file_id:newId,rank};continue;
-    }
-    await etsyFetch(`/shops/${shopId}/listings/${listingId}/files/${target.listing_file_id}`,token,{method:"DELETE"});
-    try{
-      const uploaded=await uploadPdf(admin,shopId,listingId,token,update.item,rank);
-      const newFile=uploaded.results?.[0]||uploaded,newId=String(newFile.listing_file_id||"");
-      if(!newId)throw new Error("Etsy did not confirm the replacement upload.");
-      existing[targetIndex]={...newFile,listing_file_id:newId,rank};
-    }catch(error){
-      try{await associateDigitalFile(shopId,listingId,token,String(target.listing_file_id),rank)}catch(rollbackError){throw new Error(`The replacement upload failed and Etsy could not restore the original file automatically: ${errorMessage(rollbackError)}`)}
-      throw new Error(`The replacement upload failed, so the original file was restored: ${errorMessage(error)}`);
-    }
-  }
-}
-
 async function uploadPdf(admin: any, shopId: string, listingId: string, token: string, item: any, rank = 1) {
   const blob = await storageFile(admin, item);
   const form = new FormData();
@@ -303,7 +266,7 @@ Deno.serve(async (req: Request) => {
   const { data: owner } = await admin.from("app_owners").select("user_id").eq("user_id", userData.user.id).maybeSingle();
   if (!owner) return json({ error: "Owner access is required." }, 403);
 
-  let projectId = "";
+  let projectId = "", ownsPublish = false;
   try {
     const { data: credential, error: credentialError } = await admin.from("etsy_credentials").select("*").eq("user_id", userData.user.id).single();
     if (credentialError || !credential) throw new Error("Connect your Etsy shop in Settings first.");
@@ -314,15 +277,21 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, listings: (listings.results || []).map((item: any) => ({
         listing_id: String(item.listing_id), title: item.title, state: item.state,
         thumbnail: item.images?.[0]?.url_170x135 || item.images?.[0]?.url_570xN || "",
-        image_count: item.images?.length || 0,
+        image_count: item.images?.length || 0, price: moneyValue(item.price), currency: item.price?.currency_code || "GBP", url: item.url,
       })) });
     }
     const body = await req.json();
+    if (body.action === "acknowledge_run") {
+      if (body.confirmed_review !== true) throw new Error("Review the current Etsy listing before releasing this update.");
+      const {error} = await admin.from("seller_publish_runs").update({status:"dismissed",finished_at:new Date().toISOString()}).eq("id",String(body.run_id)).eq("status","needs_review");
+      if(error)throw error;
+      return json({ok:true});
+    }
     if (body.action === "prepare_edit") {
       const listingId = String(body.listing_id || "");
       if (!/^\d+$/.test(listingId)) throw new Error("Choose an Etsy listing.");
       const existing = await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`, token);
-      const files = await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token).catch(() => ({ results: [] }));
+      const files = await etsyFetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token);
       if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
       const manifest = {
         mode: "edit", updateScope: [], updateFields: {}, listingId,
@@ -352,31 +321,32 @@ Deno.serve(async (req: Request) => {
     if (!projectId) throw new Error("Choose an Etsy project to publish.");
     const { data: project, error: projectError } = await admin.from("review_projects").select("*").eq("id", projectId).single();
     if (projectError) throw projectError;
+    if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
+    if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
     const listing = validateProject(project);
+    if(listing.editMode){
+      projectId="";
+      return json(await runEdit(admin,credential,token,project,listing,{
+        fetch:etsyFetch,storageFile,updateFields:updateSelectedListingFields,personalization:updatePersonalization,
+        uploadImage,altText:updateExistingImageAltText,uploadFile:uploadPdf,
+      }));
+    }
     const manifest = { ...(project.manifest || {}) };
     const checkpoint = { ...(manifest.etsyPublish || {}) };
-    await admin.from("review_projects").update({ status: "publishing", last_error: null }).eq("id", projectId);
+    const {data:claimed,error:claimError}=await admin.from("review_projects").update({status:"publishing",last_error:null}).eq("id",projectId).eq("revision",project.revision).in("status",["ready","approved","failed"]).select("id").maybeSingle();
+    if(claimError||!claimed)throw new Error("This project changed or is already publishing.");
+    ownsPublish=true;
 
     let listingId = listing.editMode ? String(manifest.listingId || manifest.etsyListingId || project.platform_id || "") : String(project.platform_id || checkpoint.listingId || "");
-    if (listing.editMode) {
-      if (!listingId) throw new Error("The existing Etsy listing ID is missing.");
-      const original=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
-      if(String(original.user_id||"")&&String(original.user_id)!==String(credential.etsy_user_id))throw new Error("That listing does not belong to the connected Etsy account.");
-      const before:any={};for(const scope of listing.scopes)before[scope]=["images","alt_text"].includes(scope)?(original.images||[]).map((x:any)=>({id:x.listing_image_id,rank:x.rank,altText:x.alt_text||""})):scope==="files"?"individual additions or replacements":original[scope]??null;
-      await updateSelectedListingFields(credential.shop_id,listingId,token,listing.fields);
-      if(listing.scopes.includes("personalization"))await updatePersonalization(credential.shop_id,listingId,token,listing.fields.personalization);
-      if(listing.scopes.includes("images")){for(const replacement of listing.images)await uploadImage(admin,credential.shop_id,listingId,token,replacement.item,Number(replacement.rank),String(replacement.altText),true);}
-      if(listing.scopes.includes("alt_text")){for(const image of listing.altTextUpdates)await updateExistingImageAltText(credential.shop_id,listingId,token,image);}
-      if(listing.scopes.includes("files"))await applyDigitalFileUpdates(admin,credential.shop_id,listingId,token,listing.fileUpdates);
-      const publishedAt = new Date().toISOString();
-      const audit={scopes:listing.scopes,before,approvedFields:listing.fields,completedAt:publishedAt};
-      await admin.from("review_projects").update({status:"published",platform_id:listingId,published_at:publishedAt,last_error:null,manifest:{...manifest,etsyUpdateAudit:audit}}).eq("id",projectId);
-      return json({ok:true,updated:true,updated_fields:listing.scopes,listing_id:listingId,listing_url:`https://www.etsy.com/listing/${listingId}`});
-    }
     const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
     const taxonomyId = Math.round(numberValue(manifest.taxonomyId || manifest.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
     if (!taxonomyId) throw new Error("Add an Etsy taxonomy ID in Edit before publishing.");
     if (!listingId) {
+      if(checkpoint.creationAttempted)throw new Error("A previous draft-creation request has an uncertain outcome. Inspect Etsy before creating another listing.");
+      checkpoint.creationAttempted=true;
+      manifest.etsyPublish=checkpoint;
+      const {error:checkpointError}=await admin.from("review_projects").update({manifest}).eq("id",projectId);
+      if(checkpointError)throw checkpointError;
       const draft = await createDraft(credential.shop_id, token, { ...listing, taxonomyId }, template);
       listingId = String(draft.listing_id || draft.results?.[0]?.listing_id || "");
       if (!listingId) throw new Error("Etsy created a draft but did not return its listing ID.");
@@ -416,7 +386,7 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` });
   } catch (error) {
     const message = errorMessage(error).slice(0, 500);
-    if (projectId) await admin.from("review_projects").update({ status: "failed", last_error: message }).eq("id", projectId);
+    if (projectId && ownsPublish) await admin.from("review_projects").update({ status: "failed", last_error: message }).eq("id", projectId);
     return json({ error: message }, 400);
   }
 });

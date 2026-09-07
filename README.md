@@ -33,3 +33,4 @@ A ZIP must contain `manifest.json` plus the named files. Required manifest rules
 - `kind: "pinterest"` with `title` and exactly 10 `pins`; each Pin includes `imageFile`, `title`, `description`, `altText`, `link`, and `board`.
 
 The installed PWA checks for updates on launch and hourly. Navigation and same-origin assets use network-first caching so a normal reopen receives the current version without reinstalling.
+
