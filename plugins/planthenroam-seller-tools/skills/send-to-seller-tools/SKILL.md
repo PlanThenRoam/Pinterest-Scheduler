@@ -1,50 +1,32 @@
 ---
 name: send-to-seller-tools
-description: Retrieve and update current master planners, blueprints and assets, or prepare scoped Etsy and Pinterest updates in the private PlanThenRoam Seller Tools app.
+description: Save current planner DOCX backups or submit Etsy listing edits, new Etsy listings, and Pinterest pins for owner approval in PlanThenRoam Seller Tools.
 ---
 
-# Send to PlanThenRoam Seller Tools
+# PlanThenRoam Seller Tools
 
-Use the seller-tools MCP server when the owner asks to prepare, send, import, update, revise or clear a Seller Tools project.
+The existing private app has three tabs: Editing, Posting, Storage. Owner sign-in remains required. Use `list_review_projects` for live app/API status. Compare available session actions with the reported MCP catalogue; a capability flag does not prove that a missing action ran.
 
-## Master files
+## Editing
 
-Use the Master Files catalogue when the owner asks to work on a planner, blueprint or asset stored in Seller Tools. It is a shared source of current files for chats with these actions exposed. The live server capability flag alone does not establish which actions a ChatGPT conversation has loaded. Compare the actions available in the current conversation with the `mcp_registration` names in `list_review_projects`; if they differ, report the mismatch and do not claim the missing actions ran. Search with `list_master_files`; do not infer the current version from a filename, chat attachment or memory.
+Find the exact existing planner using `list_etsy_shop_listings`, then use `prepare_etsy_listing_update` with a stable `idempotency_key`. Supply only requested title, description, individual image replacements with exact rank and matching alt text, or customer PDF replacements with their existing file IDs. Other Etsy fields stay untouched. Thumbnail is rank 1; the five additional listing images occupy ranks 2–6.
 
-For actual files attached to ChatGPT, use `upload_master_files`. Pass the native `files` input and an `assignments` entry for each `file_id`, with its role and filename. The server downloads and verifies the actual bytes, then commits a new version. Reuse one stable `idempotency_key` for retries. Do not claim success until per-file results report saved.
+Attach actual bytes using `attach_project_asset` or a trusted ChatGPT HTTPS file URL using `attach_project_asset_from_url`. Keep the role selected in the prepared manifest. Pass the current `expected_revision` when attaching, updating or finalizing; use the returned revision for the next step, or refresh `list_review_projects`. Then call `finalize_review_project`; the owner previews and approves in the app. Do not publish through another path.
 
-For approved images already in a Review Box project, use `import_review_images_to_master` with the existing planner master ID, expected master revision, source project ID and project revision. Match the exact linked listing ID, select the latest approved set and import one planner at a time. It copies images without changing the review project. Verify with `get_master_file`, including file checksums, temporary download URLs and positions. Each complete set is `thumbnail` (position 1), then `listing-image-1` through `listing-image-5` (positions 2–6). Master saves never update Etsy, publish or schedule anything.
+## Posting
 
-For local files uploaded through signed destinations, follow these steps:
+New Etsy listings use `create_review_project` with kind `etsy`, a stable submission key, SEO title, description, exactly 13 unique tags of at most 20 characters, and six matching `altText` entries. The server captures shared defaults from an existing listing. Attach `customer-pdf`, `thumbnail`, and `listing-image-1` through `listing-image-5`; finalize for owner approval. Only PDF customer downloads go to Etsy.
 
-1. Call `get_master_file` with the stable `master_id`. Download the current source files using the returned temporary URLs. Keep the `current_revision` and the existing file roles.
-2. Make only the requested edits using the relevant document or image workflow. For a planner, update the editable Word and matching PDF together when both are maintained, unless the owner requests work on only one format. Word files and blueprints are private editable master sources. Only PDFs are delivered through the owner's live Etsy listings. Preserve unrelated assets.
-3. Compute each changed file’s SHA-256 checksum and byte size. Keep one stable idempotency key for this batch and pass it to `prepare_master_upload` to reuse upload destinations on retry. Call `prepare_master_upload` with the same master ID, `expected_revision`, changed files and a short change note. Use the same role to replace an existing file, such as `docx` or `pdf`.
-4. Upload each file’s raw bytes to its returned signed upload URL using PUT, its MIME Content-Type and `x-upsert: false`, or the Supabase `uploadToSignedUrl` client method. Call `commit_master_upload` only after the uploads finish. The server verifies all bytes before atomically advancing the version.
-5. Report the saved revision only after commit succeeds. Retrying the same upload ID is safe. On a version conflict, retrieve the latest master and reconcile the changes; never silently retry against the newer revision with stale content.
+For a pin, retrieve existing boards with `list_pinterest_boards` and choose the closest relevant board. Use `prepare_pin_review` with the planner name, board ID, SEO title, description and stable submission key. The server resolves the planner's existing Etsy link. Attach the `pin-1` image and finalize. The owner reviews the image, copy, board and link before posting. No scheduling.
 
-A request to edit a master includes saving the completed edit back to it. This does not authorise publishing to Etsy. An older chat must fetch the current master again before starting new edits. There is no background watcher that syncs unrelated chat messages.
+## Storage
 
-Use `create_master_file` for a genuinely new master after checking for duplicates. Use `update_master_details` for the title, category or Etsy listing link, and `restore_master_version` for an explicitly requested rollback. History remains recoverable.
+Storage is one current DOCX backup per planner. Search `list_master_files`, then read `get_master_file` before replacing the existing master identity. Use `upload_master_files` for one actual ChatGPT DOCX attachment, with its file assignment, expected revision and stable idempotency key. Alternatively call `prepare_master_upload`, transfer actual bytes to the signed upload destination, then call `commit_master_upload`. Verify per-file save results and retrieve the stored file. Saves never publish.
 
-To prepare an Etsy digital-file update, use the linked listing, prepare its current review project, and call `attach_master_files_to_review` with only the customer PDF roles and explicit add/replacement choices. Replacements must identify the current Etsy file ID. Do not select Word files, private blueprints or ZIPs containing them for Etsy delivery. Do not change listing copy or promise Word delivery as part of a master-file save. The owner reviews the selected changes before publishing. Saving, restoring or linking a master never publishes.
+Use `create_master_file` only for a genuinely new planner after searching. `delete_master_file` permanently deletes its current DOCX. Previous backups are deleted after a verified replacement; no older versions are retained. Do not store PDFs, images or blueprints in this tab.
 
-## Existing Etsy listing image updates
+## Retries and cancellation
 
-When the owner names an existing product and asks for new Etsy photos:
+Reuse the same submission/upload key and content after a lost response. A conflict requires reading current state; do not overwrite a newer submission with stale data. Never claim a transfer succeeded without returned save results.
 
-1. Find the listing by product or destination name. Do not ask the owner for a listing ID.
-2. Prepare an image-only update project. Store only the secure target listing ID, its six image positions and current alt text. Do not copy title, description, tags, price, quantity, PDF or any other listing content into the review project.
-3. Attach exactly one approved replacement thumbnail as `thumbnail` and five approved replacement listing photos as `listing-image-1` through `listing-image-5`.
-4. Set exactly six meaningful matching entries in `manifest.altText`.
-5. Finalize the project for review. The review card must show only the six replacement images and their alt text.
-6. The owner presses **Replace Etsy images**. That action overwrites image positions 1–6 and their alt text while leaving every other live Etsy field untouched.
-
-Never send listing copy or product files for an existing-listing image update. Never create a new listing. Never claim Etsy changed before the owner approves and the update returns success.
-
-## Other pack rules
-
-- Etsy: create the customer PDF, one thumbnail and five additional listing images, SEO title (maximum 140 characters), full description, price in GBP (default £14.99 unless the owner specifies otherwise), quantity (default 999), exactly 13 unique tags of at most 20 characters, and six image alt texts. Include the Etsy `taxonomyId` when known; otherwise Seller Tools securely infers the shop’s established listing category at publish time. Use roles `customer-pdf`, `thumbnail`, and `listing-image-1` through `listing-image-5`, then finalize.
-- Pinterest: create the requested batch of 1–50 Pins. Each Pin needs its image, SEO title, description, alt text, exact destination link and board. Attach an image for every Pin before finalizing.
-
-Do not mark a project ready until its required files pass `finalize_review_project`. Preserve an existing project when the owner explicitly asks to revise it. Never claim Etsy or Pinterest was published unless the corresponding connected publishing tool returns success. Ask for immediate confirmation before `clear_review_project`.
+`clear_review_project` permanently deletes a pending submission and its assets after the owner requests cancellation. It does not undo live changes. Uncertain platform writes stay locked until their live result is checked in the app; never work around that lock by creating another copy.

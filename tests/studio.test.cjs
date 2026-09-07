@@ -1,0 +1,17 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {JSDOM}=require('jsdom');
+function studio(projects=[]){
+ const dom=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://example.test/',runScripts:'outside-only'});
+ const w=dom.window;let auth;
+ const client={auth:{onAuthStateChange:fn=>auth=fn},from:()=>({select:()=>({in:()=>({order:async()=>({data:projects})})})})};
+ w.supabase={createClient:()=>client};w.structuredClone=structuredClone;w.AbortSignal=AbortSignal;w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;};
+ const vm=require('node:vm'); new vm.Script(fs.readFileSync('studio.js','utf8')).runInContext(dom.getInternalVMContext());
+ return {w,dom,auth,run:code=>new vm.Script(code).runInContext(dom.getInternalVMContext())};
+}
+test('exactly three bottom tabs in the agreed order and Editing is the default',()=>{const {w,dom}=studio();assert.deepEqual([...w.document.querySelectorAll('nav button')].map(x=>x.textContent),['Editing','Posting','Storage']);assert.equal(w.document.querySelector('[aria-current=page]').dataset.tab,'editing');assert.equal(w.document.querySelectorAll('script[src*=workspace]').length,0);dom.window.close();});
+test('signed-out storage and review contents are removed',()=>{const {w,auth,dom}=studio();w.document.querySelector('#content').textContent='private content';auth('SIGNED_OUT',null);assert.equal(w.document.querySelector('#content').textContent,'');assert.equal(w.document.querySelector('#workspace').hidden,true);assert.equal(w.document.querySelector('#navigation').hidden,true);dom.window.close();});
+test('untrusted content is escaped and unsafe preview URLs are rejected',()=>{const {run,dom}=studio();assert.equal(run("safeUrl('javascript:alert(1)')"),'');assert.equal(run("safeUrl('https://www.etsy.com/listing/123')"),'https://www.etsy.com/listing/123');assert.equal(run("escapeHtml('<img onerror=alert(1)>')"),'&lt;img onerror=alert(1)&gt;');dom.window.close();});
+test('failed publication cannot be retried blindly from the approval preview',()=>{const {w,run,dom}=studio();run(`state.connections=[{platform:'etsy',status:'connected'}];state.projects=[{id:'example',title:'Planner',status:'failed',kind:'etsy',manifest:{mode:'edit',updateFields:{title:'New title'},existingSnapshot:{title:'Old title'},updateScope:['title']}}];openReview('example');`);assert.equal(w.document.querySelector('[data-approve]').disabled,true);assert.match(w.document.querySelector('#review-content').textContent,/Old title/);assert.match(w.document.querySelector('#review-content').textContent,/New title/);dom.window.close();});
+test('storage renders only the current Word file and no old image or PDF controls',()=>{const {w,run,dom}=studio();run(`state.masters=[{id:'example',title:'Planner',files:[{role:'docx',name:'Current.docx'},{role:'pdf',name:'Private.pdf'},{role:'thumbnail',name:'Image.jpg'}]}];renderStorage();`);const text=w.document.querySelector('#content').textContent;assert.match(text,/Current.docx/);assert.doesNotMatch(text,/Private.pdf|Image.jpg|history|revision/i);assert.equal(w.document.querySelector('input[type=file]').accept,'.docx');dom.window.close();});

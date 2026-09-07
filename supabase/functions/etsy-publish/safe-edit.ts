@@ -10,7 +10,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
   const { error: lockError } = await admin.from('seller_publish_runs').insert({
     id: runId, project_id: project.id, listing_key: listingId, revision: project.revision, status: 'running',
   });
-  if (lockError) throw new Error('This listing already has a running or unresolved update. Review its publishing history first.');
+  if (lockError) throw new Error('This listing already has a running or unresolved update. Check the current result before retrying.');
   const steps: any[] = [];
   let attempted = false, claimed = false;
   const writeRun = async (changes: any) => {
@@ -24,6 +24,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     const result = await action();
     steps[steps.length - 1].status = 'confirmed';
     const resource = result?.results?.[0] || result;
+    if (resource?.listing_file_id) steps[steps.length - 1].file_id = String(resource.listing_file_id);
     if (resource?.listing_image_id) steps[steps.length - 1].image_id = String(resource.listing_image_id);
     await writeRun({ steps });
     return result;
@@ -36,6 +37,8 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     claimed = true;
     const original = await api.fetch(`/listings/${listingId}?includes=Images,Personalization`, token);
     if (String(original.user_id || '') !== String(credential.etsy_user_id)) throw new Error('That listing does not belong to the connected Etsy account.');
+    original.images=(await api.fetch(`/listings/${listingId}/images`,token)).results;
+    if(!Array.isArray(original.images))throw new Error('Etsy image readback is unavailable.');
     const files = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results || [];
     const before = listingSnapshot(original);
     const captured = listing.manifest.existingSnapshot;
@@ -44,15 +47,6 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     }
     const updates = [...(listing.fileUpdates || [])].sort((a, b) => (a.action === 'add' ? 1 : 0) - (b.action === 'add' ? 1 : 0));
     if (listing.scopes.includes('files')) preflightFiles(files, updates);
-    const masterPublications:any[]=[];
-    for(const source of listing.scopes.includes('files') ? project.manifest.masterSources||[] : []) {
-      const update=updates.find((x:any)=>x.role===source.asset_role);
-      if(!update)continue;
-      if(!api.userId || update.item?.checksum!==source.asset_checksum)throw new Error('The master attachment changed. Prepare a fresh master-file update.');
-      const {data:version,error:versionError}=await admin.from('seller_master_versions').select('files').eq('master_id',source.master_id).eq('user_id',api.userId).eq('revision',source.master_revision).maybeSingle();
-      if(versionError||!version?.files?.some((f:any)=>f.role===source.role&&f.checksum===source.checksum))throw new Error('The referenced master revision could not be verified.');
-      masterPublications.push({master_id:source.master_id,user_id:api.userId,role:source.role,listing_id:listingId,checksum:source.checksum,master_revision:source.master_revision,project_id:project.id});
-    }
     const images = original.images || [];
     const ranks = new Set<number>();
     for (const image of listing.images || []) {
@@ -61,6 +55,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (Array.isArray(listing.manifest.existingImages)) {
         const captured = listing.manifest.existingImages.find((x:any)=>Number(x.rank)===Number(image.rank));
         const actual = images.find((x:any)=>Number(x.rank)===Number(image.rank));
+        if(!actual)throw new Error(`Image ${image.rank} is missing. Restore the listing in Etsy before preparing its replacement.`);
         if (String(captured?.id||'')!==String(actual?.listing_image_id||'')) throw new Error(`Image ${image.rank} changed since this draft was prepared. Review a fresh update.`);
       }
     }
@@ -89,9 +84,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       const uploaded = response?.results?.[0] || response;
       if (!uploaded?.listing_image_id) throw new Error(`Etsy did not confirm image ${image.rank}'s ID. Inspect the listing before retrying.`);
       expectedImages.set(Number(image.rank), String(uploaded.listing_image_id));
-      // Overwriting a slot can retain its previous alt text. Set the approved
-      // text against the confirmed new ID; never upload the image a second time.
-      await step(`Update replacement alt text ${image.rank}`, () => api.altText(credential.shop_id, listingId, token, { listingImageId: uploaded.listing_image_id, rank: Number(image.rank), altText: image.altText }));
+
     }
     for (const image of listing.altTextUpdates || []) await step(`Update alt text ${image.rank}`, () => api.altText(credential.shop_id, listingId, token, image));
     const expectedFiles = files.map((x: any) => ({ ...x }));
@@ -107,6 +100,8 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       } else expectedFiles.push({ ...uploaded, rank });
     }
     const current = await api.fetch(`/listings/${listingId}?includes=Images,Personalization`, token);
+    current.images=(await api.fetch(`/listings/${listingId}/images`,token)).results;
+    if(!Array.isArray(current.images))throw new Error('Etsy image readback is unavailable.');
     const currentFiles = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results || [];
     await writeRun({ after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles } });
     verifyFields(before, listingSnapshot(current), listing.fields);
@@ -126,11 +121,11 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (!actual || String(actual.listing_image_id) !== expectedImages.get(Number(replacement.rank)) || String(actual.alt_text || '') !== String(replacement.altText)) throw new Error(`Image ${replacement.rank} verification needs review.`);
     }
     const completedAt = new Date().toISOString();
-    if(masterPublications.length){const {error:trackingError}=await admin.from('seller_master_publications').upsert(masterPublications.map(x=>({...x,published_at:completedAt})),{onConflict:'master_id,role,listing_id'});if(trackingError)throw trackingError;}
-    const audit = { runId, scopes: listing.scopes, before, approvedFields: listing.fields, verified: true, completedAt };
-    const { error } = await admin.from('review_projects').update({ status: 'published', platform_id: listingId, published_at: completedAt, last_error: null, manifest: { ...project.manifest, etsyUpdateAudit: audit } }).eq('id', project.id);
+
+    const audit = { runId, scopes: listing.scopes, verified: true, completedAt };
+    const { error } = await admin.from('review_projects').update({ status: 'published', platform_id: listingId, published_at: completedAt, last_error: null, manifest: {submissionFingerprint:project.manifest.submissionFingerprint,published:true},media:[],preview_path:null,title:'Published submission' }).eq('id', project.id);
     if (error) throw error;
-    await writeRun({ status: 'succeeded', after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles }, finished_at: completedAt });
+    await writeRun({ status: 'succeeded', before_state: {}, after_state: {verified:true}, finished_at: completedAt });
     return { ok: true, updated: true, verified: true, updated_fields: listing.scopes, listing_id: listingId, listing_url: `https://www.etsy.com/listing/${listingId}` };
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'Etsy update failed.';
