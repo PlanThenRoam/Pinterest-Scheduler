@@ -10,7 +10,7 @@ export function listingSnapshot(listing: any) {
   const result: any = {};
   for (const [key, apiKey] of Object.entries(FIELD_KEYS)) {
     const value = listing[apiKey];
-    result[key] = key === 'price' && value && typeof value === 'object'
+    result[key] = ['tags','materials','styles'].includes(key) && value == null ? [] : key === 'price' && value && typeof value === 'object'
       ? Number(value.amount) / Number(value.divisor || 100) : value ?? null;
   }
   return result;
