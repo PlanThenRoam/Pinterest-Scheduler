@@ -1,5 +1,5 @@
-const CACHE_NAME='ptr-seller-tools-v36';
-const APP_SHELL=['./index.html','./studio.js?v=36','./studio.css?v=36','./icon-192.png','./icon-512.png'];
+const CACHE_NAME='ptr-seller-tools-v37';
+const APP_SHELL=['./index.html','./studio.js?v=37','./studio.css?v=37','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('ptr-seller-tools-')&&key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',event=>{

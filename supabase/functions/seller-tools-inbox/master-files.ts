@@ -13,12 +13,12 @@ const revision = {type:'integer',minimum:0};
 export const IMAGE_ROLES = ['thumbnail','listing-image-1','listing-image-2','listing-image-3','listing-image-4','listing-image-5'];
 const requestKey = {type:'string',minLength:8,maxLength:120,pattern:'^[a-zA-Z0-9._:-]+$'};
 const fileInput = {type:'object',additionalProperties:false,properties:{download_url:{type:'string'},file_id:{type:'string'},mime_type:{type:'string'},file_name:{type:'string'}},required:['download_url','file_id']};
-const categories = ['planner'];
+const categories = ['planner','blueprint'];
 const tool = (name:string,description:string,properties:any,required:string[],readOnly=false) => ({name,description,inputSchema:{type:'object',additionalProperties:false,properties,required},annotations:{readOnlyHint:readOnly,destructiveHint:false,idempotentHint:readOnly,openWorldHint:false}});
 export const masterTools: any[] = [
  tool('list_master_files','Find current private master planners, blueprints and assets by title. Read the current master before editing; stored chat attachments may be stale. Returns metadata, not binary files.',{query:{type:'string'},category:{type:'string',enum:categories}},[],true),
  tool('get_master_file','Retrieve the latest master or a saved revision, its Word/PDF/image download URLs and version history. URLs expire in 15 minutes. Preserve master_id and current_revision for the save workflow.',{master_id:uuid,revision:{type:'integer',minimum:1}},['master_id'],true),
- tool('create_master_file','Create a private Word backup section for a planner. Does not upload or publish files. Search first to avoid duplicate masters.',{title:{type:'string',minLength:1,maxLength:180},category:{type:'string',enum:categories},listing_id:{type:'string',pattern:'^[0-9]+$'}},['title','category']),
+ tool('create_master_file','Create a private Word backup section for a planner or the shared blueprint. Does not upload or publish files. Search first to avoid duplicate masters.',{title:{type:'string',minLength:1,maxLength:180},category:{type:'string',enum:categories},listing_id:{type:'string',pattern:'^[0-9]+$'}},['title','category']),
  tool('prepare_master_upload','Reserve immutable signed upload destinations for one master revision. Upload the bytes, then call commit_master_upload. Batch matching Word and PDF together when both changed. Existing files remain current until commit succeeds.',{master_id:uuid,expected_revision:revision,reason:{type:'string',minLength:1,maxLength:500},idempotency_key:requestKey,files:{type:'array',minItems:1,maxItems:20,items:{type:'object',additionalProperties:false,required:['role','filename','size','checksum'],properties:{role:{type:'string',pattern:'^[a-z][a-z0-9_-]{0,59}$'},filename:{type:'string',maxLength:120},size:{type:'integer',minimum:1,maximum:MAX_FILE_BYTES},checksum:{type:'string',pattern:'^[a-f0-9]{64}$'},alt_text:{type:'string',maxLength:500},source_project_id:uuid}}}},['master_id','expected_revision','reason','files']),
  tool('commit_master_upload','Verify every uploaded file against its reserved size and SHA-256, then atomically make the batch current. Retrying the same upload_id is safe. A version conflict requires reading and reconciling the latest master. Never publish as part of saving.',{upload_id:uuid},['upload_id']),
 ];
@@ -40,10 +40,10 @@ for(let i=masterTools.length-1;i>=0;i--)if(!retainedMasterActions.has(masterTool
 masterTools.push(tool('delete_master_file','Permanently delete the current private Word backup for one planner. Never changes Etsy.',{master_id:uuid,expected_revision:revision},['master_id','expected_revision']));
 for(const t of masterTools){
  if(t.name==='get_master_file'){delete t.inputSchema.properties.revision;t.description='Read the current private Word backup. Older versions are not retained.';}
- if(t.inputSchema.properties.category)t.inputSchema.properties.category.enum=['planner'];
+ if(t.inputSchema.properties.category)t.inputSchema.properties.category.enum=categories;
  if(t.name==='prepare_master_upload'){const f=t.inputSchema.properties.files;f.maxItems=1;f.items.properties.role={type:'string',enum:['docx']};t.description='Reserve upload of one current private DOCX backup. Upload bytes then commit. Previous backup is deleted only after verification.';}
  if(t.name==='upload_master_files'){t.inputSchema.properties.files.maxItems=1;t.inputSchema.properties.assignments.maxItems=1;t.inputSchema.properties.assignments.items.properties.role={type:'string',enum:['docx']};t.description='Save one actual Word DOCX as the current private backup. Replaces and deletes the previous file; never publishes.';}
- if(t.name==='list_master_files')t.description='Find each planner and its current private Word backup.';
+ if(t.name==='list_master_files')t.description='Find planner and blueprint records and their current private Word backups. Use category blueprint for the shared blueprint.';
 }
 export const masterToolNames = new Set(masterTools.map(x=>x.name));
 
@@ -128,7 +128,8 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
   return {...saved,deleted:true,etsy_updated:false};
  }
  if(name==='create_master_file'){
-  ensure(args.category==='planner','Storage contains planner Word backups only.');
+  ensure(categories.includes(args.category),'Choose planner or blueprint storage.');
+  if(args.category==='blueprint'){const existing=result(await db.from('seller_master_records').select('*').eq('user_id',userId).eq('category','blueprint').maybeSingle());if(existing)return {master:existing};args={...args,title:'Planner & Listing Blueprint',listing_id:undefined};}
   const data=checkMetadata(args,true);
   const saved=await admin.from('seller_master_records').insert({...data,user_id:userId}).select('*').single();
   if(saved.error?.code==='23505')throw new Error('A master with this title already exists. Open it to update its files.');
