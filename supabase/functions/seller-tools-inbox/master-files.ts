@@ -129,7 +129,7 @@ export async function handleMasterTool(name:string,args:any,ctx:any){
  }
  if(name==='create_master_file'){
   ensure(categories.includes(args.category),'Choose planner or blueprint storage.');
-  if(args.category==='blueprint'){const existing=result(await db.from('seller_master_records').select('*').eq('user_id',userId).eq('category','blueprint').maybeSingle());if(existing)return {master:existing};args={...args,title:'Planner & Listing Blueprint',listing_id:undefined};}
+  if(args.category==='blueprint'){const existing=result(await db.from('seller_master_records').select('*').eq('user_id',userId).eq('category','blueprint').maybeSingle());if(existing)return {master:existing};args={...args,title:'Planner & Listing Blueprint'};delete args.listing_id;}
   const data=checkMetadata(args,true);
   const saved=await admin.from('seller_master_records').insert({...data,user_id:userId}).select('*').single();
   if(saved.error?.code==='23505')throw new Error('A master with this title already exists. Open it to update its files.');
