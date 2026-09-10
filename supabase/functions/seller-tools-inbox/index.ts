@@ -13,7 +13,7 @@ const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const APP_VERSION = 37;
-const API_CAPABILITY_VERSION = "4.1.0";
+const API_CAPABILITY_VERSION = "4.1.1";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -198,7 +198,8 @@ Deno.serve(async(req:Request)=>{
   if(name==="list_review_projects"){
    let query=db.from("review_projects").select("id,kind,title,status,manifest,revision,revision_request,scheduled_for,updated_at").in("kind",["etsy","pinterest"]).order("updated_at",{ascending:false}).limit(50);
    if(args.kind)query=query.eq("kind",args.kind);if(args.status)query=query.eq("status",args.status);
-   const {data,error}=await query;if(error)throw error;let etsy_listings:any[]=[];if(args.kind==="etsy"){const shop=await publisherRequest(auth,"?state=active");etsy_listings=shop.listings||[]}return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true,master_files:true},master_files_workflow:"Use list_master_files and get_master_file before editing. Save through prepare_master_upload and commit_master_upload. Master saves never publish to Etsy.",mcp_registration:registration,projects:data,etsy_listings}));
+   // Review reads must not fetch the entire Etsy shop. Live listing details have a dedicated tool.
+   const {data,error}=await query;if(error)throw error;return rpc(id,output({seller_tools_status:{app_version:APP_VERSION,api_capability_version:API_CAPABILITY_VERSION,server:"PlanThenRoam Seller Tools",live:true,master_files:true},master_files_workflow:"Use list_master_files and get_master_file before editing. Save through prepare_master_upload and commit_master_upload. Master saves never publish to Etsy.",mcp_registration:registration,projects:data,etsy_listings:[],etsy_listings_included:false,etsy_listings_next_action:"Use list_etsy_shop_listings with a product query when live Etsy details are needed."}));
   }
   const {data:project,error:projectError}=await db.from("review_projects").select("*").eq("id",args.project_id).single();
   if(!project&&name==="clear_review_project"&&args.confirmed===true)return rpc(id,output({project_id:args.project_id,deleted:true,already_deleted:true}));
