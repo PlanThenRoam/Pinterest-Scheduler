@@ -259,7 +259,14 @@ Deno.serve(async(req:Request)=>{
   if(name==="clear_review_project"){
    if(args.confirmed!==true)throw new Error("Confirm cancellation before deleting the submission.");
    const admin=createClient(projectUrl,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
-   return rpc(id,output(await cancelReview(admin,project,userData.user.id)));
+   return rpc(id,output(await cancelReview(admin,project,userData.user.id,async(listingId:string)=>{
+    for(const state of ['active','draft','inactive','expired','sold_out']){
+     const data=await publisherRequest(auth,'?state='+state);
+     const listing=(data.listings||[]).find((item:any)=>String(item.listing_id)===listingId);
+     if(listing)return listing;
+    }
+    throw new Error('The Etsy listing could not be found. This submission has been kept.');
+   })));
   }
   return fail(id,-32601,"Unknown tool");
  }catch(error){return fail(id,-32000,error instanceof Error?error.message:"Tool failed")}
