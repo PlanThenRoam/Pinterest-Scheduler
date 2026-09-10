@@ -158,7 +158,7 @@ function moneyValue(price: any, fallback = 14.99) {
 
 function appendArray(form: URLSearchParams, name: string, values: unknown) {
   if (!Array.isArray(values)) return;
-  for (const value of values) if (String(value).trim()) form.append(name, String(value).trim());
+  for (const [index, value] of values.entries()) if (String(value).trim()) form.append(`${name}[${index}]`, String(value).trim());
 }
 
 function listingDefaults(template:any){return {price:moneyValue(template.price),quantity:Number(template.quantity)||999,taxonomy_id:template.taxonomy_id,who_made:template.who_made||'i_did',when_made:template.when_made||'2020_2026',is_supply:template.is_supply??false,is_taxable:template.is_taxable??true,should_auto_renew:template.should_auto_renew??true,shop_section_id:template.shop_section_id||null,materials:template.materials||[],styles:template.styles||[],is_customizable:template.is_customizable??false,readiness_state_id:template.readiness_state_id||null,currency:template.price?.currency_code||'GBP'};}
@@ -180,7 +180,7 @@ async function createDraft(shopId: string, token: string, data: any, template: a
   appendArray(form, "styles", template.styles);
   if (template.is_customizable) form.set("is_customizable", "true");
   if (template.readiness_state_id) form.set("readiness_state_id", String(template.readiness_state_id));
-  for (const tag of data.tags) form.append("tags", tag);
+  appendArray(form, "tags", data.tags);
   return await etsyFetch(`/shops/${shopId}/listings`, token, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
