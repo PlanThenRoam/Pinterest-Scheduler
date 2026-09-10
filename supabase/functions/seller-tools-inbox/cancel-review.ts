@@ -1,7 +1,22 @@
 /** Permanent cancellation, with a publication lock retained for uncertain writes. */
-export async function cancelReview(admin:any, project:any, userId:string) {
+export async function cancelReview(admin:any, project:any, userId:string, readListing?:(id:string)=>Promise<any>) {
  const publish=project.manifest?.etsyPublish||{};
- if(project.manifest?.pinAttempted||publish.creationAttempted||publish.imageUploadAttempted||publish.fileUploadAttempted)throw new Error('A platform submission has started. Verify its result before deleting this submission.');
+ if(project.manifest?.pinAttempted)throw new Error('A platform submission has started. Verify its result before deleting this submission.');
+ // Completed new-listing attempts may have failed only at final verification.
+ // Resolve their known Etsy result through an authenticated read, never a retry.
+ if(publish.creationAttempted||publish.imageUploadAttempted||publish.fileUploadAttempted){
+  const knownId=String(publish.listingId||'');
+  if(project.kind!=='etsy'||project.manifest?.mode==='edit'||project.status!=='failed'||
+    !/^[0-9]+$/.test(knownId)||String(project.platform_id||'')!==knownId||
+    publish.imageUploadAttempted||!publish.fileUploaded||!publish.fileId||
+    !Array.isArray(publish.imageIds)||publish.imageIds.length!==6||publish.imagesUploaded!==6||!readListing)
+   throw new Error('A platform submission has started. Verify its result before deleting this submission.');
+  const live=await readListing(knownId);
+  const imageIds=new Set((live?.images||[]).map((image:any)=>String(image.listing_image_id)));
+  if(String(live?.listing_id||'')!==knownId||!['active','draft','inactive','expired','sold_out'].includes(live?.state)||
+    !publish.imageIds.every((id:any)=>imageIds.has(String(id))))
+   throw new Error('The current Etsy result could not be verified. This submission has been kept.');
+ }
  const checked=(r:any)=>{if(r.error)throw r.error;return r.data;};
  const runs=checked(await admin.from('seller_publish_runs').select('id,status').eq('project_id',project.id))||[];
  if(project.status==='publishing'||runs.some((r:any)=>['running','needs_review'].includes(r.status)))throw new Error('Publication is still unresolved. Check its live result before deleting this submission.');
