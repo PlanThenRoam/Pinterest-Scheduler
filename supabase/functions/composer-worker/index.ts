@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.115.0';
 import {createRemoteJWKSet,jwtVerify} from 'npm:jose@6.1.3';
-import {hash,assert} from '../composer/core.mjs';
+import {hash,assert,outputSize} from '../composer/core.mjs';
 import {inspectPng} from '../composer/archive.mjs';
 import {BUCKET,checked,selectedAssets,assetUrls,handleComposer} from '../composer/actions.ts';
 const jwks=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
@@ -54,8 +54,8 @@ Deno.serve(async req=>{
   }
   if(a.action==='complete'){
    assert(a.validation?.valid===true&&a.validation.exact_text===true&&a.validation.font_families===1&&a.validation.font_loaded===true&&a.validation.overflow===false,'Render validation failed');
-   if(a.renderer?.version==='1.1.0')assert(a.validation.full_decode===true&&a.validation.asset_checksums===true&&a.validation.page_contain===true&&a.validation.isolated_words===false&&a.preflight?.valid===true,'Complete integrity validation is required');
-   const started=performance.now(),verified=await verifyObject(admin,path,{checksum:a.checksum,width:1080,height:1080});await sourceCurrent(admin,c);
+   if(['1.1.0','1.2.0'].includes(a.renderer?.version))assert(a.validation.full_decode===true&&a.validation.asset_checksums===true&&a.validation.page_contain===true&&a.validation.isolated_words===false&&a.preflight?.valid===true,'Complete integrity validation is required');
+   const started=performance.now(),verified=await verifyObject(admin,path,{checksum:a.checksum,...outputSize(c.spec.output_type)});await sourceCurrent(admin,c);
    const timings={...safeTimings(a.timings),storage_verification_ms:Math.round(performance.now()-started)},saved=checked(await admin.rpc('composer_finish_job',{p_id:c.id,p_revision:c.revision,p_lease:c.lease,p_status:'ready',p_result:{...verified,path,validation:a.validation,renderer:a.renderer,resolved_layout:a.resolved_layout,preflight:a.preflight||null},p_timings:timings,p_validation:a.validation}));if(!saved){checked(await admin.storage.from(BUCKET).remove([path]));throw Error('Composition changed while rendering');}return json({saved:true,...verified});
   }
   throw Error('Unknown worker action');
