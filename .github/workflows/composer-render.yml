@@ -1,0 +1,38 @@
+name: Private Marketing Composer
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'composer/**'
+      - 'supabase/functions/composer/**'
+      - 'supabase/functions/composer-worker/**'
+      - '.github/workflows/composer-render.yml'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: private-marketing-composer
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: composer/package-lock.json
+      - id: probe
+        run: node probe.mjs
+        working-directory: composer
+      - if: steps.probe.outputs.pending == 'true'
+        run: npm ci --no-audit --no-fund
+        working-directory: composer
+      - if: steps.probe.outputs.pending == 'true'
+        run: node worker.mjs
+        working-directory: composer

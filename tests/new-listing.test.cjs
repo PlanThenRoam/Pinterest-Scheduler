@@ -12,7 +12,7 @@ function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescript
   const path=new URL(url).pathname,method=init.method||'GET';
   if(!url.startsWith('https://openapi.etsy.com/'))throw Error('Unexpected external request');
   const ok=data=>new Response(JSON.stringify(data),{status:200});
-  if(path.endsWith('/listings')&&method==='POST'){writes.push('create');draftFields={title:init.body.get('title'),description:wrongDescription?'Unexpected':init.body.get('description'),tags:init.body.getAll('tags'),price:Number(init.body.get('price'))};return ok({listing_id:'12345'});}
+  if(path.endsWith('/listings')&&method==='POST'){writes.push('create');draftFields={title:init.body.get('title'),description:wrongDescription?'Unexpected':init.body.get('description'),tags:[...init.body.entries()].filter(([k])=>/^tags\[\d+\]$/.test(k)).map(([,v])=>v),price:Number(init.body.get('price'))};return ok({listing_id:'12345'});}
   if(path.endsWith('/images')&&method==='GET')return ok({results:images});
   if(path.endsWith('/images')&&method==='POST'){
    const form=init.body;
