@@ -1,4 +1,4 @@
-export const VERSION='1.0.0';
+export const VERSION='1.1.0';
 export const FONTS=['Cormorant Garamond','Playfair Display','DM Serif Display','Bodoni Moda','Lora','Fraunces','Prata','Libre Baskerville','Spectral','EB Garamond','Merriweather','Source Serif 4','Libre Caslon Display','Cardo','Crimson Pro','Vollkorn','Alegreya','Noto Serif','Newsreader','Instrument Serif'];
 export const PROFILES=['upper_left','upper_right','left','right','lower_third','central_vista_quiet_edges','upper_area','asymmetrical_editorial','strong_foreground_clear_upper_space','balanced_premium'];
 export const PRESETS=['auto','vista_hook','editorial_hook','proof_right','proof_left','proof_centre','proof_pair'];
