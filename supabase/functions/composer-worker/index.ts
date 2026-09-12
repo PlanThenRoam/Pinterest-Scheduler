@@ -26,7 +26,13 @@ Deno.serve(async req=>{
    return json({results});
   }
   await github(token);
-  if(a.action==='has_work'){const q=await admin.from('composer_compositions').select('id',{count:'exact',head:true}).in('status',['queued','running']);checked(q);return json({pending:(q.count||0)>0});}
+  if(a.action==='has_work'){const q=await admin.from('composer_compositions').select('id',{count:'exact',head:true}).in('status',['queued','running']);checked(q);const audits=await admin.from('composer_assets').select('id',{count:'exact',head:true}).eq('ready',false).eq('metadata->>verify_uploaded','true');checked(audits);return json({pending:(q.count||0)>0||(audits.count||0)>0});}
+  if(a.action==='verify_uploaded'){
+   // Verify only administrator-identified objects already present in private storage. No upload or external source URL is accepted here.
+   const assets=checked(await admin.from('composer_assets').select('*').eq('ready',false).eq('metadata->>verify_uploaded','true').limit(20));
+   const results=await Promise.all(assets.map(async(x:any)=>{try{await verifyObject(admin,x.path,x);checked(await admin.from('composer_assets').update({ready:true,metadata:{...x.metadata,verify_uploaded:false}}).eq('id',x.id));return {verified:true};}catch(e){checked(await admin.from('composer_assets').update({metadata:{...x.metadata,verify_uploaded:false,verification_error:(e as Error).message.slice(0,200)}}).eq('id',x.id));return {verified:false};}}));
+   return json({processed:results.length,verified:results.filter(r=>r.verified).length});
+  }
   if(a.action==='claim'){
    // A lost runner releases its lease. At most three automatic attempts.
    checked(await admin.from('composer_compositions').update({status:'queued',lease:null,lease_until:null}).eq('status','running').lt('lease_until',new Date().toISOString()).lt('attempts',3));
