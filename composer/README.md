@@ -4,22 +4,32 @@ Implements `PlanThenRoam_Marketing_Composer_Authoritative_Spec_v1.0.md` with the
 
 The Composer creates deterministic 1080 × 1080 PNGs from the locked final background bank, genuine current Word-master pages and one of twenty approved font families. No image-generation service, publishing endpoint or old video tool is used.
 
-## ChatGPT workflow
+## Campaign workflow (API 4.3.0)
 
-1. Call `get_composer_catalog` with `include_options: true` once for the approved font weights/styles, profiles and layout presets. Filter subsequent catalogue calls by planner and asset kind. Results are paginated, at most twenty assets. Use `get_composer_asset` to inspect a single signed preview.
-2. Submit exact text, selected IDs and layout via `create_marketing_composition` with a stable idempotency key. `auto` resolves a layout from page count and composition profile. Explicit presets are also supported.
-3. Queue up to five items using `render_marketing_composition`. Read `get_composer_job` at least thirty seconds apart; processing can take several minutes. Scheduled GitHub jobs can be delayed by GitHub.
-4. Read `get_marketing_composition` for exact copy, resolved geometry, validation and the private preview. `update_marketing_composition` requires the current revision and invalidates that composition's previous approval.
-5. After owner review in ChatGPT, `export_marketing_composition` returns the reviewed PNG bytes through a fifteen-minute signed URL. It cannot publish or schedule. Download names contain planner/composition IDs and revision.
-6. `delete_marketing_composition` cancels work and removes that composition's output files. Shared backgrounds, page assets and Word masters are untouched. Failed deletions can be retried.
+1. `get_composer_campaign_brief` returns the next saved planned campaign (or named planner), saved exact copy, current genuine page titles, observed background scene descriptions and recent approved typography. Missing agreed copy is labelled `NEEDS_COPY`; the action never invents it. `save_composer_campaign_brief` saves a plan, provenance, agreed copy and queue position across chats. Source document version is separate from campaign revision.
+2. Settle copy, genuine pages and backgrounds. `submit_marketing_campaign` saves exactly five numbered slide specifications in one atomic transaction and queues them. Use a stable `idempotency_key`. Existing campaigns require the campaign revision and every slide revision. A retry cannot duplicate slides; a correction queues only changed slides. A new retry key can retry failed unchanged slides.
+3. Actual embedded-font preflight runs before asset downloads or PNG rendering. It measures line wrapping and isolated final words, tries balanced wrapping and sizes within the established readability bounds, and retains every character and explicit newline. It returns measured lines, original isolated words, selected sizes and adjustment warnings. `preflight_marketing_campaign` can queue this stage separately for saved draft slides. Existing validated ready slides retain their measurements. It is asynchronous, not a synchronous font service.
+4. `get_marketing_campaign` returns all five signed previews, exact copy, revisions, validation, measured text and stage timings together. Review every slide visually. Poll at least thirty seconds apart. The returned `review_token` identifies the exact five revisions and checksums.
+5. After explicit owner approval, `export_marketing_campaign` validates that review token, all current sources and all five stored PNG checksums. It returns five numbered PNG downloads and a private ZIP. Both first export and retries retain the exact reviewed bytes. Signed downloads expire after fifteen minutes and can be renewed by retrieval/export. A concurrent revision or source change blocks approval.
+6. `delete_marketing_campaign` cancels all five slides atomically before deleting outputs. Cancellation and cleanup can be retried. Shared sources and masters are preserved.
 
-`validate_marketing_composition` checks current source identities and geometry immediately. Rendering additionally checks actual font loading, glyph coverage, measured text overflow, exact text, visible text pixels, contrast, asset checksums and PNG dimensions.
+The ten existing individual-composition actions remain available. No publication or scheduling is available through any Composer action. Private campaign data is never part of the public repository.
+
+## Renderer startup and performance
+
+Submission requests an immediate dispatch of the existing `composer-render.yml` workflow. Configure a repository-scoped GitHub credential with **Actions: write** as the Supabase Edge Function secret `COMPOSER_GITHUB_DISPATCH_TOKEN`. The workflow URL and `main` ref are fixed in code. A missing credential, rejected request or timeout returns an explicit `scheduled_backup` response; it never claims immediate startup. GitHub scheduling remains the backup and may be delayed. This connection cannot provision GitHub credentials.
+
+One worker reuses one browser, separate pages, pinned fonts and a bounded 128 MiB cache of fully decoded and checksum-verified source bytes. Cache keys include owner, asset identity, checksum and dimensions. The default is two simultaneous slides; `COMPOSER_CONCURRENCY` supports one to three. The workflow caches its pinned installed dependencies and only installs/renders when work exists.
+
+The private five-slide benchmark on 12 September measured 7.131 s with five browser instances, 6.637 s with a shared serial browser, 5.329 s with concurrency two and 4.786 s with concurrency three. All twenty outputs had identical per-slide checksums and passed full validation. These are local renderer-only measurements after source downloading, not end-to-end service promises. Source retrieval took 73.890 s separately. Creative preparation, GitHub startup, queue wait, uploads and export are excluded from those renderer figures.
+
+Campaign results report client-declared preparation, first submitted time, queue wait, font loading, text preflight, asset loading, rendering, PNG encoding, validation, result upload, storage verification and export. First-pass completion and later corrected completion are separate. Historical campaigns have no fabricated timings. Concurrent slide durations overlap and must not be added as elapsed campaign time.
 
 ## Implementation
 
 - `supabase/functions/composer`: shared schemas, owner-scoped actions, immutable asset references, deterministic layout and font catalogue.
 - `supabase/functions/composer-worker`: authenticated GitHub OIDC queue worker and scoped one-time asset ingestion. It accepts only this repository's main-branch Composer workflow identity. Import grants are hashed, time-limited and restricted to exact owner asset IDs.
-- `supabase/rebuild/composer.sql`: four new private tables and a private PNG bucket. Browser roles have no table grants or storage access policies.
+- `supabase/rebuild/composer.sql`: private source/composition tables and a private bucket; `composer-campaigns.sql` adds campaign, request and attempt records plus owner-checked atomic RPCs. Browser roles have no table grants or storage access policies.
 - `composer/renderer.mjs`: pinned Chromium/Playwright, Fontsource, fontkit and Sharp. Assets and fonts are loaded as local data; page rendering cannot fetch external URLs. Fonts are embedded, not substituted. Text and CTA use the one selected family; genuine page rasters preserve the source document's typography.
 - `composer/browser.mjs`: portable extraction of the pinned browser and an explicit font configuration. Font files and browser version are captured in render results.
 - `.github/workflows/composer-render.yml`: five-minute polling on the existing repository's standard runner. The lightweight probe skips installation and rendering when no jobs are queued. No service-role key is placed in GitHub or returned to ChatGPT.
@@ -34,14 +44,17 @@ Provision asset rows through authenticated database administration, and issue a 
 
 ## QA
 
+`supabase/rebuild/composer-campaigns-qa.sql` exercises actual database transactions and rolls back every test row. It covers create/update idempotency, five-slide atomicity, exclusive claims, stale leases, unchanged slide preservation, stale/null export checks, ZIP retry identity, cancellation and RPC access. Run it through authorised database administration after the additive migration. `composer/benchmark.mjs` accepts a private five-slide input manifest and produces private benchmark previews/results; never commit that manifest or its signed URLs.
+
+
 Run `npm test` from the repository root for existing app regression tests. Run `npm ci && npm test` in `composer` for source validation, action isolation, retry/revision/cancellation tests, all twenty real font renders, contrast/overflow rejection and identical-byte rerenders.
 
 For private acceptance assets, `node composer/qa.mjs /path/to/private-assets` exercises Christmas in New York, Greece, Iceland and Munich with genuine pages and their correct backgrounds. Inspect the four PNGs visually. Keep acceptance outputs private and unpublished.
 
 ## Operational boundaries
 
-There is no Composer user interface in the seller app. Updating the MCP server's tool catalogue cannot force an already open ChatGPT session to reload its cached actions; refresh the connection when the ten Composer actions are absent. The app shell remains version 37; API capability metadata is 4.2.0 and Composer renderer version is 1.0.0.
+There is no Composer user interface in the seller app. Updating the MCP server's tool catalogue cannot force an already open ChatGPT session to reload its cached actions; refresh the connection when the seventeen Composer actions are absent. The app shell remains version 37; API capability metadata is 4.3.0 and Composer renderer version is 1.1.0.
 
 Protected focal zones are enforced when supplied. The initial background bank has no human-verified focal-zone rectangles, so each output still requires visual review. Font and geometry checks cannot establish marketing claims or predict conversion rates. Background choice, copy accuracy and genuine-page suitability remain review decisions.
 
-No new hosting subscription or generation API is introduced. The private asset bank occupies approximately 834 MB in the existing Supabase storage allocation; storage and bandwidth still count toward that account's limits. GitHub scheduling is asynchronous and provides no immediate-render latency guarantee.
+No new hosting subscription or generation API is introduced. The private asset bank occupies approximately 834 MB in the existing Supabase storage allocation; storage and bandwidth still count toward that account's limits. GitHub startup is asynchronous even after accepted immediate dispatch; there is no guaranteed completion latency.

@@ -1,0 +1,51 @@
+-- Integration checks leave no rows, files or approvals behind.
+begin;
+do $$
+declare base composer_compositions; cid uuid=gen_random_uuid(); owner_id uuid; slides jsonb; result jsonb; n int; first_job composer_compositions; second_job composer_compositions; snap jsonb; previous_ids uuid[]; caught boolean;
+begin
+ select * into base from composer_compositions where status='ready' and jsonb_array_length(assets)>0 limit 1;
+ if base.id is null then raise exception 'A verified test source is required'; end if;
+ owner_id=base.user_id;
+ select jsonb_agg(jsonb_build_object('number',i,'composition',base.spec,'layout',base.layout,'assets',base.assets,'hash',md5(base.spec::text))) into slides from generate_series(1,5) i;
+ result=composer_save_campaign(owner_id,cid,null,'qa:'||cid,'hash1','brief1','PRIVATE ROLLBACK QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');
+ if (result->>'changed_slides')::int<>5 or (result->>'queued_slides')::int<>5 then raise exception 'Five-slide atomic save failed'; end if;
+ select array_agg(id order by slide_number) into previous_ids from composer_compositions where campaign_id=cid;
+ result=composer_save_campaign(owner_id,cid,null,'qa:'||cid,'hash1','brief1','PRIVATE ROLLBACK QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');
+ if result->>'replayed'<>'true' or (select count(*) from composer_compositions where campaign_id=cid)<>5 then raise exception 'Replay duplicated rows'; end if;
+ caught=false;begin perform composer_save_campaign(owner_id,cid,null,'qa:'||cid,'different','brief1','QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');exception when others then caught=true;end;
+ if not caught then raise exception 'Changed content reused an idempotency key'; end if;
+ -- Exercise the real claim function only for this transaction's earlier queue.
+ update composer_compositions set queued_at='2000-01-01' where campaign_id=cid;
+ select * into first_job from composer_claim_jobs(1);
+ select * into second_job from composer_claim_jobs(1);
+ if first_job.campaign_id<>cid or second_job.campaign_id<>cid or first_job.id=second_job.id then raise exception 'Claim identity/isolation failed'; end if;
+ if composer_finish_job(first_job.id,first_job.revision,gen_random_uuid(),'ready','{}','{}','{}') then raise exception 'Wrong lease completed a job'; end if;
+ if not composer_finish_job(first_job.id,first_job.revision,first_job.lease,'ready',base.result,'{"rendering_ms":1}','{"valid":true}') then raise exception 'Current lease did not complete'; end if;
+ update composer_compositions set status='ready',result=base.result,completed_at=now(),lease=null,lease_until=null where campaign_id=cid;
+ select jsonb_agg(jsonb_build_object('number',slide_number,'expected_revision',revision,'composition',case when slide_number=3 then jsonb_set(spec,'{headline}','"Changed QA copy"') else spec end,'layout',layout,'assets',assets,'hash','changed') order by slide_number) into slides from composer_compositions where campaign_id=cid;
+ result=composer_save_campaign(owner_id,cid,1,'qa-edit:'||cid,'hash2','brief2','PRIVATE ROLLBACK QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');
+ if (result->>'changed_slides')::int<>1 or (result->>'queued_slides')::int<>1 then raise exception 'Unchanged slides rerendered'; end if;
+ if (select array_agg(id order by slide_number) from composer_compositions where campaign_id=cid)<>previous_ids then raise exception 'Corrections changed slide identity'; end if;
+ if (select count(*) from composer_compositions where campaign_id=cid and status='ready' and revision=1)<>4 then raise exception 'Untouched results changed'; end if;
+ result=composer_save_campaign(owner_id,cid,1,'qa-edit:'||cid,'hash2','brief2','PRIVATE ROLLBACK QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');
+ if result->>'replayed'<>'true' then raise exception 'Update retry failed'; end if;
+ caught=false;begin perform composer_save_campaign(owner_id,cid,1,'qa-stale:'||cid,'hash3','brief3','QA',(base.spec->>'planner_id')::uuid,'{}',999,null,slides,true,'render');exception when others then caught=true;end;
+ if not caught then raise exception 'Stale campaign update accepted'; end if;
+ update composer_compositions set status='ready',result=base.result,completed_at=now() where campaign_id=cid;
+ select jsonb_agg(jsonb_build_object('number',slide_number,'composition_id',id,'revision',revision,'checksum',c.result->>'checksum') order by slide_number) into snap from composer_compositions c where campaign_id=cid;
+ caught=false;begin perform composer_approve_campaign(owner_id,cid,2,jsonb_set(snap,'{0,revision}','999'),'{}','{}');exception when others then caught=true;end;
+ if not caught or exists(select 1 from composer_compositions where campaign_id=cid and approved_revision is not null) then raise exception 'Stale approval was not atomic'; end if;
+ caught=false;begin perform composer_approve_campaign(owner_id,cid,2,jsonb_set(snap,'{0,checksum}','null'),'{}','{}');exception when others then caught=true;end;
+ if not caught then raise exception 'Null checksum bypassed approval'; end if;
+ perform composer_approve_campaign(owner_id,cid,2,snap,'{"review_token":"qa","path":"qa.zip"}','{}');
+ result=composer_approve_campaign(owner_id,cid,2,snap,'{"review_token":"qa","path":"retry.zip"}','{}');
+ if result->'bundle'->>'path'<>'qa.zip' then raise exception 'Export retry replaced an identical bundle'; end if;
+ result=composer_cancel_campaign(owner_id,cid,2);
+ if (select count(*) from composer_compositions where campaign_id=cid and status='cancelled')<>5 then raise exception 'Batch cancellation failed'; end if;
+ perform composer_cancel_campaign(owner_id,cid,2);
+ perform composer_purge_cancelled_campaign(owner_id,cid);
+ if exists(select 1 from composer_compositions where campaign_id=cid and composer_compositions.result is not null) then raise exception 'Cancelled outputs remain'; end if;
+ if has_function_privilege('authenticated','public.composer_save_campaign(uuid,uuid,integer,text,text,text,text,uuid,jsonb,integer,timestamptz,jsonb,boolean,text)','EXECUTE') then raise exception 'Owner bypass permitted'; end if;
+end $$;
+select 'PASS: atomic five-slide save, create/update retries, changed key rejection, exclusive claims, lease check, one-slide rerender, stable IDs, stale and null approval rejection, export retry, cancellation and restricted RPC access' as result;
+rollback;

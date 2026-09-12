@@ -1,0 +1,95 @@
+import {FONT_CATALOG} from './fonts.mjs';
+import {FONTS,PROFILES,PRESETS,canonical,hash,assert,resolveLayout} from './core.mjs';
+import {zipPngs,inspectPng} from './archive.mjs';
+import {wakeRenderer,dispatchConfigured} from './dispatch.ts';
+const bucket='composer-private',uid={type:'string',format:'uuid'},rev={type:'integer',minimum:1},key={type:'string',minLength:8,maxLength:120};
+const str=(max=500)=>({type:'string',maxLength:max}),arr=(item:any,max=10)=>({type:'array',maxItems:max,items:item});
+const checked=(r:any)=>{if(r.error)throw Error(r.error.message);return r.data;};
+const def=(name:string,description:string,properties:any,required:string[]=[],readOnlyHint=false)=>({name,description,inputSchema:{type:'object',additionalProperties:false,properties,required},annotations:{readOnlyHint,destructiveHint:name.startsWith('delete'),idempotentHint:true,openWorldHint:false}});
+const copy={type:'object',additionalProperties:false,properties:{number:{type:'integer',minimum:1,maximum:5},headline:str(240),supporting_copy:str(450),label:str(100),cta:str(100)},required:['number','headline']};
+const source={type:'object',additionalProperties:false,properties:{reference:str(500),version:str(80),angle:str(800),proof_points:arr(str(800)),scope:str(1500),preferred_page_titles:arr(str(180)),copy:{type:'array',minItems:5,maxItems:5,items:copy}},required:['reference']};
+export function campaignTools(spec:any){return [
+ def('get_composer_campaign_brief','Retrieve a saved next campaign or named planner brief, exact saved copy, current page titles, scene descriptions and recent typography in one response. Missing copy is explicit; never invented.',{campaign_id:uid,planner_id:uid,query:str(120)} ,[],true),
+ def('save_composer_campaign_brief','Save an agreed campaign plan and its queue position for any ChatGPT conversation. Draft copy remains draft; never publishes.',{campaign_id:uid,expected_revision:rev,idempotency_key:key,planner_id:uid,title:str(160),queue_position:{type:'integer',minimum:0},source},['idempotency_key','planner_id','title','source']),
+ def('submit_marketing_campaign','Save five settled slides atomically, run measured font preflight and queue the renderer automatically. Existing campaigns require each slide revision; only changed slides rerender. Never publishes.',{campaign_id:uid,expected_revision:rev,idempotency_key:key,planner_id:uid,title:str(160),queue_position:{type:'integer',minimum:0},source,preparation_started_at:{type:'string',format:'date-time'},render:{type:'boolean'},slides:{type:'array',minItems:5,maxItems:5,items:{type:'object',additionalProperties:false,properties:{number:{type:'integer',minimum:1,maximum:5},expected_revision:rev,composition:spec},required:['number','composition']}}},['idempotency_key','planner_id','title','slides']),
+ def('get_marketing_campaign','Return all five private previews, exact copy, revisions, validation and separate stage timings. Find by campaign ID, title query or latest saved campaign.',{campaign_id:uid,query:str(120)},[],true),
+ def('preflight_marketing_campaign','Measure five saved slides with their actual fonts before downloading images or rendering PNGs. Returns a queued campaign; poll get_marketing_campaign for measured lines and suggested sizes.',{campaign_id:uid,expected_revision:rev},['campaign_id','expected_revision']),
+ def('export_marketing_campaign','After explicit owner visual approval, export exactly the five reviewed revisions as numbered PNG downloads plus one ZIP. Requires the review token returned by get_marketing_campaign; never publishes.',{campaign_id:uid,expected_revision:rev,review_token:str(64),confirmed:{type:'boolean',const:true}},['campaign_id','expected_revision','review_token','confirmed']),
+ def('delete_marketing_campaign','Cancel a private campaign and remove its rendered outputs and ZIP. Shared backgrounds, genuine pages and planner masters are preserved.',{campaign_id:uid,expected_revision:rev,confirmed:{type:'boolean',const:true}},['campaign_id','expected_revision','confirmed'])
+];}
+export const campaignToolNames=new Set(['get_composer_campaign_brief','save_composer_campaign_brief','submit_marketing_campaign','get_marketing_campaign','preflight_marketing_campaign','export_marketing_campaign','delete_marketing_campaign']);
+async function findCampaign(admin:any,userId:string,args:any,next=false){
+ let q=admin.from('composer_campaigns').select('*').eq('user_id',userId).neq('status','cancelled');
+ if(args.campaign_id)q=q.eq('id',args.campaign_id);else {if(args.planner_id)q=q.eq('planner_id',args.planner_id);if(args.query)q=q.ilike('title','%'+String(args.query).replace(/[%_]/g,'')+'%');if(next&&!args.planner_id&&!args.query)q=q.eq('status','planned').order('queue_position',{ascending:true,nullsFirst:false});}
+ return checked(await q.order('created_at',{ascending:false}).limit(1).maybeSingle());
+}
+const snapshot=(rows:any[])=>rows.map(c=>({number:c.slide_number,composition_id:c.id,revision:c.revision,checksum:c.result?.checksum||null}));
+export function campaignTimings(camp:any,rows:any[],attempts:any[]){
+ const seconds=(a:any,b:any)=>a&&b?Math.max(0,(Date.parse(b)-Date.parse(a))/1000):null,renderAttempts=attempts.filter(x=>x.job_kind==='render');
+ const first=rows.map(c=>renderAttempts.filter(x=>x.composition_id===c.id).sort((a,b)=>Date.parse(a.started_at)-Date.parse(b.started_at))[0]).filter(Boolean);
+ const complete=first.length===5&&first.every(x=>x.completed_at),firstEnd=complete?first.map(x=>x.completed_at).sort().at(-1):null;
+ const currentReady=rows.length===5&&rows.every(x=>x.status==='ready'),finalEnd=currentReady?rows.map(x=>x.completed_at).filter(Boolean).sort().at(-1):null;
+ return {preparation_seconds:seconds(camp.preparation_started_at,camp.first_submitted_at),preparation_source:camp.preparation_started_at?'client_reported_start':'not_recorded',first_pass:{completed:complete,successful:complete?first.every(x=>x.status==='ready'):null,seconds:seconds(camp.first_submitted_at,firstEnd)},after_corrections:{ready:currentReady,changed_slide_count:rows.filter(x=>x.revision>1).length,seconds:seconds(camp.first_submitted_at,finalEnd)},export:camp.metrics?.export||null,slides:rows.map(c=>({number:c.slide_number,revision:c.revision,queue_wait_ms:c.started_at&&c.queued_at?Math.max(0,Date.parse(c.started_at)-Date.parse(c.queued_at)):null,...c.timings})),note:'Per-slide durations may overlap. Campaign seconds are elapsed time, not the sum of concurrent renders.'};
+}
+async function campaignResponse(admin:any,camp:any){
+ const rows=checked(await admin.from('composer_compositions').select('*').eq('campaign_id',camp.id).eq('user_id',camp.user_id).order('slide_number'));
+ const attempts=rows.length?checked(await admin.from('composer_render_attempts').select('*').eq('user_id',camp.user_id).in('composition_id',rows.map(x=>x.id))):[];
+ const slides=await Promise.all(rows.map(async c=>{const filename=`${camp.id}_slide_${String(c.slide_number).padStart(2,'0')}.png`;return {number:c.slide_number,composition_id:c.id,revision:c.revision,status:c.status,spec:c.spec,validation:c.result?.validation||{valid:null},text_preflight:c.result?.preflight||null,error:c.result?.error||null,checksum:c.result?.checksum||null,filename,...(c.status==='ready'&&c.result?.path?{preview_url:checked(await admin.storage.from(bucket).createSignedUrl(c.result.path,900,{download:filename})).signedUrl}:{}),export_status:c.approved_revision===c.revision?'approved':'unapproved'};}));
+ const token=await hash(canonical({campaign_id:camp.id,revision:camp.revision,slides:snapshot(rows)}));
+ return {campaign_id:camp.id,title:camp.title,planner_id:camp.planner_id,revision:camp.revision,status:camp.status,source:camp.source,slides,all_ready:rows.length===5&&rows.every(c=>c.status==='ready'),review_token:token,visual_review_required:true,poll_after_seconds:30,timings:campaignTimings(camp,rows,attempts),renderer_start:{configured:dispatchConfigured(),backup:'scheduled_workflow'},published:false,scheduled:false};
+}
+export async function handleCampaign(name:string,args:any,{admin,userId,selectedAssets,handleComposer,wake=wakeRenderer}:any){
+ if(name==='get_composer_campaign_brief'){
+  const camp=await findCampaign(admin,userId,args,true);let plannerId=camp?.planner_id||args.planner_id;
+  if(!plannerId&&args.query){const found=checked(await admin.from('composer_assets').select('planner_id').eq('user_id',userId).eq('ready',true).ilike('logical_key','%'+String(args.query).replace(/[%_]/g,'')+'%').limit(1).maybeSingle());plannerId=found?.planner_id;}
+  if(!plannerId)return {next_campaign:null,reason:'NO_SAVED_CAMPAIGN_BRIEF',next_action:'save_composer_campaign_brief',exact_copy:null};
+  const master=checked(await admin.from('seller_master_records').select('id,title,files,revision').eq('id',plannerId).eq('user_id',userId).single());const checksum=master.files?.find((f:any)=>f.role==='docx')?.checksum;
+  const assets=checked(await admin.from('composer_assets').select('id,kind,logical_key,checksum,source_checksum,width,height,metadata').eq('user_id',userId).eq('planner_id',plannerId).eq('ready',true).order('logical_key'));
+  const recent=checked(await admin.from('composer_compositions').select('campaign_id,spec,created_at').eq('user_id',userId).not('approved_revision','is',null).order('created_at',{ascending:false}).limit(60));
+  const seen=new Set(),history=[];for(const c of recent){const k=c.campaign_id||c.spec.planner_id;if(seen.has(k))continue;seen.add(k);history.push({campaign_id:c.campaign_id,planner_id:c.spec.planner_id,font_family:c.spec.font_family,layout_preset:c.spec.layout_preset,created_at:c.created_at});if(history.length===10)break;}
+  const saved=camp?await campaignResponse(admin,camp):null;
+  return {campaign:saved,planner:{id:master.id,title:master.title,revision:master.revision,source_checksum:checksum},source:camp?.source||null,exact_copy:camp?.source?.copy||(saved?.slides.length?saved.slides.map(s=>({number:s.number,headline:s.spec.headline,supporting_copy:s.spec.supporting_copy,label:s.spec.label,cta:s.spec.cta})):null),copy_status:camp?.source?.copy?'saved_brief_copy':saved?.slides.length?'saved_composition_copy':'NEEDS_COPY',pages:assets.filter(a=>a.kind==='page'&&a.source_checksum===checksum).map(a=>({id:a.id,page_number:a.metadata.page_number,title:a.metadata.page_title||null,title_status:a.metadata.page_title?'indexed':'not_indexed',checksum:a.checksum})),backgrounds:assets.filter(a=>a.kind==='background').map(a=>({id:a.id,scene_description:a.metadata.scene_description||null,description_status:a.metadata.scene_description?'indexed':'not_indexed',profile:a.metadata.composition_profile||null,checksum:a.checksum})),typography_history:history,suggested_unused_families:FONTS.filter(f=>!history.slice(0,2).some(h=>h.font_family===f)),fonts:FONT_CATALOG,profiles:PROFILES,presets:PRESETS,visual_review_required:true};
+ }
+ if(['save_composer_campaign_brief','submit_marketing_campaign'].includes(name)){
+  assert(typeof args.idempotency_key==='string'&&args.idempotency_key.length>=8&&args.idempotency_key.length<=120,'Stable request key required');assert(typeof args.title==='string'&&args.title.trim()&&args.title.length<=160,'Campaign title required');
+  const requestHash=await hash(canonical(args)),replay=checked(await admin.from('composer_campaign_requests').select('campaign_id,request_hash').eq('user_id',userId).eq('request_key',args.idempotency_key).maybeSingle());
+  if(replay){assert(replay.request_hash===requestHash,'Idempotency key belongs to different content');const old=await findCampaign(admin,userId,{campaign_id:replay.campaign_id});assert(old,'Campaign was cancelled');return {...await campaignResponse(admin,old),submission:{campaign_id:old.id,replayed:true},renderer_start:name==='submit_marketing_campaign'&&args.render!==false?await wake():{mode:'not_requested',immediate_start:false}};}
+  const existing=args.campaign_id?await findCampaign(admin,userId,args):null;if(args.campaign_id)assert(existing&&args.expected_revision===existing.revision,'Campaign revision conflict');
+  const prepared=[];if(name==='submit_marketing_campaign'){
+   assert(Array.isArray(args.slides)&&args.slides.length===5,'Campaign requires five slides');const ordered=[...args.slides].sort((a,b)=>a.number-b.number);assert(ordered.every((s,i)=>s.number===i+1),'Slides must be numbered 1 to 5');assert(new Set(ordered.map(s=>s.composition.font_family)).size===1,'Use one coordinated font family within this campaign');
+   for(const s of ordered){assert(s.composition.planner_id===args.planner_id,'Every slide must use the campaign planner');const assets=await selectedAssets(admin,userId,s.composition);prepared.push({...s,assets,layout:resolveLayout(s.composition,assets),hash:await hash(canonical(s.composition))});}
+  }
+  const sourceValue={...(args.source||existing?.source||{})};if(prepared.length)sourceValue.copy=prepared.map(s=>({number:s.number,headline:s.composition.headline,supporting_copy:s.composition.supporting_copy,label:s.composition.label,cta:s.composition.cta}));const position=args.queue_position??existing?.queue_position??null;
+  const briefHash=await hash(canonical({title:args.title,planner_id:args.planner_id,source:sourceValue,queue_position:position,slides:prepared.map(s=>s.composition)}));
+  const queue=name==='submit_marketing_campaign'&&args.render!==false;
+  const result=checked(await admin.rpc('composer_save_campaign',{p_owner:userId,p_id:args.campaign_id||crypto.randomUUID(),p_expected:args.expected_revision??null,p_key:args.idempotency_key,p_hash:requestHash,p_brief_hash:briefHash,p_title:args.title,p_planner:args.planner_id,p_source:sourceValue,p_position:position,p_preparation:args.preparation_started_at||null,p_slides:prepared,p_queue:queue,p_job_kind:'render'}));
+  const trigger=queue?await wake():{mode:'not_requested',immediate_start:false};const camp=await findCampaign(admin,userId,{campaign_id:result.campaign_id});return {...await campaignResponse(admin,camp),submission:result,renderer_start:trigger};
+ }
+ if(name==='delete_marketing_campaign'){
+  assert(args.confirmed===true,'Confirm cancellation');const cancelled=checked(await admin.rpc('composer_cancel_campaign',{p_owner:userId,p_id:args.campaign_id,p_revision:args.expected_revision}));
+  if(cancelled.paths.length)checked(await admin.storage.from(bucket).remove(cancelled.paths));
+  checked(await admin.rpc('composer_purge_cancelled_campaign',{p_owner:userId,p_id:args.campaign_id}));return {campaign_id:args.campaign_id,deleted:true,published:false,scheduled:false};
+ }
+ const camp=await findCampaign(admin,userId,args);assert(camp,'Campaign not found');
+ if(name==='get_marketing_campaign')return campaignResponse(admin,camp);
+ assert(args.expected_revision===camp.revision,'Campaign revision conflict');
+ if(name==='preflight_marketing_campaign'){
+  const rows=checked(await admin.from('composer_compositions').select('*').eq('campaign_id',camp.id).eq('user_id',userId).order('slide_number'));assert(rows.length===5,'Save five settled slides first');
+  const slides=[];for(const c of rows){const assets=await selectedAssets(admin,userId,c.spec);slides.push({number:c.slide_number,expected_revision:c.revision,composition:c.spec,assets,layout:resolveLayout(c.spec,assets),hash:await hash(canonical(c.spec))});}
+  const keyValue=`preflight:${camp.id}:${camp.revision}`,result=checked(await admin.rpc('composer_save_campaign',{p_owner:userId,p_id:camp.id,p_expected:camp.revision,p_key:keyValue,p_hash:await hash(canonical(slides.map(s=>({id:s.number,revision:s.expected_revision,hash:s.hash})))),p_brief_hash:camp.brief_hash,p_title:camp.title,p_planner:camp.planner_id,p_source:camp.source,p_position:camp.queue_position,p_preparation:camp.preparation_started_at,p_slides:slides,p_queue:true,p_job_kind:'preflight'}));
+  return {...await campaignResponse(admin,await findCampaign(admin,userId,args)),submission:result,renderer_start:await wake()};
+ }
+ if(name==='export_marketing_campaign'){
+  assert(args.confirmed===true,'Owner visual approval is required');const started=performance.now(),review=await campaignResponse(admin,camp);assert(review.review_token===args.review_token,'Reviewed slides changed: review the current five previews');assert(review.all_ready&&review.slides.every(s=>s.validation.valid),'All five validated previews are required');
+  const rows=checked(await admin.from('composer_compositions').select('*').eq('campaign_id',camp.id).eq('user_id',userId).order('slide_number'));
+  for(const c of rows)await selectedAssets(admin,userId,c.spec);
+  const currentToken=await hash(canonical({campaign_id:camp.id,revision:camp.revision,slides:snapshot(rows)}));assert(currentToken===args.review_token,'Reviewed slides changed');
+  let bundle=camp.export_bundle,storageMs=0;
+  if(bundle?.review_token!==args.review_token){const files=[];let total=0;const downloadStart=performance.now();for(const c of rows){const blob=checked(await admin.storage.from(bucket).download(c.result.path));total+=blob.size;assert(total<=40*1024*1024,'Campaign export exceeds private ZIP size limit');const bytes=new Uint8Array(await blob.arrayBuffer());assert(await hash(bytes)===c.result.checksum,'Stored PNG checksum mismatch');const size=inspectPng(bytes);assert(size.width===1080&&size.height===1080,'Invalid saved PNG dimensions');files.push({name:`${camp.id}_slide_${String(c.slide_number).padStart(2,'0')}.png`,bytes});}storageMs=performance.now()-downloadStart;
+   const bytes=zipPngs(files),checksum=await hash(bytes),path=`${userId}/campaign-exports/${camp.id}/r${camp.revision}/${crypto.randomUUID()}.zip`;checked(await admin.storage.from(bucket).upload(path,bytes,{contentType:'application/zip',upsert:false}));const saved=checked(await admin.storage.from(bucket).download(path));assert(await hash(new Uint8Array(await saved.arrayBuffer()))===checksum,'Stored ZIP checksum mismatch');bundle={path,checksum,size:bytes.length,review_token:args.review_token,filename:`${camp.id}_slides_01-05.zip`};
+  }
+  try{const approved=checked(await admin.rpc('composer_approve_campaign',{p_owner:userId,p_id:camp.id,p_revision:camp.revision,p_snapshot:snapshot(rows),p_bundle:bundle,p_metrics:{export:{total_ms:Math.round(performance.now()-started),download_validation_ms:Math.round(storageMs),completed_at:new Date().toISOString()}}}));if(approved.bundle.path!==bundle.path)await admin.storage.from(bucket).remove([bundle.path]);bundle=approved.bundle;if(approved.previous_path&&approved.previous_path!==bundle.path)await admin.storage.from(bucket).remove([approved.previous_path]);}catch(e){if(bundle.path!==camp.export_bundle?.path)await admin.storage.from(bucket).remove([bundle.path]);throw e;}
+  return {...await campaignResponse(admin,await findCampaign(admin,userId,args)),zip:{filename:bundle.filename,checksum:bundle.checksum,size:bundle.size,download_url:checked(await admin.storage.from(bucket).createSignedUrl(bundle.path,900,{download:bundle.filename})).signedUrl},published:false,scheduled:false};
+ }
+ throw Error('Unknown campaign action');
+}
