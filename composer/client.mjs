@@ -1,0 +1,3 @@
+const endpoint='https://wyoamcydkbblvujvyljs.supabase.co/functions/v1/composer-worker';
+async function identity(){const url=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);url.searchParams.set('audience','seller-tools-composer');const r=await fetch(url,{headers:{Authorization:'Bearer '+process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}});if(!r.ok)throw Error('Cannot obtain worker identity');return (await r.json()).value;}
+export async function call(action,args={}){const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await identity()},body:JSON.stringify({action,...args}),signal:AbortSignal.timeout(120000)});const data=await r.json();if(!r.ok||data.error)throw Error(data.error||'Worker request failed');return data;}

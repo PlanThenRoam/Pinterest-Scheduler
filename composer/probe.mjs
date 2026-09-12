@@ -1,0 +1,1 @@
+import fs from 'node:fs/promises';import {call} from './client.mjs';const {pending}=await call('has_work');await fs.appendFile(process.env.GITHUB_OUTPUT,`pending=${pending}\n`);console.log(pending?'Private jobs are queued.':'No Composer jobs are queued.');
