@@ -1,4 +1,6 @@
-export const VERSION='1.1.0';
+export const VERSION='1.2.0';
+export const OUTPUTS=Object.freeze({square:Object.freeze({width:1080,height:1080}),pinterest:Object.freeze({width:1000,height:1500})});
+export function outputSize(type){assert(Object.hasOwn(OUTPUTS,type),'Unsupported output type');return OUTPUTS[type];}
 export const FONTS=['Cormorant Garamond','Playfair Display','DM Serif Display','Bodoni Moda','Lora','Fraunces','Prata','Libre Baskerville','Spectral','EB Garamond','Merriweather','Source Serif 4','Libre Caslon Display','Cardo','Crimson Pro','Vollkorn','Alegreya','Noto Serif','Newsreader','Instrument Serif'];
 export const PROFILES=['upper_left','upper_right','left','right','lower_third','central_vista_quiet_edges','upper_area','asymmetrical_editorial','strong_foreground_clear_upper_space','balanced_premium'];
 export const PRESETS=['auto','vista_hook','editorial_hook','proof_right','proof_left','proof_centre','proof_pair'];
@@ -9,7 +11,7 @@ export function validateInput(s){
  const allowed=['planner_id','output_type','background_id','font_family','composition_profile','headline','supporting_copy','planner_page_ids','cta','layout_preset','label','ink','contrast','typography','cta_style'];
  assert(s&&typeof s==='object'&&!Array.isArray(s),'Composition must be an object');
  assert(Object.keys(s).every(k=>allowed.includes(k)),'Unknown composition field');
- assert(s.output_type==='square','Only square output is supported');
+ outputSize(s.output_type);
  for(const k of ['planner_id','background_id'])assert(/^[a-f0-9-]{36}$/i.test(s[k]||''),'Invalid '+k);
  assert(FONTS.includes(s.font_family),'Unsupported font family');assert(PROFILES.includes(s.composition_profile),'Unsupported composition profile');assert(PRESETS.includes(s.layout_preset),'Unsupported layout preset');
  for(const [key,max] of [['headline',240],['supporting_copy',450],['cta',100],['label',100]]){assert((s[key]==null&&key!=='headline')||(typeof s[key]==='string'&&s[key].length<=max),'Invalid '+key);if(s[key])assert(!/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(s[key]),'Invalid control character');}
@@ -25,9 +27,36 @@ export function validateInput(s){
  return s;
 }
 export const overlaps=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
+function portraitLayout(s,assets,bg){
+ const box=(name,x,y,width,height,z=40)=>({name,x,y,width,height,z,visible:true,align:'center'});
+ const hook=s.layout_preset.endsWith('hook'),pair=s.layout_preset==='proof_pair';
+ let layers=hook?[box('label',60,80,880,52),box('headline',70,190,860,390,50),box('supporting_copy',80,630,840,210,60)]:[box('label',60,60,880,48),box('headline',60,130,880,250,50),box('supporting_copy',70,400,860,150,60)];
+ if(hook){
+  const p=s.composition_profile;
+  if(p==='lower_third')layers=layers.map(b=>({...b,y:b.y+520}));
+  if(p==='central_vista_quiet_edges')layers=layers.map(b=>({...b,y:b.name==='supporting_copy'?1210:b.y}));
+  if(s.layout_preset==='editorial_hook')layers=layers.map(b=>({...b,width:b.width-120,align:'left'}));
+  if(['right','upper_right'].includes(p))layers=layers.map(b=>({...b,x:1000-b.x-b.width,align:'right'}));
+  else if(['left','upper_left','asymmetrical_editorial'].includes(p))layers=layers.map(b=>({...b,align:'left'}));
+ }
+ const pageWidth=pair?420:560,pageHeight=s.cta?700:830;
+ s.planner_page_ids.forEach((id,i)=>{
+  const a=assets.find(a=>a.id===id);assert(a&&a.kind==='page','Missing genuine page');assert(a.planner_id===s.planner_id,'Page belongs to another planner');
+  const scale=Math.min(pageWidth/a.width,pageHeight/a.height);assert(scale<=0.5,'Page resolution is insufficient');
+  const width=a.width*scale,height=a.height*scale,slotX=pair?60+i*460:s.layout_preset==='proof_left'?60:s.layout_preset==='proof_right'?380:220;
+  layers.push({...box('page_'+i,slotX+(pageWidth-width)/2,590,width,height,30),asset_id:id});
+ });
+ if(s.cta)layers.push(box('cta',70,1350,860,90,70));
+ if(s.typography?.alignment)layers=layers.map(b=>({...b,align:s.typography.alignment}));
+ layers=layers.filter(b=>b.name.startsWith('page_')||s[b.name]);
+ for(const b of layers){assert(b.x>=0&&b.y>=0&&b.x+b.width<=1000&&b.y+b.height<=1500,'Layer outside canvas');for(const p of bg.metadata?.protected_zones||[])assert(!overlaps(b,p),'Layer covers protected focal area');}
+ for(let i=0;i<layers.length;i++)for(let j=i+1;j<layers.length;j++)assert(!overlaps(layers[i],layers[j]),'Content layers overlap');
+ return {width:1000,height:1500,version:VERSION,layers,background_id:bg.id,profile:s.composition_profile,preset:s.layout_preset,review_required:!bg.metadata?.zones_reviewed};
+}
 export function resolveLayout(s,assets){
- validateInput(s);if(s.layout_preset==='auto'){const p=s.composition_profile;s={...s,layout_preset:s.planner_page_ids.length===2?'proof_pair':s.planner_page_ids.length===1?(['right','upper_right'].includes(p)?'proof_left':'proof_right'):['left','right','upper_left','upper_right','asymmetrical_editorial'].includes(p)?'editorial_hook':'vista_hook'};validateInput(s);}const bg=assets.find(a=>a.id===s.background_id);assert(bg&&bg.kind==='background'&&bg.width===1080&&bg.height===1080,'Missing square background');
+ validateInput(s);if(s.layout_preset==='auto'){const p=s.composition_profile;s={...s,layout_preset:s.planner_page_ids.length===2?'proof_pair':s.planner_page_ids.length===1?(['right','upper_right'].includes(p)?'proof_left':'proof_right'):['left','right','upper_left','upper_right','asymmetrical_editorial'].includes(p)?'editorial_hook':'vista_hook'};validateInput(s);}const bg=assets.find(a=>a.id===s.background_id),size=outputSize(s.output_type);assert(bg&&bg.kind==='background'&&bg.width===size.width&&bg.height===size.height,'Missing background with matching output dimensions');
  assert(bg.planner_id===s.planner_id,'Background belongs to another planner');
+ if(s.output_type==='pinterest')return portraitLayout(s,assets,bg);
  const box=(name,x,y,width,height,z=40)=>({name,x,y,width,height,z,visible:true,align:'center'});
  const hook=s.layout_preset.endsWith('hook');let l;
  if(hook)l=s.layout_preset==='vista_hook'?[box('label',64,64,952,48),box('headline',96,164,888,272,50),box('supporting_copy',120,462,840,120,60)]:[box('label',64,64,650,48),box('headline',64,174,650,304,50),box('supporting_copy',64,508,610,132,60)];

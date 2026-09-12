@@ -1,10 +1,10 @@
 # Private Marketing Composer
 
-Implements `PlanThenRoam_Marketing_Composer_Authoritative_Spec_v1.0.md` with the owner's subsequent corrections: ChatGPT controls only, no Composer screen or tab, no Pinterest production, no new paid hosting service. The earlier Cloud Run proposal is superseded. Existing Etsy editing, posting and Word storage remain separate.
+Implements `PlanThenRoam_Marketing_Composer_Authoritative_Spec_v1.0.md` with the owner's subsequent corrections: ChatGPT controls only, no Composer screen or tab, no new paid hosting service. The earlier Cloud Run proposal is superseded. Existing Etsy editing, posting and Word storage remain separate.
 
-The Composer creates deterministic 1080 × 1080 PNGs from the locked final background bank, genuine current Word-master pages and one of twenty approved font families. No image-generation service, publishing endpoint or old video tool is used.
+The Composer creates deterministic 1080 × 1080 square PNGs or 1000 × 1500 Pinterest PNGs from the locked final background bank, genuine current Word-master pages and one of twenty approved font families. No image-generation service, publishing endpoint or old video tool is used.
 
-## Campaign workflow (API 4.3.0)
+## Campaign workflow (API 4.4.0)
 
 1. `get_composer_campaign_brief` returns the next saved planned campaign (or named planner), saved exact copy, current genuine page titles, observed background scene descriptions and recent approved typography. Missing agreed copy is labelled `NEEDS_COPY`; the action never invents it. `save_composer_campaign_brief` saves a plan, provenance, agreed copy and queue position across chats. Source document version is separate from campaign revision.
 2. Settle copy, genuine pages and backgrounds. `submit_marketing_campaign` saves exactly five numbered slide specifications in one atomic transaction and queues them. Use a stable `idempotency_key`. Existing campaigns require the campaign revision and every slide revision. A retry cannot duplicate slides; a correction queues only changed slides. A new retry key can retry failed unchanged slides.
@@ -53,8 +53,18 @@ For private acceptance assets, `node composer/qa.mjs /path/to/private-assets` ex
 
 ## Operational boundaries
 
-There is no Composer user interface in the seller app. Updating the MCP server's tool catalogue cannot force an already open ChatGPT session to reload its cached actions; refresh the connection when the seventeen Composer actions are absent. The app shell remains version 37; API capability metadata is 4.3.0 and Composer renderer version is 1.1.0.
+There is no Composer user interface in the seller app. Updating the MCP server's tool catalogue cannot force an already open ChatGPT session to reload its cached actions; refresh the connection when the seventeen Composer actions are absent. The app shell remains version 37; API capability metadata is 4.4.0 and Composer renderer version is 1.2.0.
 
 Protected focal zones are enforced when supplied. The initial background bank has no human-verified focal-zone rectangles, so each output still requires visual review. Font and geometry checks cannot establish marketing claims or predict conversion rates. Background choice, copy accuracy and genuine-page suitability remain review decisions.
 
 No new hosting subscription or generation API is introduced. The private asset bank occupies approximately 834 MB in the existing Supabase storage allocation; storage and bandwidth still count toward that account's limits. GitHub startup is asynchronous even after accepted immediate dispatch; there is no guaranteed completion latency.
+
+## Pinterest portrait extension
+
+Set `output_type: "pinterest"` on each composition and when retrieving a catalogue or campaign brief. The default remains square, including saved older square briefs. Save portrait planned briefs with `source.output_type: "pinterest"`. A campaign has one format; five portrait pins may each use their own selected font and must use five different backgrounds. Existing square batches retain their shared-font rule. PNG rendering, contrast measurement, stored-file validation and five-file ZIP exports all use the declared canvas dimensions.
+
+Portrait backgrounds must already be verified 1000 × 1500 assets. The renderer rejects square backgrounds for portrait output and never crops or stretches them. Keep the 190 locked square sources intact. Ingest the approved portrait artwork through the existing private asset ingestion procedure, with separate logical keys and exact checksums. Genuine current DOCX pages are shared by both formats.
+
+After visual approval and export, use `prepare_pin_review` to match an existing Etsy listing and Pinterest board. Then `attach_project_asset_from_composer` accepts the review project revision, composition ID, composition revision and exact reviewed PNG checksum. It verifies owner, portrait dimensions, approval, current source pages and the master record's Etsy listing identity, then copies the exact bytes into the existing private pin project. Use `finalize_review_project` to place it in the owner approval queue. This transfer never posts or schedules a pin. No user interface or publisher changes are required.
+
+Deployment alone does not supply portrait artwork. An empty portrait bank is reported as `NEEDS_BACKGROUNDS` by the planner brief. Before production, complete and visually approve the portrait bank; never treat the existing square bank as compatible. The original interrupted crop script has not been added to this implementation.
