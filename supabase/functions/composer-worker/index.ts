@@ -1,7 +1,7 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.115.0';
 import {createRemoteJWKSet,jwtVerify} from 'npm:jose@6.1.3';
 import {hash,assert} from '../composer/core.mjs';
-import {BUCKET,checked,selectedAssets,assetUrls} from '../composer/actions.ts';
+import {BUCKET,checked,selectedAssets,assetUrls,handleComposer} from '../composer/actions.ts';
 const jwks=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
 const json=(x:unknown,status=200)=>new Response(JSON.stringify(x),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 async function github(token:string){
@@ -36,6 +36,7 @@ Deno.serve(async req=>{
    try{await selectedAssets(admin,c.user_id,c.spec);return json({job:{...r.data,assets:await assetUrls(admin,c.assets)}});}catch(e){checked(await admin.from('composer_compositions').update({status:'validation_failed',result:{error:(e as Error).message,validation:{valid:false}}}).eq('id',c.id).eq('lease',lease));return json({job:null,validation_failed:true});}
   }
   const c=checked(await admin.from('composer_compositions').select('*').eq('id',a.composition_id).single());
+  if(a.action==='verify_result'){assert(c.status==='ready'&&c.revision===a.revision,'Result is not current');return json(await handleComposer('get_marketing_composition',{composition_id:c.id},{admin,userId:c.user_id}));}
   if(a.action==='abandon_result'){assert(Number.isInteger(a.revision)&&a.revision>0&&/^[a-f0-9-]{36}$/.test(a.lease||''),'Invalid output identity');const oldPath=`${c.user_id}/exports/${c.id}/r${a.revision}/${a.lease}.png`;assert(c.result?.path!==oldPath,'Output is current');const history=checked(await admin.from('composer_revisions').select('result').eq('composition_id',c.id));assert(!history.some((r:any)=>r.result?.path===oldPath),'Output is retained by a composition revision');checked(await admin.storage.from(BUCKET).remove([oldPath]));return json({removed:true});}
   assert(c.status==='running'&&c.revision===a.revision&&c.lease===a.lease&&new Date(c.lease_until).getTime()>Date.now(),'Job lease or revision is no longer current');
   const path=`${c.user_id}/exports/${c.id}/r${c.revision}/${c.lease}.png`;
