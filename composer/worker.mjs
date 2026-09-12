@@ -1,6 +1,6 @@
 import {render,sha} from './renderer.mjs';
 import {call} from './client.mjs';
-const started=Date.now();let completed=0,failed=0;
+const started=Date.now();let completed=0,failed=0;let verifiedAssets=0;for(let batch=0;batch<10;batch++){const a=await call('verify_uploaded');verifiedAssets+=a.verified;if(!a.processed)break;}
 while(Date.now()-started<12*60000&&completed+failed<30){
  const {job,validation_failed}=await call('claim');if(!job){if(validation_failed){failed++;continue;}break;}
  const args={composition_id:job.id,revision:job.revision,lease:job.lease};
@@ -10,4 +10,4 @@ while(Date.now()-started<12*60000&&completed+failed<30){
   await call('complete',{...args,checksum:r.checksum,validation:r.validation,renderer:r.renderer,resolved_layout:r.layout});const saved=await call('verify_result',args);const download=await fetch(saved.preview_url,{redirect:'error',signal:AbortSignal.timeout(120000)});if(!download.ok||sha(Buffer.from(await download.arrayBuffer()))!==r.checksum)throw Error('Stored preview download verification failed');completed++;
  }catch(e){failed++;await call('fail',{...args,error:String(e.message).replace(/https?:\/\/\S+/g,'[URL]'),validation_failure:/overflow|glyph|font|checksum|dimension|source|planner|copy|collid|protected/i.test(e.message)}).catch(()=>{});await call('abandon_result',args).catch(()=>{});}
 }
-console.log(JSON.stringify({completed,failed,private_assets_logged:false}));
+console.log(JSON.stringify({completed,failed,verified_assets:verifiedAssets,private_assets_logged:false}));
