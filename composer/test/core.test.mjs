@@ -4,7 +4,7 @@ const planner='10000000-0000-4000-8000-000000000001';
 const bg={id:'10000000-0000-4000-8000-000000000002',planner_id:planner,kind:'background',width:1080,height:1080,metadata:{}};
 const page={id:'10000000-0000-4000-8000-000000000003',planner_id:planner,kind:'page',width:1414,height:2000};
 const base={planner_id:planner,background_id:bg.id,output_type:'square',font_family:'Lora',composition_profile:'balanced_premium',headline:'Plan your escape',planner_page_ids:[page.id],layout_preset:'proof_right'};
-test('all approved families and profiles resolve deterministic layouts',()=>{assert.equal(FONTS.length,20);assert.equal(PROFILES.length,10);for(const family of FONTS)for(const profile of PROFILES){const s={...base,font_family:family,composition_profile:profile};assert.deepEqual(resolveLayout(s,[bg,page]),resolveLayout(s,[bg,page]));}});
+test('all approved families and profiles resolve deterministic layouts',()=>{assert.equal(FONTS.length,40);assert.equal(PROFILES.length,10);for(const family of FONTS)for(const profile of PROFILES){const s={...base,font_family:family,composition_profile:profile};assert.deepEqual(resolveLayout(s,[bg,page]),resolveLayout(s,[bg,page]));}});
 test('page fit preserves exact proportions and is fully inside canvas',()=>{const l=resolveLayout(base,[bg,page]).layers.find(l=>l.asset_id);assert.ok(Math.abs(l.width/l.height-page.width/page.height)<1e-10);assert.ok(l.x+l.width<=1080&&l.y+l.height<=1080);});
 test('wrong destination, low resolution, mixed fonts, unsupported output and protected zones fail',()=>{
  assert.throws(()=>resolveLayout(base,[bg,{...page,planner_id:'other'}]),/another planner/);

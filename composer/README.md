@@ -1,3 +1,7 @@
+# Automatic art direction
+
+The main workflow is documented in [AUTOMATIC_WORKFLOW.md](AUTOMATIC_WORKFLOW.md). It adds mixed seven-output batches, forty fonts, persistent design history, promotion validation and app/MCP controls. The manual workflow below is retained for compatibility.
+
 # Private Marketing Composer
 
 Implements `PlanThenRoam_Marketing_Composer_Authoritative_Spec_v1.0.md` with the owner's subsequent corrections: ChatGPT controls only, no Composer screen or tab, no new paid hosting service. The earlier Cloud Run proposal is superseded. Existing Etsy editing, posting and Word storage remain separate.

@@ -2,6 +2,7 @@ import {FONT_CATALOG} from './fonts.mjs';
 import {FONTS,PROFILES,PRESETS,OUTPUTS,outputSize,canonical,hash,assert,resolveLayout} from './core.mjs';
 import {zipPngs,inspectPng} from './archive.mjs';
 import {wakeRenderer,dispatchConfigured} from './dispatch.ts';
+import {automaticResponse} from './automatic-api.ts';
 const bucket='composer-private',uid={type:'string',format:'uuid'},rev={type:'integer',minimum:1},key={type:'string',minLength:8,maxLength:120};
 const str=(max=500)=>({type:'string',maxLength:max}),arr=(item:any,max=10)=>({type:'array',maxItems:max,items:item});
 const checked=(r:any)=>{if(r.error)throw Error(r.error.message);return r.data;};
@@ -32,6 +33,7 @@ export function campaignTimings(camp:any,rows:any[],attempts:any[]){
  return {preparation_seconds:seconds(camp.preparation_started_at,camp.first_submitted_at),preparation_source:camp.preparation_started_at?'client_reported_start':'not_recorded',first_pass:{completed:complete,successful:complete?first.every(x=>x.status==='ready'):null,seconds:seconds(camp.first_submitted_at,firstEnd)},after_corrections:{ready:currentReady,changed_slide_count:rows.filter(x=>x.revision>1).length,seconds:seconds(camp.first_submitted_at,finalEnd)},export:camp.metrics?.export||null,slides:rows.map(c=>({number:c.slide_number,revision:c.revision,queue_wait_ms:c.started_at&&c.queued_at?Math.max(0,Date.parse(c.started_at)-Date.parse(c.queued_at)):null,...c.timings})),note:'Per-slide durations may overlap. Campaign seconds are elapsed time, not the sum of concurrent renders.'};
 }
 async function campaignResponse(admin:any,camp:any){
+ if(camp.source?.automatic)return automaticResponse(admin,camp);
  const rows=checked(await admin.from('composer_compositions').select('*').eq('campaign_id',camp.id).eq('user_id',camp.user_id).order('slide_number'));
  const attempts=rows.length?checked(await admin.from('composer_render_attempts').select('*').eq('user_id',camp.user_id).in('composition_id',rows.map(x=>x.id))):[];
  const slides=await Promise.all(rows.map(async c=>{const filename=`${camp.id}_slide_${String(c.slide_number).padStart(2,'0')}.png`;return {number:c.slide_number,composition_id:c.id,revision:c.revision,status:c.status,spec:c.spec,validation:c.result?.validation||{valid:null},text_preflight:c.result?.preflight||null,error:c.result?.error||null,checksum:c.result?.checksum||null,filename,...(c.status==='ready'&&c.result?.path?{preview_url:checked(await admin.storage.from(bucket).createSignedUrl(c.result.path,900,{download:filename})).signedUrl}:{}),export_status:c.approved_revision===c.revision?'approved':'unapproved'};}));

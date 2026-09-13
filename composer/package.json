@@ -1,7 +1,7 @@
 {
   "name": "planthenroam-private-composer",
-  "version": "1.0.0",
-  "description": "Private deterministic square marketing renderer for Seller Tools",
+  "version": "2.0.0",
+  "description": "Private deterministic marketing renderer with automatic art direction",
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },

@@ -1,0 +1,3 @@
+# Preserve the official font and licence files byte for byte, including upstream
+# line endings and licence whitespace. Their SHA-256 values are audited.
+composer/fonts/** -text -whitespace

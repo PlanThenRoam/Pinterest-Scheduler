@@ -1,6 +1,8 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.115.0';
 import {createRemoteJWKSet,jwtVerify} from 'npm:jose@6.1.3';
 import {hash,assert,outputSize} from '../composer/core.mjs';
+import {checkStoredPromotion} from '../composer/automatic-api.ts';
+import {assertPromotion} from '../composer/promotions.mjs';
 import {inspectPng} from '../composer/archive.mjs';
 import {BUCKET,checked,selectedAssets,assetUrls,handleComposer} from '../composer/actions.ts';
 const jwks=createRemoteJWKSet(new URL('https://token.actions.githubusercontent.com/.well-known/jwks'));
@@ -10,7 +12,7 @@ async function github(token:string){
  assert(p.repository_id==='1357989355'&&p.repository_owner_id==='325055588'&&p.repository==='PlanThenRoam/Pinterest-Scheduler'&&p.ref==='refs/heads/main'&&p.workflow_ref==='PlanThenRoam/Pinterest-Scheduler/.github/workflows/composer-render.yml@refs/heads/main'&&['push','schedule','workflow_dispatch'].includes(String(p.event_name)),'Worker identity is not authorized');
 }
 export function pngInfo(bytes:Uint8Array){return inspectPng(bytes);}
-const sourceCurrent=async(admin:any,c:any)=>{const assets=await selectedAssets(admin,c.user_id,c.spec);assert(assets.every((a:any)=>c.assets.some((old:any)=>old.id===a.id&&old.checksum===a.checksum)),'Source asset changed during rendering');return assets;};
+const sourceCurrent=async(admin:any,c:any)=>{if(c.campaign_id&&c.spec.design){const campaign=checked(await admin.from('composer_campaigns').select('*').eq('id',c.campaign_id).eq('user_id',c.user_id).single());assertPromotion(await checkStoredPromotion(admin,campaign,{reuse:true}));}const assets=await selectedAssets(admin,c.user_id,c.spec);assert(assets.every((a:any)=>c.assets.some((old:any)=>old.id===a.id&&old.checksum===a.checksum)),'Source asset changed during rendering');return assets;};
 const safeTimings=(x:any)=>Object.fromEntries(Object.entries(x||{}).filter(([k,v])=>/^[a-z_]+_ms$/.test(k)&&typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<3600000));
 async function verifyObject(admin:any,path:string,expected:any){const blob=checked(await admin.storage.from(BUCKET).download(path));assert(blob.size<=52428800,'File too large');const b=new Uint8Array(await blob.arrayBuffer()),info=pngInfo(b);assert(info.width===expected.width&&info.height===expected.height,'PNG dimensions differ');const checksum=await hash(b);assert(checksum===expected.checksum,'PNG checksum differs');if(expected.size)assert(b.length===expected.size,'PNG size differs');return {checksum,size:b.length,...info};}
 Deno.serve(async req=>{
@@ -46,17 +48,18 @@ Deno.serve(async req=>{
   if(a.action==='abandon_result'){assert(Number.isInteger(a.revision)&&a.revision>0&&/^[a-f0-9-]{36}$/.test(a.lease||''),'Invalid output identity');const oldPath=`${c.user_id}/exports/${c.id}/r${a.revision}/${a.lease}.png`;assert(c.result?.path!==oldPath,'Output is current');const history=checked(await admin.from('composer_revisions').select('result').eq('composition_id',c.id));assert(!history.some((r:any)=>r.result?.path===oldPath),'Output is retained by a composition revision');checked(await admin.storage.from(BUCKET).remove([oldPath]));return json({removed:true});}
   assert(c.status==='running'&&c.revision===a.revision&&c.lease===a.lease&&new Date(c.lease_until).getTime()>Date.now(),'Job lease or revision is no longer current');
   const path=`${c.user_id}/exports/${c.id}/r${c.revision}/${c.lease}.png`;
-  if(a.action==='prepare_result'){const u=checked(await admin.storage.from(BUCKET).createSignedUploadUrl(path));return json({upload_url:u.signedUrl});}
+  if(a.action==='prepare_result'){const u=checked(await admin.storage.from(BUCKET).createSignedUploadUrl(path));const phone=c.spec.design?checked(await admin.storage.from(BUCKET).createSignedUploadUrl(path.replace(/\.png$/,'.phone.png'))):null;return json({upload_url:u.signedUrl,...(phone?{phone_upload_url:phone.signedUrl}:{})});}
   if(a.action==='fail'){const msg=String(a.error||'Render failed').slice(0,300),saved=checked(await admin.rpc('composer_finish_job',{p_id:c.id,p_revision:c.revision,p_lease:c.lease,p_status:a.validation_failure?'validation_failed':'failed',p_result:{error:msg,validation:{valid:false},preflight:a.preflight||null},p_timings:safeTimings(a.timings),p_validation:{valid:false}}));return json({saved});}
   if(a.action==='complete_preflight'){
    assert(c.job_kind==='preflight'&&a.preflight?.valid===true&&a.preflight?.exact_text===true&&a.preflight?.font_loaded===true,'Text preflight failed');await sourceCurrent(admin,c);
    const saved=checked(await admin.rpc('composer_finish_job',{p_id:c.id,p_revision:c.revision,p_lease:c.lease,p_status:'draft',p_result:{preflight:a.preflight,resolved_layout:a.resolved_layout,validation:{valid:null,text_valid:true,stage:'text_preflight'}},p_timings:safeTimings(a.timings),p_validation:{text_valid:true}}));return json({saved});
   }
   if(a.action==='complete'){
-   assert(a.validation?.valid===true&&a.validation.exact_text===true&&a.validation.font_families===1&&a.validation.font_loaded===true&&a.validation.overflow===false,'Render validation failed');
-   if(['1.1.0','1.2.0'].includes(a.renderer?.version))assert(a.validation.full_decode===true&&a.validation.asset_checksums===true&&a.validation.page_contain===true&&a.validation.isolated_words===false&&a.preflight?.valid===true,'Complete integrity validation is required');
+   assert(a.validation?.valid===true&&a.validation.exact_text===true&&Number.isInteger(a.validation.font_families)&&a.validation.font_families>=1&&a.validation.font_families<=(c.spec.design?2:1)&&a.validation.font_loaded===true&&a.validation.overflow===false,'Render validation failed');
+   if(['1.1.0','1.2.0','2.0.0'].includes(a.renderer?.version))assert(a.validation.full_decode===true&&a.validation.asset_checksums===true&&a.validation.page_contain===true&&a.validation.isolated_words===false&&a.preflight?.valid===true,'Complete integrity validation is required');
    const started=performance.now(),verified=await verifyObject(admin,path,{checksum:a.checksum,...outputSize(c.spec.output_type)});await sourceCurrent(admin,c);
-   const timings={...safeTimings(a.timings),storage_verification_ms:Math.round(performance.now()-started)},saved=checked(await admin.rpc('composer_finish_job',{p_id:c.id,p_revision:c.revision,p_lease:c.lease,p_status:'ready',p_result:{...verified,path,validation:a.validation,renderer:a.renderer,resolved_layout:a.resolved_layout,preflight:a.preflight||null},p_timings:timings,p_validation:a.validation}));if(!saved){checked(await admin.storage.from(BUCKET).remove([path]));throw Error('Composition changed while rendering');}return json({saved:true,...verified});
+   const phonePath=c.spec.design?path.replace(/\.png$/,'.phone.png'):null;if(phonePath)await verifyObject(admin,phonePath,{checksum:a.phone_checksum,width:360,height:Math.round(360*outputSize(c.spec.output_type).height/outputSize(c.spec.output_type).width)});
+   const timings={...safeTimings(a.timings),storage_verification_ms:Math.round(performance.now()-started)},saved=checked(await admin.rpc('composer_finish_job',{p_id:c.id,p_revision:c.revision,p_lease:c.lease,p_status:'ready',p_result:{...verified,path,...(phonePath?{phone_path:phonePath,phone_checksum:a.phone_checksum}:{}),validation:a.validation,renderer:a.renderer,resolved_layout:a.resolved_layout,preflight:a.preflight||null},p_timings:timings,p_validation:a.validation}));if(!saved){checked(await admin.storage.from(BUCKET).remove([path]));throw Error('Composition changed while rendering');}return json({saved:true,...verified});
   }
   throw Error('Unknown worker action');
  }catch(e){return json({error:(e as Error).message},/Authentication|required|authorization|authorized|JWT|signature/i.test((e as Error).message)?401:400);}

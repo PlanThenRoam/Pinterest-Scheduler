@@ -10,6 +10,8 @@ import {create as fontCreate} from 'fontkit';
 import {FONTS,VERSION,resolveLayout,assert,canonical} from '../supabase/functions/composer/core.mjs';
 import {inspectPng} from '../supabase/functions/composer/archive.mjs';
 import {measureText} from './text-preflight.mjs';
+import {GOOGLE_FONTS} from '../supabase/functions/composer/font-manifest.mjs';
+import {renderAutomatic} from './automatic-renderer.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
 export const sha=b=>createHash('sha256').update(b).digest('hex');
 const escape=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -17,6 +19,8 @@ const data=b=>'data:image/png;base64,'+b.toString('base64');
 const fontCache=new Map();
 export async function fontBank(family,options={}){const key=canonical({family,weight:options.weight||400,italic:options.italic||false});if(!fontCache.has(key))fontCache.set(key,loadFont(family,options).catch(e=>{fontCache.delete(key);throw e;}));return fontCache.get(key);}
 async function loadFont(family,{weight=400,italic=false}={}){
+ const bundled=GOOGLE_FONTS.find(f=>f.family===family);
+ if(bundled){const entry=bundled.files.find(f=>f.style===(italic?'italic':'normal')&&weight>=f.weight_min&&weight<=f.weight_max);assert(entry,'FONT_STYLE_UNAVAILABLE: '+family+' '+weight+(italic?' italic':''));const bytes=await fs.readFile(path.join(root,'fonts',entry.file));assert(sha(bytes)===entry.checksum,'Bundled font checksum mismatch');let font=fontCreate(bytes);if(entry.axes.wght)font=font.getVariation({wght:weight});return [{name:entry.file,bytes,font,checksum:entry.checksum,format:'truetype'}];}
  assert(FONTS.includes(family),'Unsupported font family');const slug=family.toLowerCase().replaceAll(' ','-');
  const dir=path.join(root,'node_modules','@fontsource',slug,'files');const style=italic?'italic':'normal';
  const all=await fs.readdir(dir);const chosen=all.filter(n=>n.endsWith(`-${weight}-${style}.woff2`));assert(chosen.length,'Requested font weight/style is unavailable');
@@ -24,14 +28,15 @@ async function loadFont(family,{weight=400,italic=false}={}){
  const names=chosen.filter(n=>n.includes('-latin-')||n.includes('-latin-ext-')).sort((a,b)=>Number(b.includes('-latin-'))-Number(a.includes('-latin-')));
  const fonts=await Promise.all(names.map(async name=>{const bytes=await fs.readFile(path.join(dir,name));return {name,bytes,font:fontCreate(bytes),checksum:sha(bytes)};}));assert(fonts.length,'Font files missing');return fonts;
 }
-export async function fontCatalog(){const out=[];for(const family of FONTS){const slug=family.toLowerCase().replaceAll(' ','-');const files=await fs.readdir(path.join(root,'node_modules','@fontsource',slug,'files'));out.push({family,styles:files.filter(n=>n.includes('-latin-')&&n.endsWith('.woff2')).map(n=>n.match(/-(\d+)-(normal|italic)\.woff2$/).slice(1))});}return out;}
+export async function fontCatalog(){const out=[];for(const family of FONTS){const bundled=GOOGLE_FONTS.find(f=>f.family===family);if(bundled){out.push({family,styles:bundled.files.flatMap(f=>Array.from({length:Math.floor((f.weight_max-f.weight_min)/100)+1},(_,i)=>[String(f.weight_min+i*100),f.style]))});continue;}const slug=family.toLowerCase().replaceAll(' ','-');const files=await fs.readdir(path.join(root,'node_modules','@fontsource',slug,'files'));out.push({family,styles:files.filter(n=>n.includes('-latin-')&&n.endsWith('.woff2')).map(n=>n.match(/-(\d+)-(normal|italic)\.woff2$/).slice(1))});}return out;}
 const clock=()=>performance.now(),elapsed=t=>Math.round((clock()-t)*100)/100;
 async function renderInSession(session,spec,assets,loadBytes,{preflightOnly=false,scope='default'}={}){
+ if(spec.design)return renderAutomatic(session,spec,assets,loadBytes,{preflightOnly,scope,fontBank,sha});
  const started=clock(),timings={},layout=resolveLayout(spec,assets);let tick=clock();const fonts=await fontBank(spec.font_family,spec.typography||{});timings.font_loading_ms=elapsed(tick);
  const texts=layout.layers.filter(l=>!l.asset_id);for(const layer of texts)for(const char of spec[layer.name])if(!/\s/.test(char))assert(fonts.some(f=>f.font.hasGlyphForCodePoint(char.codePointAt(0))),`Font lacks glyph ${char}`);
  const weight=spec.typography?.weight||400,style=spec.typography?.italic?'italic':'normal';
  // Each subset uses the same family and declared codepoint coverage; no system fallback.
- const faces=fonts.map(f=>{const range=[...new Set(f.font.characterSet)].map(c=>'U+'+c.toString(16)).join(',');return `@font-face{font-family:ComposerFont;src:url(data:font/woff2;base64,${f.bytes.toString('base64')}) format('woff2');font-weight:${weight};font-style:${style};font-display:block;unicode-range:${range};}`}).join('');
+ const faces=fonts.map(f=>{const range=[...new Set(f.font.characterSet)].map(c=>'U+'+c.toString(16)).join(',');return `@font-face{font-family:ComposerFont;src:url(data:font/woff2;base64,${f.bytes.toString('base64')}) format('${f.format||'woff2'}');font-weight:${weight};font-style:${style};font-display:block;unicode-range:${range};}`}).join('');
  const ink=spec.ink||'#FFF9F0',dark=ink!=='#FFF9F0',contrast=spec.contrast||0;
  const baseSizes={label:32,headline:layout.preset.endsWith('hook')?96:72,supporting_copy:40,cta:36},minSizes={label:28,headline:56,supporting_copy:32,cta:30};
  Object.assign(baseSizes,spec.typography?.sizes||{});

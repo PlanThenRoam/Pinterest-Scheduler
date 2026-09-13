@@ -1,14 +1,15 @@
-export const VERSION='1.2.0';
+import {NEW_FONTS,validateDesign,automaticLayout} from './art-direction.mjs';
+export const VERSION='2.0.0';
 export const OUTPUTS=Object.freeze({square:Object.freeze({width:1080,height:1080}),pinterest:Object.freeze({width:1000,height:1500})});
 export function outputSize(type){assert(Object.hasOwn(OUTPUTS,type),'Unsupported output type');return OUTPUTS[type];}
-export const FONTS=['Cormorant Garamond','Playfair Display','DM Serif Display','Bodoni Moda','Lora','Fraunces','Prata','Libre Baskerville','Spectral','EB Garamond','Merriweather','Source Serif 4','Libre Caslon Display','Cardo','Crimson Pro','Vollkorn','Alegreya','Noto Serif','Newsreader','Instrument Serif'];
+export const FONTS=['Cormorant Garamond','Playfair Display','DM Serif Display','Bodoni Moda','Lora','Fraunces','Prata','Libre Baskerville','Spectral','EB Garamond','Merriweather','Source Serif 4','Libre Caslon Display','Cardo','Crimson Pro','Vollkorn','Alegreya','Noto Serif','Newsreader','Instrument Serif',...NEW_FONTS];
 export const PROFILES=['upper_left','upper_right','left','right','lower_third','central_vista_quiet_edges','upper_area','asymmetrical_editorial','strong_foreground_clear_upper_space','balanced_premium'];
 export const PRESETS=['auto','vista_hook','editorial_hook','proof_right','proof_left','proof_centre','proof_pair'];
 export const canonical=x=>JSON.stringify(x,(_k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v);
 export const assert=(ok,message)=>{if(!ok)throw Error(message)};
 export async function hash(x){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',typeof x==='string'?new TextEncoder().encode(x):x))].map(x=>x.toString(16).padStart(2,'0')).join('')}
 export function validateInput(s){
- const allowed=['planner_id','output_type','background_id','font_family','composition_profile','headline','supporting_copy','planner_page_ids','cta','layout_preset','label','ink','contrast','typography','cta_style'];
+ const allowed=['planner_id','output_type','background_id','font_family','composition_profile','headline','supporting_copy','planner_page_ids','cta','layout_preset','label','ink','contrast','typography','cta_style','design'];
  assert(s&&typeof s==='object'&&!Array.isArray(s),'Composition must be an object');
  assert(Object.keys(s).every(k=>allowed.includes(k)),'Unknown composition field');
  outputSize(s.output_type);
@@ -24,6 +25,7 @@ export function validateInput(s){
  if(s.typography){assert(Object.keys(s.typography).every(k=>['weight','italic','letter_spacing','line_height','alignment','opacity','shadow','sizes'].includes(k)),'Unknown typography setting');assert(s.typography.weight==null||[400,500,600,700].includes(s.typography.weight),'Unsupported weight');assert(s.typography.italic==null||typeof s.typography.italic==='boolean','Invalid italic');assert(s.typography.letter_spacing==null||Math.abs(s.typography.letter_spacing)<=2,'Letter spacing exceeds bounds');assert(s.typography.line_height==null||(s.typography.line_height>=1.04&&s.typography.line_height<=1.28),'Invalid line height');}
  if(s.cta_style)assert(['outline','solid','text'].includes(s.cta_style),'Unsupported CTA style');
  if(s.typography){const t=s.typography;assert(t.alignment==null||['left','center','right'].includes(t.alignment),'Unsupported alignment');assert(t.opacity==null||(t.opacity>=.7&&t.opacity<=1),'Text opacity must be 0.7 to 1');assert(t.shadow==null||typeof t.shadow==='boolean','Invalid text shadow');if(t.sizes){const ranges={headline:[56,120],supporting_copy:[32,60],label:[28,44],cta:[30,48]};for(const [k,v] of Object.entries(t.sizes)){const r=ranges[k];assert(r&&Number.isFinite(v)&&v>=r[0]&&v<=r[1],'Font size outside readable bounds');}}}
+ if(s.design)validateDesign(s);
  return s;
 }
 export const overlaps=(a,b)=>a.x<b.x+b.width&&a.x+a.width>b.x&&a.y<b.y+b.height&&a.y+a.height>b.y;
@@ -54,6 +56,7 @@ function portraitLayout(s,assets,bg){
  return {width:1000,height:1500,version:VERSION,layers,background_id:bg.id,profile:s.composition_profile,preset:s.layout_preset,review_required:!bg.metadata?.zones_reviewed};
 }
 export function resolveLayout(s,assets){
+ if(s.design){validateInput(s);return automaticLayout(s,assets);}
  validateInput(s);if(s.layout_preset==='auto'){const p=s.composition_profile;s={...s,layout_preset:s.planner_page_ids.length===2?'proof_pair':s.planner_page_ids.length===1?(['right','upper_right'].includes(p)?'proof_left':'proof_right'):['left','right','upper_left','upper_right','asymmetrical_editorial'].includes(p)?'editorial_hook':'vista_hook'};validateInput(s);}const bg=assets.find(a=>a.id===s.background_id),size=outputSize(s.output_type);assert(bg&&bg.kind==='background'&&bg.width===size.width&&bg.height===size.height,'Missing background with matching output dimensions');
  assert(bg.planner_id===s.planner_id,'Background belongs to another planner');
  if(s.output_type==='pinterest')return portraitLayout(s,assets,bg);
