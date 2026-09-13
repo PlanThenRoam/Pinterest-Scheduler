@@ -12,7 +12,10 @@ export const LOCK_FIELDS=['backgrounds','typography','layout','cta','colour'];
 export const SIMILARITY_THRESHOLD=0.69;
 export const READABILITY={headline:56,supporting_copy:32,cta:30};
 const ok=(v,message)=>{if(!v)throw Error(message);};
-const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+// Postgres jsonb and tool arguments can reorder object keys without changing
+// the saved design. Compare values canonically, while retaining array order.
+const ordered=v=>Array.isArray(v)?v.map(ordered):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,ordered(v[k])])):v;
+const same=(a,b)=>JSON.stringify(ordered(a))===JSON.stringify(ordered(b));
 const hex=v=>/^#[0-9a-f]{6}$/i.test(v);
 const copyKeys=['headline','supporting_copy','cta'];
 const blockStyleKeys=['font_family','weight','italic','size','line_height','tracking','align','colour','uppercase'];

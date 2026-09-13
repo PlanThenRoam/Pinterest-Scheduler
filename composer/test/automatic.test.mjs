@@ -38,6 +38,18 @@ test('correction changes one output, genuine source IDs and complete page geomet
  for(const o of two.outputs)for(const p of o.layout.layers.filter(l=>l.asset_id))assert.ok(Math.abs(p.width/p.height-1600/2262)<1e-8);
  const scarce=assets.filter(a=>a.kind==='page'||Number(a.id.slice(-12))%100<3);assert.throws(()=>resolveAutomatic(brief,scarce,[],{seed:'scarce'}),/INSUFFICIENT_DISTINCT_BACKGROUNDS/);
 });
+test('stored JSON key order permits line-break and layout corrections while preserving campaign styles and other outputs',()=>{
+ const {brief,assets}=fixture(),created=resolveAutomatic(brief,assets,[],{seed:'stored-correction'});
+ const persisted=v=>Array.isArray(v)?v.map(persisted):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort((a,b)=>a.length-b.length||a.localeCompare(b)).map(k=>[k,persisted(v[k])])):v;
+ const previous=persisted(created),corrected=structuredClone(brief);corrected.outputs[3].headline='Explore at\nyour pace';
+ const result=resolveAutomatic(corrected,assets,[],{seed:'stored-line-break',previous,mode:'correction'});
+ assert.equal(result.outputs[3].composition.headline,corrected.outputs[3].headline);
+ result.outputs.forEach((o,i)=>{if(i!==3)assert.deepEqual(o.composition,previous.outputs[i].composition);assert.deepEqual(o.composition.design.blocks,previous.outputs[i].composition.design.blocks);});
+ assertCampaignStyle(result.outputs.map(o=>o.composition));
+ const original=previous.outputs[3].composition,layout=structuredClone(created.outputs[3].composition);
+ layout.design.layout_family='bottom_statement';Object.assign(layout.design.blocks.headline,{x:56,y:660,width:968,height:160});assertCampaignStyle([original,layout]);
+ for(const change of [d=>d.blocks.headline.size++,d=>d.blocks.headline.colour='#123456',d=>d.treatment='stacked',d=>d.cta.treatment='rectangular']){const changed=structuredClone(layout);change(changed.design);assert.throws(()=>assertCampaignStyle([original,changed]),/CAMPAIGN_STYLE_LOCKED/);}
+});
 test('promotion boundaries use publication timestamps and business timezone, reject missing discount/dates, and mark expired reuse stale',()=>{
  const {brief}=fixture();brief.promotion_mode='promotion';brief.promotion_id='offer';for(const o of brief.outputs.filter(o=>o.format==='pinterest'))o.promotion_mode='promotion';
  const p={id:'offer',planner_ids:[planner],revision:1,discount_percent:15,starts_at:'2026-09-13T23:00:00Z',ends_at:'2026-09-20T23:00:00Z',announce_from:'2026-09-12T23:00:00Z',timezone:'Europe/London',date_wording:'14–20 September 2026',confirmation_status:'confirmed',approved_wording:{advance:'15% off, 14–20 September 2026. Starts 14 September.',active:'15% off, 14–20 September 2026.'}};

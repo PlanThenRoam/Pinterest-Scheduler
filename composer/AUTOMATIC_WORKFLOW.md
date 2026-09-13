@@ -1,6 +1,6 @@
 # Automatic Marketing Composer 2.0
 
-Target app 38 / API 5.0.2. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
+Target app 38 / API 5.0.3. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
 
 ## Main workflow
 
@@ -8,7 +8,7 @@ Target app 38 / API 5.0.2. Private creation, preview and export only. Existing m
 2. `generate_marketing_campaign` takes exact output copy, roles, page IDs, campaign angle, intended publication timestamp and explicit promotion mode. Use five square slides and two portrait pins by default, with configurable quantities up to twenty. Every requested output must be supplied; copy is never invented. Every pin includes its own product identification and CTA. Format and role validation protects the hook/proof/cover structure.
 3. Poll `get_marketing_campaign` at intervals of at least thirty seconds. It returns every composition ID, revision, preview, 360-pixel phone preview, validation result and timing. `queued` means waiting; only a worker claim means `running`.
 4. `vary_marketing_campaign` offers another complete design, layout only, typography only or CTA only. Exact copy, offers, dates, source pages and roles remain unchanged. Locks preserve approved backgrounds, typography, layout, CTA or colour. Partial changes are explicitly marked and are not represented as complete campaign variation.
-5. `correct_marketing_campaign_output` takes one explicitly corrected output. It resubmits the atomic campaign while retaining all unchanged specifications and PNGs. Individual manual controls adjust layout and placement; campaign-level controls change typography or CTA throughout the set; automatic-campaign copy/page corrections use the dedicated correction action. Typography, colours, headline effects and CTA treatment remain fixed across all campaign outputs.
+5. `correct_marketing_campaign_output` takes one explicitly corrected output. It resubmits the atomic campaign while retaining all unchanged specifications and PNGs. Individual manual controls adjust layout and placement; campaign-level controls change typography or CTA throughout the set; automatic-campaign copy/page corrections use the dedicated correction action. Typography, colours, headline effects and CTA treatment remain fixed across all campaign outputs. Stored JSON field order does not count as a style change; line-break and layout corrections preserve the other saved outputs.
 6. `export_automatic_campaign` requires all ready previews, the exact review token and current campaign revision. `technical_test` records a private test export without owner approval. `owner_visual` requires actual owner visual approval. Both recheck sources, PNG bytes, dimensions and promotional validity, then export separate PNGs and one ZIP. Existing exports are retained.
 
 The app exposes the same workflow from **Marketing Composer** while retaining the three existing bottom tabs. All new actions use the existing owner OAuth check. Tables are private, RLS enabled, with access restricted to the server's service role; no renderer credential is sent to the browser or MCP.
