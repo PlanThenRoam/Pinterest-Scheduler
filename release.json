@@ -1,7 +1,7 @@
 {
   "app_version": 38,
-  "api_version": "5.0.0",
+  "api_version": "5.0.1",
   "minimum_backend_version": 38,
   "released": "2026-09-13",
-  "api_capability_version": "5.0.0"
+  "api_capability_version": "5.0.1"
 }

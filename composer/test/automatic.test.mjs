@@ -51,6 +51,7 @@ test('promotion boundaries use publication timestamps and business timezone, rej
 });
 test('all twenty official font files match hashes and actual advertised styles; unsupported weights are rejected',async()=>{
  assert.equal(GOOGLE_FONTS.length,20);for(const f of GOOGLE_FONTS){for(const v of f.files){const b=await fs.readFile(new URL('../fonts/'+v.file,import.meta.url));assert.equal(sha(b),v.checksum);assert.ok(v.codepoints.includes(163));}const first=f.files[0];await fontBank(f.family,{weight:first.weight_min,italic:first.style==='italic'});}
+ for(const family of ['Poppins','Barlow Condensed'])for(const weight of [100,200]){assert.equal(fontSupported(family,weight,false),true);assert.equal(fontSupported(family,weight,true),true);await fontBank(family,{weight});}assert.equal(fontSupported('DM Sans',1000,false),true);await fontBank('DM Sans',{weight:1000});
  assert.equal(fontSupported('Anton',700,false),false);assert.equal(fontSupported('Missing Family',400,false),false);await assert.rejects(fontBank('Anton',{weight:700}),/UNAVAILABLE/);await assert.rejects(fontBank('Bebas Neue',{italic:true}),/UNAVAILABLE/);
 });
 test('all twelve layout families have distinct geometry across hook and proof arrangements',()=>{

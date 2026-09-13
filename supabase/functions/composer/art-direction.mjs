@@ -59,7 +59,7 @@ export function validateBlocks(blocks,text,fonts){
   ok(Object.keys(b).every(k=>['font_family','weight','italic','size','min_size','line_height','tracking','align','colour','uppercase','emphasis','x','y','width','height'].includes(k)),'Unknown text block setting');
   ok(fonts.includes(b.font_family),'Text font is outside the design system');
   ok(fontSupported(b.font_family,b.weight,b.italic),'FONT_STYLE_UNAVAILABLE: '+b.font_family+' '+b.weight+(b.italic?' italic':''));
-  ok(Number.isInteger(b.weight)&&b.weight>=100&&b.weight<=900,'Invalid real font weight');
+  ok(Number.isInteger(b.weight)&&b.weight>=100&&b.weight<=1000,'Invalid real font weight');
   ok(b.size>=READABILITY[name]&&b.size<=(name==='headline'?180:70),'Text size outside readability limits');
   ok(b.line_height>=1&&b.line_height<=1.5&&Math.abs(b.tracking)<=5,'Invalid text spacing');
   ok(['left','center','right'].includes(b.align)&&hex(b.colour),'Invalid text alignment or colour');

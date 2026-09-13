@@ -1,6 +1,6 @@
 # Automatic Marketing Composer 2.0
 
-Target app 38 / API 5.0.0. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
+Target app 38 / API 5.0.1. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
 
 ## Main workflow
 
@@ -68,3 +68,5 @@ No credential was available during implementation. The code therefore continues 
 Run both existing regression suites and `composer/test/automatic.test.mjs`. The private `demonstrate-automatic.mjs` harness renders two actual seven-output campaigns from current genuine London assets, verifies all files, creates phone previews and exports ZIPs. Its private manifest and generated assets are outside Git.
 
 Local acceptance is not the live ChatGPT acceptance gate. After deploying app/API/worker together, refresh the Seller Tools connection if it still exposes old schemas. Complete two campaigns, their correction/export checks and dispatch timing through the newly exposed actions before declaring the upgrade complete. Rendered samples and automated tests must not be described as owner approval, publishing, scheduling or a verified live dispatch.
+
+Static font selection follows Google catalogue weight labels and records the original internal weight class separately. Variable ranges use the actual font axes, including DM Sans 1000. The preset version remains 2.0.0; existing resolved designs keep their seed and composition.

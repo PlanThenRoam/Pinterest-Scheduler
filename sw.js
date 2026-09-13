@@ -1,5 +1,5 @@
 const CACHE_NAME='ptr-seller-tools-v38-composer';
-const APP_SHELL=['./index.html','./studio.js?v=38.2','./studio.css?v=38','./composer-ui.js?v=38','./icon-192.png','./icon-512.png'];
+const APP_SHELL=['./index.html','./studio.js?v=38.2','./studio.css?v=38','./composer-ui.js?v=38.1','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('ptr-seller-tools-')&&key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',event=>{
