@@ -41,13 +41,13 @@ test('portrait rendering, true page pixels, exact copy, five distinct fonts and 
  }finally{await session.close();}
 });
 
-test('Pinterest campaign accepts per-pin fonts but rejects repeated backgrounds and mixed formats',async()=>{
+test('Pinterest campaign requires shared typography and effects, distinct backgrounds and one format',async()=>{
  let prepared=0;
  const admin={from(){return {select(){return this},eq(){return this},maybeSingle:async()=>({data:null})}}};
- const slides=Array.from({length:5},(_,i)=>({number:i+1,composition:{...spec,background_id:`10000000-0000-4000-8000-00000000000${i+5}`,font_family:FONTS[i]}}));
+ const slides=Array.from({length:5},(_,i)=>({number:i+1,composition:{...spec,background_id:`10000000-0000-4000-8000-00000000000${i+5}`,font_family:FONTS[0]}}));
  const args={idempotency_key:'portrait-campaign-test',planner_id:planner,title:'Portrait campaign',slides};
  const call=s=>handleCampaign('submit_marketing_campaign',{...args,slides:s},{admin,userId:'owner',selectedAssets:async()=>{prepared++;throw Error('reached asset validation')}});
- await assert.rejects(call(slides),/reached asset validation/);assert.equal(prepared,1);
+ await assert.rejects(call(slides.map((s,i)=>({...s,composition:{...s.composition,font_family:FONTS[i]}}))),/CAMPAIGN_STYLE_LOCKED/);await assert.rejects(call(slides.map((s,i)=>i?s:{...s,composition:{...s.composition,typography:{shadow:true}}})),/CAMPAIGN_STYLE_LOCKED/);assert.equal(prepared,0);await assert.rejects(call(slides),/reached asset validation/);assert.equal(prepared,1);
  await assert.rejects(call(slides.map(s=>({...s,composition:{...s.composition,background_id:bg.id}}))),/distinct backgrounds/);
  await assert.rejects(call(slides.map((s,i)=>i?s:{...s,composition:{...s.composition,output_type:'square'}})),/one output format/);
 });

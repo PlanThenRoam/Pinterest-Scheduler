@@ -1,4 +1,5 @@
 import {FONT_CATALOG} from './fonts.mjs';
+import {assertCampaignStyle,assertSubmittedCampaignStyle} from './art-direction.mjs';
 import {campaignTools,campaignToolNames,handleCampaign} from './campaigns.ts';
 import {automaticTools,automaticToolNames,handleAutomatic,compactFonts,checkStoredPromotion,designSchema,syncManualHistory} from './automatic-api.ts';
 import {assertPromotion} from './promotions.mjs';
@@ -63,9 +64,11 @@ export async function handleComposer(name:string,args:any,{admin,userId}:any){
  assert(c.revision===args.expected_revision,'Revision conflict: read the current composition');assert(c.status!=='cancelled'||name==='delete_marketing_composition','Composition is cancelled');
  if(name==='validate_marketing_composition'){const assets=await selectedAssets(admin,userId,c.spec);return {composition_id:c.id,revision:c.revision,layout:resolveLayout(c.spec,assets),validation:c.result?.validation||{valid:null,geometry_valid:true,text_measurement:'pending_render'}};}
  if(name==='update_marketing_composition'){
+  if(c.campaign_id&&!c.spec.design)assertSubmittedCampaignStyle([c.spec,args.composition]);
   if(c.campaign_id&&c.spec.design){
    for(const key of ['headline','supporting_copy','cta','planner_page_ids'])assert(canonical(c.spec[key])===canonical(args.composition[key]),'Use correct_marketing_campaign_output for exact copy or page changes');
    assert(args.composition.design?.role===c.spec.design.role,'Slide roles are locked');
+   if(c.spec.design.style_scope==='campaign')assertCampaignStyle([c.spec,args.composition]);
    if(c.spec.output_type==='square'){const siblings=checked(await admin.from('composer_compositions').select('id,spec').eq('campaign_id',c.campaign_id).eq('user_id',userId));assert(siblings.filter((s:any)=>s.id!==c.id&&s.spec.output_type==='square').every((s:any)=>canonical(s.spec.design.fonts)===canonical(args.composition.design.fonts)),'Keep the coherent carousel font pairing; use Change typography only for the campaign');}
   }
   const assets=await selectedAssets(admin,userId,args.composition),layout=resolveLayout(args.composition,assets);

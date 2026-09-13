@@ -1,6 +1,6 @@
 # Automatic Marketing Composer 2.0
 
-Target app 38 / API 5.0.1. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
+Target app 38 / API 5.0.2. Private creation, preview and export only. Existing manual compositions, square and portrait assets, campaigns and publisher approval flows remain available.
 
 ## Main workflow
 
@@ -8,14 +8,16 @@ Target app 38 / API 5.0.1. Private creation, preview and export only. Existing m
 2. `generate_marketing_campaign` takes exact output copy, roles, page IDs, campaign angle, intended publication timestamp and explicit promotion mode. Use five square slides and two portrait pins by default, with configurable quantities up to twenty. Every requested output must be supplied; copy is never invented. Every pin includes its own product identification and CTA. Format and role validation protects the hook/proof/cover structure.
 3. Poll `get_marketing_campaign` at intervals of at least thirty seconds. It returns every composition ID, revision, preview, 360-pixel phone preview, validation result and timing. `queued` means waiting; only a worker claim means `running`.
 4. `vary_marketing_campaign` offers another complete design, layout only, typography only or CTA only. Exact copy, offers, dates, source pages and roles remain unchanged. Locks preserve approved backgrounds, typography, layout, CTA or colour. Partial changes are explicitly marked and are not represented as complete campaign variation.
-5. `correct_marketing_campaign_output` takes one explicitly corrected output. It resubmits the atomic campaign while retaining all unchanged specifications and PNGs. Manual visual controls remain accessible through the existing composition update action; automatic-campaign copy/page corrections use the dedicated correction action. A carousel font pairing must remain coherent.
+5. `correct_marketing_campaign_output` takes one explicitly corrected output. It resubmits the atomic campaign while retaining all unchanged specifications and PNGs. Individual manual controls adjust layout and placement; campaign-level controls change typography or CTA throughout the set; automatic-campaign copy/page corrections use the dedicated correction action. Typography, colours, headline effects and CTA treatment remain fixed across all campaign outputs.
 6. `export_automatic_campaign` requires all ready previews, the exact review token and current campaign revision. `technical_test` records a private test export without owner approval. `owner_visual` requires actual owner visual approval. Both recheck sources, PNG bytes, dimensions and promotional validity, then export separate PNGs and one ZIP. Existing exports are retained.
 
 The app exposes the same workflow from **Marketing Composer** while retaining the three existing bottom tabs. All new actions use the existing owner OAuth check. Tables are private, RLS enabled, with access restricted to the server's service role; no renderer credential is sent to the browser or MCP.
 
 ## Controlled variation
 
-Twenty complete typography systems use twelve headline treatments and twelve geometric layout families. A carousel has a coherent one- or two-family pairing, with three different proof arrangements. Companion pins receive independent systems and backgrounds. Nine CTA treatments include true full-width footer bands, integrated placement beneath the headline and a dedicated offer-copy panel with a separate CTA.
+Visual randomisation happens only when choosing another complete campaign design. There is no per-output style randomisation option. Older saved campaigns and exports retain their exact bytes; choose another campaign design to apply the new shared style before using partial controls.
+
+Twenty complete typography systems use eleven unboxed headline treatments and twelve geometric layout families. A carousel has a coherent one- or two-family pairing, with three different proof arrangements. Every slide and companion pin shares the same fonts, weights, palette, headline treatment and CTA treatment. Backgrounds and geometric arrangements can vary. New campaigns use unboxed text, underlined or integrated CTAs. Hard text back panels and filled CTA boxes are disabled. One soft image-wide fade and text-shadow treatment is shared by every output. Historical treatments remain readable for existing saved compositions.
 
 Recent comparison uses the latest ten distinct campaign identities, including actual legacy campaigns. A square crop and portrait crop of the same source count as one photograph. Campaign design and random seed are persisted atomically with the compositions. A concurrent history change rejects the preparation and requires fresh context. Existing saved seeds/specifications reproduce without consulting subsequent history.
 
@@ -30,7 +32,7 @@ Recent comparison uses the latest ten distinct campaign identities, including ac
 | Colour palette | 0.04 |
 | Original photograph overlap | 0.06 |
 
-A new complete system must score below **0.69** against every relevant recent system and differ in at least **three major factors**. Font family name alone has no similarity weight. Pins are checked against recent pins and their companion. A partial layout/typography/CTA control retains other elements and rejects an unchanged exact combination; its intentionally limited scope is reported. If locks prevent meaningful full variation, return `NO_DISTINCT_COMPATIBLE_DESIGN`.
+A new complete system must score below **0.69** against every relevant recent system and differ in at least **three major factors**. Font family name alone has no similarity weight. Similarity is checked between complete campaigns. Pins in the same campaign are deliberately allowed to share its style. A partial layout/typography/CTA control retains other elements and rejects an unchanged exact combination; its intentionally limited scope is reported. If locks prevent meaningful full variation, return `NO_DISTINCT_COMPATIBLE_DESIGN`.
 
 Approved photographs unused in ten campaigns are preferred. When none remain, use the least recently used suitable photograph and persist `BACKGROUND_LRU_REUSE`, including the original image identity and last use. Every output in a new default batch uses a separate original photograph. A bank too small for the requested quantity returns `INSUFFICIENT_DISTINCT_BACKGROUNDS`.
 
@@ -40,7 +42,7 @@ The twenty requested additions are bundled as **71 unmodified TTF files**, 13,34
 
 The browser embeds actual verified files with font synthesis disabled. Unsupported weight, italic and glyph requests fail. Each text block supports independent font, weight, italic, size, position, width, alignment, spacing, tracking, colour, explicit line breaks and exact offset-based emphasis spans. At most two font families are allowed in a design system; planner-page pixels and their original typography are never changed.
 
-Actual Chromium font metrics, reflow, overflow and readable floors are checked before image loading. Floors are 56 pixels for headlines, 32 for supporting copy and 30 for CTAs. Short deliberate stacks remain readable without unnecessarily shrinking. Copy that cannot fit returns a field-specific error. Local contrast uses actual verified image pixels, choosing readable unboxed text where possible; the resolved contrast choices are recorded. Solid-panel treatments remain explicit. Contrast is measured on the rendered image. Complete PNG decoding, framing, dimensions, checksums, page aspect ratios, margins, protected zones and non-overlap are checked. Automation never constitutes human approval.
+Actual Chromium font metrics, reflow, overflow and readable floors are checked before image loading. Floors are 56 pixels for headlines, 32 for supporting copy and 30 for CTAs. Short deliberate stacks remain readable without unnecessarily shrinking. Copy that cannot fit returns a field-specific error. New campaigns fix the same text colour, shadow and image-wide fade throughout. No output uses a hard back panel. Corresponding text blocks use a conservatively fitted common size across the complete campaign. Actual Chromium measurement verifies it; an individual output cannot shrink its font independently. Copy that still does not fit is rejected for correction. Contrast is still checked on verified image pixels. Contrast is measured on the rendered image. Complete PNG decoding, framing, dimensions, checksums, page aspect ratios, margins, protected zones and non-overlap are checked. Automation never constitutes human approval.
 
 The worker shares a browser and verified per-owner asset/font caches and renders two outputs concurrently (hard cap three). Unchanged revisions are not queued again. Preview and ZIP exports bind exact reviewed revisions. All timing fields are wall-clock measurements, not sums of overlapping jobs.
 

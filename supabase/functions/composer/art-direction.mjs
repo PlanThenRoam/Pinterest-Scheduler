@@ -6,6 +6,8 @@ export const NEW_FONTS=GOOGLE_FONTS.map(f=>f.family);
 export const LAYOUT_FAMILIES=['editorial_left','editorial_right','central_proof','split_left','split_right','top_statement','bottom_statement','inset_left','inset_right','horizontal_split','generous_cover','open_vista'];
 export const TREATMENTS=['condensed_poster','oversized_sans','editorial_serif','restrained_slab','asymmetric_left','subject_right','stacked','spacious_minimal','phrase_emphasis','solid_panel','local_gradient','oversized_numeral'];
 export const CTA_TREATMENTS=['text','underlined','rectangular','rounded','outlined','footer_band','side_panel','integrated','offer_panel'];
+export const CAMPAIGN_CTA_TREATMENTS=['text','underlined','integrated'];
+export const CAMPAIGN_TREATMENTS=TREATMENTS.filter(t=>t!=='solid_panel');
 export const LOCK_FIELDS=['backgrounds','typography','layout','cta','colour'];
 export const SIMILARITY_THRESHOLD=0.69;
 export const READABILITY={headline:56,supporting_copy:32,cta:30};
@@ -13,6 +15,44 @@ const ok=(v,message)=>{if(!v)throw Error(message);};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const hex=v=>/^#[0-9a-f]{6}$/i.test(v);
 const copyKeys=['headline','supporting_copy','cta'];
+const blockStyleKeys=['font_family','weight','italic','size','line_height','tracking','align','colour','uppercase'];
+// Positions and emphasis offsets belong to the copy/layout; the visual treatment
+// belongs to the whole campaign, including portrait pins.
+export function campaignStyle(spec){
+ const d=spec.design;
+ return {style_scope:d.style_scope,colour_mode:d.colour_mode,system_id:d.system_id,fonts:d.fonts,font_category:d.font_category,hierarchy:d.hierarchy,treatment:d.treatment,palette:d.palette,cta:d.cta,blocks:Object.fromEntries(Object.entries(d.blocks).map(([key,b])=>[key,{...Object.fromEntries(blockStyleKeys.map(k=>[k,b[k]??null])),emphasis:[...new Set((b.emphasis||[]).map(e=>JSON.stringify({weight:e.weight??null,colour:e.colour??null,scale:e.scale??null})))].sort()}]))};
+}
+export function assertCampaignStyle(specs){
+ const reference={},blocks={};
+ for(const spec of specs){const {blocks:styles,...style}=campaignStyle(spec);
+  ok(style.style_scope==='campaign'&&style.colour_mode==='fixed','CAMPAIGN_STYLE_LOCKED: use one fixed style for the entire campaign');
+  if(reference.style)ok(same(reference.style,style),'CAMPAIGN_STYLE_LOCKED: change typography, colour, effects and CTA for the entire campaign');else reference.style=style;
+  for(const [key,value] of Object.entries(styles)){if(blocks[key])ok(same(blocks[key],value),'CAMPAIGN_STYLE_LOCKED: '+key+' styling must match throughout the campaign');else blocks[key]=value;}
+ }
+ return true;
+}
+export function assertSubmittedCampaignStyle(specs){
+ if(specs.some(s=>s.design))return assertCampaignStyle(specs);
+ ok(specs.every(s=>s.cta_style!=='solid'),'HARD_BACK_PANELS_DISABLED: use an unfilled CTA');
+ const styles=specs.map(s=>({font:s.font_family,ink:s.ink||'#FFF9F0',contrast:s.contrast||0,cta:s.cta_style||'outline',typography:{weight:400,italic:false,opacity:1,shadow:false,line_height:1.12,letter_spacing:0,...s.typography}}));
+ ok(styles.every(s=>same(s,styles[0])),'CAMPAIGN_STYLE_LOCKED: use the same typography, colour, effects and CTA treatment throughout the campaign');
+ return true;
+}
+// Use a conservative common size before queueing. Chromium remains the final
+// authority for wrapping, glyphs and overflow; it must not shrink one output.
+function estimatedFit(text,block,layer,size,category){
+ const available=layer.width-(layer.name==='cta'?40:0),height=layer.height-(layer.name==='cta'?28:0),factor=category==='condensed'?.8:1;
+ const width=word=>[...word].reduce((sum,c)=>sum+(/[ilI.,!':;]/.test(c)?.3:/[MWmw@%]/.test(c)?.95:/[A-Z0-9]/.test(c)?.72:.60),0)*size*factor;
+ let lines=0;for(const paragraph of (block.uppercase?text.toLocaleUpperCase('en-GB'):text).split('\n')){let used=0;lines++;for(const word of paragraph.trim().split(/\s+/)){const w=width(word)*(block.emphasis?.some(e=>e.scale)?1.4:1);if(w>available)return false;if(used&&used+size*.34+w>available){lines++;used=w;}else used+=(used?size*.34:0)+w;}}
+ return lines*size*block.line_height<=height;
+}
+function fitCampaignTypography(outputs){
+ for(const name of copyKeys){const present=outputs.filter(o=>o.composition.design.blocks[name]);if(!present.length)continue;
+  const first=present[0].composition.design.blocks[name];let size=first.size;
+  while(size>READABILITY[name]&&!present.every(o=>estimatedFit(o.composition[name],o.composition.design.blocks[name],o.layout.layers.find(l=>l.name===name),size,o.composition.design.font_category)))size--;
+  for(const o of present)o.composition.design.blocks[name].size=size;
+ }
+}
 export const sourceIdentity=a=>a.metadata?.source_asset_id||a.id;
 export function random(seed){let h=2166136261;for(const c of String(seed))h=Math.imul(h^c.charCodeAt(0),16777619);return()=>{h+=0x6D2B79F5;let t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
 const pick=(rng,values)=>values[Math.floor(rng()*values.length)];
@@ -71,6 +111,8 @@ export function validateBlocks(blocks,text,fonts){
 
 export function validateDesign(s){
  const d=s.design;
+ if(d?.style_scope!=null)ok(d.style_scope==='campaign'&&d.colour_mode==='fixed','CAMPAIGN_STYLE_LOCKED: campaign colour and effects cannot vary by output');
+ if(d?.style_scope==='campaign')ok(CAMPAIGN_TREATMENTS.includes(d.treatment)&&CAMPAIGN_CTA_TREATMENTS.includes(d.cta?.treatment),'HARD_BACK_PANELS_DISABLED: use unboxed campaign typography and CTAs');
  ok(d?.version===PRESET_VERSION,'Unsupported art direction preset version');
  ok(LAYOUT_FAMILIES.includes(d.layout_family)&&TREATMENTS.includes(d.treatment),'Unsupported layout or headline treatment');
  ok(CTA_TREATMENTS.includes(d.cta?.treatment),'Unsupported CTA treatment');
@@ -155,9 +197,10 @@ export function automaticLayout(s,assets){
   const b=d.blocks[layer.name];if(b.x!=null)Object.assign(layer,{x:b.x,y:b.y,width:b.width,height:b.height});layer.align=b.align;
  }
   const textLayers=layers.filter(l=>!l.asset_id&&l.name!=='cta');
- for(const l of textLayers){const solid=['solid_panel','split_left','split_right','horizontal_split'].includes(d.treatment)||f.startsWith('split')||f==='horizontal_split'||(d.cta.treatment==='offer_panel'&&l.name==='supporting_copy');panels.push({name:l.name+'_panel',x:Math.max(0,l.x-18),y:Math.max(0,l.y-10),width:Math.min(W-l.x+18,l.width+36),height:l.height+20,z:20,colour:d.palette.panel,opacity:solid?1:.90,gradient:!solid,...(d.cta.treatment==='offer_panel'&&l.name==='supporting_copy'?{accent:d.palette.accent}:{})});}
+ for(const l of textLayers){const solid=d.treatment==='solid_panel'||(d.style_scope!=='campaign'&&(f.startsWith('split')||f==='horizontal_split'))||(d.cta.treatment==='offer_panel'&&l.name==='supporting_copy');panels.push({name:l.name+'_panel',x:Math.max(0,l.x-18),y:Math.max(0,l.y-10),width:Math.min(W-l.x+18,l.width+36),height:l.height+20,z:20,colour:d.palette.panel,opacity:solid?1:.90,gradient:!solid,...(d.cta.treatment==='offer_panel'&&l.name==='supporting_copy'?{accent:d.palette.accent}:{})});}
  if(cta&&!panels.some(x=>x.name==='cta_panel'))panels.push({...cta,name:'cta_backdrop',z:20,colour:d.palette.panel,opacity:.9,gradient:true});
  const bg=assets.find(a=>a.id===s.background_id);ok(bg?.kind==='background'&&bg.width===W&&bg.height===H&&bg.planner_id===s.planner_id,'Approved matching background required');
+ if(d.style_scope==='campaign')panels.length=0;
  for(const l of layers){ok(l.x>=m-1&&l.y>=m-1&&l.x+l.width<=W-m+1&&l.y+l.height<=H-m+1,'MARGIN_VIOLATION: '+l.name);for(const zone of bg.metadata?.protected_zones||[])ok(!overlap(l,zone),'SUBJECT_OBSTRUCTED: '+l.name);}
  for(let i=0;i<layers.length;i++)for(let j=i+1;j<layers.length;j++)ok(!overlap(layers[i],layers[j]),'CONTENT_OVERLAP: '+layers[i].name+'/'+layers[j].name);
  for(const panel of panels)for(const page of layers.filter(l=>l.asset_id))ok(!overlap(panel,page),'PANEL_OBSTRUCTS_PAGE');
@@ -176,7 +219,7 @@ export function compareDesign(a,b){
  const score=Object.entries(factors).reduce((n,[k,v])=>n+Number(v)*weights[k],0)+(a.colour===b.colour?.04:0)+shared(a.source_images,b.source_images)*.06;
  return {score:Number(score.toFixed(4)),major_differences:Object.values(factors).filter(v=>Number(v)<.5).length,factors};
 }
-export function acceptableDesign(sig,recent,{partial=false}={}){return recent.every(h=>{const c=compareDesign(sig,h);return partial?c.score<.999:c.score<SIMILARITY_THRESHOLD&&c.major_differences>=3;});}
+export function acceptableDesign(sig,recent,{partial=false}={}){return recent.every(h=>{const c=compareDesign(sig,h);return partial?!same(sig,h):c.score<SIMILARITY_THRESHOLD&&c.major_differences>=3;});}
 
 export function validateBrief(brief,assets){
  ok(brief&&typeof brief==='object','Campaign brief is required');ok(typeof brief.angle==='string'&&brief.angle.trim(),'Campaign angle is required');
@@ -232,42 +275,54 @@ export function resolveAutomatic(brief,assets,history=[],{seed,previous=null,mod
  ok(locks.every(l=>LOCK_FIELDS.includes(l)),'Unknown locked element');
  if(previous)ok(same(previous.brief,brief)||mode==='correction','LOCKED_CONTENT_CHANGED: variation must preserve exact copy, offers, pages, roles and dates');
  if(previous&&String(seed)===String(previous.seed)&&mode==='all')return structuredClone(previous);
+ const previousStyle=previous?.outputs[0]?.composition.design;
+ if(previous&&mode!=='all'&&mode!=='correction')ok(previous.outputs.every(o=>o.composition.design.style_scope==='campaign'),'CAMPAIGN_STYLE_REFRESH_REQUIRED: try another campaign design to unify this older campaign first');
  const rng=random(seed),recent=history.slice(0,10),recentCarousel=recent.map(h=>h.carousel).filter(Boolean),recentPins=recent.flatMap(h=>h.pins||[]);
  if(previous){recentCarousel.unshift(previous.signatures.carousel);recentPins.unshift(...previous.signatures.pins);}
+ const recentCampaigns=[...(previous?[previous.signatures]:[]),...recent].map(h=>h.campaign||h.carousel||h.pins?.[0]).filter(Boolean);
  const backgroundsHistory=recent.map(h=>({source_images:[...(h.carousel?.source_images||[]),...(h.pins||[]).flatMap(p=>p.source_images||[])]}));
  const isLocked=field=>locks.includes(field)||(previous&&mode==='correction')||(previous&&mode!=='all'&&mode!=='correction'&&mode!==({backgrounds:'backgrounds',layout:'layout',typography:'typography',cta:'cta',colour:'colour'}[field]));
  const oldByKey=new Map((previous?.outputs||[]).map(o=>[o.key,o]));
  for(let attempt=0;attempt<240;attempt++){
-  const used=new Set(),exceptions=[],outputs=[],selectedSystems=[];
-  let carouselSystem=pick(rng,SYSTEMS.filter(s=>s.treatment!=='oversized_numeral'||brief.outputs.some(o=>/\d/.test(o.headline))));
-  const palette=pick(rng,PALETTES),carouselCTA=pick(rng,carouselSystem.ctas),carouselLayouts=shuffle(rng,carouselSystem.layouts);
+  const used=new Set(),exceptions=[],outputs=[];
+  const campaignSystems=SYSTEMS.map(s=>({...s,treatment:s.treatment==='solid_panel'?'condensed_poster':s.treatment,ctas:[...new Set([...s.ctas.filter(t=>CAMPAIGN_CTA_TREATMENTS.includes(t)),'text','underlined'])]}));
+  let carouselSystem=pick(rng,campaignSystems.filter(s=>s.treatment!=='oversized_numeral'||brief.outputs.every(o=>/\d/.test(o.headline))));
+  if(isLocked('typography')&&previousStyle)carouselSystem=(mode==='correction'&&previousStyle.style_scope!=='campaign'?SYSTEMS:campaignSystems).find(s=>s.id===previousStyle.system_id)||carouselSystem;
+  const palette=isLocked('colour')&&previousStyle?previousStyle.palette:pick(rng,PALETTES),carouselCTA=isLocked('cta')&&previousStyle?previousStyle.cta.treatment:pick(rng,carouselSystem.ctas),carouselLayouts=shuffle(rng,carouselSystem.layouts);
   try{
    for(let i=0;i<brief.outputs.length;i++){
-    const o=brief.outputs[i],old=oldByKey.get(o.key),pin=o.format==='pinterest';
+    const o=brief.outputs[i],old=oldByKey.get(o.key);
     if(mode==='correction'&&old&&same(previous.brief.outputs.find(x=>x.key===o.key),o)){outputs.push({...structuredClone(old),expected_revision:old.revision});used.add(old.composition.design.background_source_id);continue;}
-    let system=pin?pick(rng,SYSTEMS.filter(s=>s.treatment!=='oversized_numeral'||/\d/.test(o.headline))):carouselSystem;
-    if(isLocked('typography')&&old)system=SYSTEMS.find(s=>s.id===old.composition.design.system_id)||system;
-    let colour=isLocked('colour')&&old?old.composition.design.palette:pin?pick(rng,PALETTES):palette;
+    let system=carouselSystem;
+    if(isLocked('typography')&&old)system=(mode==='correction'&&old.composition.design.style_scope!=='campaign'?SYSTEMS:campaignSystems).find(s=>s.id===old.composition.design.system_id)||system;
+    let colour=isLocked('colour')&&old?old.composition.design.palette:palette;
     const bg=isLocked('backgrounds')&&old?assets.find(a=>a.id===old.composition.background_id):chooseBackground(rng,assets,backgroundsHistory,used,o.format,exceptions);
     ok(bg,'LOCKED_BACKGROUND_UNAVAILABLE');used.add(sourceIdentity(bg));
-    const layouts=pin?shuffle(rng,system.layouts):carouselLayouts,family=isLocked('layout')&&old?old.composition.design.layout_family:layouts[i%layouts.length];
-    const ctaTreatment=isLocked('cta')&&old?old.composition.design.cta.treatment:pin?pick(rng,system.ctas):carouselCTA;
+    const layouts=carouselLayouts,family=isLocked('layout')&&old?old.composition.design.layout_family:layouts[i%layouts.length];
+    const ctaTreatment=isLocked('cta')&&old?old.composition.design.cta.treatment:carouselCTA;
     const d={version:PRESET_VERSION,system_id:system.id,font_category:system.category,hierarchy:system.hierarchy,treatment:system.treatment,layout_family:family,role:o.role,fonts:[...new Set([system.headline,system.support])],blocks:blockStyles(system,o,colour),palette:colour,cta:{treatment:ctaTreatment,location:ctaTreatment==='integrated'?'below_headline':['footer_band'].includes(ctaTreatment)?'footer':ctaTreatment==='side_panel'?'side':ctaTreatment==='offer_panel'?'offer':'below_copy'},seed:String(seed),background_source_id:sourceIdentity(bg)};
+    if(mode!=='correction'||old?.composition.design.style_scope==='campaign')Object.assign(d,{style_scope:'campaign',colour_mode:'fixed'});
+    else if(old?.composition.design.colour_mode)d.colour_mode=old.composition.design.colour_mode;
     if(isLocked('typography')&&old){const generated=d.blocks;d.blocks=structuredClone(old.composition.design.blocks);d.fonts=old.composition.design.fonts;if(mode==='correction'){const prior=previous.brief.outputs.find(x=>x.key===o.key);for(const key of copyKeys){if(!o[key]){delete d.blocks[key];continue;}d.blocks[key]??=generated[key];if(o.emphasis?.[key])d.blocks[key].emphasis=o.emphasis[key];else if(prior[key]!==o[key]){if(generated[key]?.emphasis)d.blocks[key].emphasis=generated[key].emphasis;else delete d.blocks[key].emphasis;}}}}
     // A correction retains the entire design of unchanged outputs.
     const composition=mode==='correction'&&old&&same(previous.brief.outputs.find(x=>x.key===o.key),o)?structuredClone(old.composition):{planner_id:brief.planner_id,output_type:o.format,background_id:bg.id,font_family:d.blocks.headline.font_family,composition_profile:bg.metadata?.composition_profile||'balanced_premium',layout_preset:'auto',headline:o.headline,...(o.supporting_copy?{supporting_copy:o.supporting_copy}:{}),...(o.cta?{cta:o.cta}:{}),planner_page_ids:o.page_ids,design:d};
     const selected=[bg,...o.page_ids.map(id=>assets.find(a=>a.id===id))];
-    const layout=automaticLayout(composition,selected);
-    outputs.push({key:o.key,composition,layout,asset_versions:selected.map(a=>({id:a.id,checksum:a.checksum,source_checksum:a.source_checksum||null})),...(old?{composition_id:old.composition_id,expected_revision:old.revision}:{} )});selectedSystems.push(system.id);
+    let layout,layoutError;
+    const candidates=isLocked('layout')&&old?[family]:[...layouts.slice(i%layouts.length),...layouts.slice(0,i%layouts.length)];
+    for(const candidate of candidates){composition.design.layout_family=candidate;try{layout=automaticLayout(composition,selected);break;}catch(e){layoutError=e;}}
+    if(!layout)throw layoutError;
+    outputs.push({key:o.key,composition,layout,asset_versions:selected.map(a=>({id:a.id,checksum:a.checksum,source_checksum:a.source_checksum||null})),...(old?{composition_id:old.composition_id,expected_revision:old.revision}:{} )});
    }
+   if(!isLocked('typography'))fitCampaignTypography(outputs);
+   if(mode!=='correction'||previousStyle?.style_scope==='campaign')assertCampaignStyle(outputs.map(o=>o.composition));
+   const campaign=designSignature(outputs.map(o=>o.composition));
    const carousel=designSignature(outputs.filter(o=>o.composition.output_type==='square').map(o=>o.composition)),pins=outputs.filter(o=>o.composition.output_type==='pinterest').map(o=>designSignature([o.composition]));
    const partial=mode!=='all';
    if(mode!=='correction'){
-    if(carousel&&!acceptableDesign(carousel,recentCarousel,{partial}))continue;
-    if(pins.some((p,i)=>!acceptableDesign(p,[...recentPins,...pins.slice(0,i)],{partial})))continue;
+    if(!acceptableDesign(campaign,recentCampaigns,{partial}))continue;
    }
-   return {version:PRESET_VERSION,seed:String(seed),brief:structuredClone(brief),locks:[...locks],outputs,signatures:{carousel,pins},exceptions,similarity:{threshold:SIMILARITY_THRESHOLD,minimum_major_differences:partial?null:3,partial_control:partial,history_campaigns:recent.length,carousel:recentCarousel.map(x=>compareDesign(carousel,x)),pins:pins.map(p=>recentPins.map(x=>compareDesign(p,x)))},asset_versions:outputs.flatMap(o=>o.asset_versions)};
-  }catch(e){if(/LOCKED_|NO_APPROVED_|INSUFFICIENT_DISTINCT_/.test(e.message))throw e;if(attempt===239)throw e;}
+   return {version:PRESET_VERSION,seed:String(seed),brief:structuredClone(brief),locks:[...locks],outputs,signatures:{campaign,carousel,pins},exceptions,similarity:{scope:'between_campaigns',threshold:SIMILARITY_THRESHOLD,minimum_major_differences:partial?null:3,partial_control:partial,history_campaigns:recent.length,campaign:recentCampaigns.map(x=>compareDesign(campaign,x)),carousel:recentCarousel.map(x=>compareDesign(carousel,x)),pins:pins.map(p=>recentPins.map(x=>compareDesign(p,x)))},asset_versions:outputs.flatMap(o=>o.asset_versions)};
+  }catch(e){if(/LOCKED_|CAMPAIGN_STYLE_|NO_APPROVED_|INSUFFICIENT_DISTINCT_/.test(e.message))throw e;if(attempt===239)throw e;}
  }
  throw Error('NO_DISTINCT_COMPATIBLE_DESIGN: unlock more design elements or expand the approved bank; exact recent combinations are rejected');
 }

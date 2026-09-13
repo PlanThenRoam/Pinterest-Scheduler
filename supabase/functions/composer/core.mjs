@@ -1,5 +1,5 @@
 import {NEW_FONTS,validateDesign,automaticLayout} from './art-direction.mjs';
-export const VERSION='2.0.1';
+export const VERSION='2.0.2';
 export const OUTPUTS=Object.freeze({square:Object.freeze({width:1080,height:1080}),pinterest:Object.freeze({width:1000,height:1500})});
 export function outputSize(type){assert(Object.hasOwn(OUTPUTS,type),'Unsupported output type');return OUTPUTS[type];}
 export const FONTS=['Cormorant Garamond','Playfair Display','DM Serif Display','Bodoni Moda','Lora','Fraunces','Prata','Libre Baskerville','Spectral','EB Garamond','Merriweather','Source Serif 4','Libre Caslon Display','Cardo','Crimson Pro','Vollkorn','Alegreya','Noto Serif','Newsreader','Instrument Serif',...NEW_FONTS];
