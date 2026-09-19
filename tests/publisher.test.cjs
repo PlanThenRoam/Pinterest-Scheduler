@@ -4,10 +4,21 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
-const context=vm.createContext({TextDecoder,TextEncoder,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,setTimeout});
+const context=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,TextDecoder,TextEncoder,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,setTimeout});
 function load(name){return stripTypeScriptTypes(fs.readFileSync(base+'/'+name,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,''));}
 vm.runInContext(load('assets.ts')+'\n'+load('safety.ts')+'\n'+load('image-state.ts')+'\n'+load('resume-images.ts')+'\n'+load('safe-edit.ts')+'\n'+load('reconcile-edit.ts'),context);
 const {runEdit,preflightFiles,verifyFields}=context;
+test('description verification decodes named, decimal and hexadecimal HTML entities on both sides',()=>{
+ for(const [expected,actual] of [["The itinerary's shuttle; Lake O'Hara",'The itinerary&#39;s shuttle; Lake O&#39;Hara'],['A & B < C > D "quote" £ café •','A &amp; B &lt; C &gt; D &quot;quote&quot; &pound; caf&eacute; &bull;'],['Lake O&apos;Hara','Lake O&#x27;Hara'],['A\u00a0B','A&nbsp;B'],['Mountain 🏔','Mountain &#x1F3D4;']]){
+  verifyFields({description:expected},{description:actual},{});
+  verifyFields({description:actual},{description:expected},{});
+  verifyFields({description:'Old copy'},{description:actual},{description:expected});
+ }
+});
+test('description verification still rejects changed wording, punctuation, whitespace and literal entity text',()=>{
+ for(const [expected,actual] of [["Lake O'Hara",'Lake O&#39;Hare'],['5 days','7 days'],['A & B','A and B'],['A\nB','A B'],['Guide.','Guide'],['<b>Guide</b>','Guide'],['&amp;amp;','&amp;'],['&notin','¬in'],['Guide',null]])assert.throws(()=>verifyFields({description:expected},{description:actual},{}),/description differs/);
+ assert.throws(()=>verifyFields({title:'A & B'},{title:'A &amp; B'},{}),/title differs/);
+});
 const source=fs.readFileSync(base+'/index.ts','utf8');
 vm.runInContext(stripTypeScriptTypes(source.slice(source.indexOf('function numberValue('),source.indexOf('async function etsyFetch('))),context);
 function setup({count=2,uploadFail=false,drift=false,unexpectedField=false}={}){

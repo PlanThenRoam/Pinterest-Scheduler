@@ -13,7 +13,7 @@ const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const APP_VERSION = 37;
-const API_CAPABILITY_VERSION = "4.1.1";
+const API_CAPABILITY_VERSION = "4.1.2";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -206,7 +206,8 @@ Deno.serve(async(req:Request)=>{
   if(projectError||!project)throw new Error("Project not found or access denied.");
   if(!["etsy","pinterest"].includes(project.kind))throw new Error("Seller Tools supports Etsy and Pinterest projects only.");
   if(name!=="clear_review_project"&&args.expected_revision!==project.revision)throw new Error("The submission changed. Read its current revision before saving.");
-  if(name!=="clear_review_project"&&["publishing","published","changes_requested","failed"].includes(project.status))throw new Error("This submission is locked or cancelled. Refresh before making changes.");
+  const retryDraftReview=name==='finalize_review_project'&&project.kind==='etsy'&&project.status==='failed'&&project.manifest?.mode!=='edit'&&Boolean(project.manifest?.etsyPublish?.listingId);
+  if(name!=="clear_review_project"&&!retryDraftReview&&["publishing","published","changes_requested","failed"].includes(project.status))throw new Error("This submission is locked or cancelled. Refresh before making changes.");
   if(name==="attach_project_asset"||name==="attach_project_asset_from_url"){
    let bytes:Uint8Array,contentType=String(args.content_type||"application/octet-stream");
    if(name==="attach_project_asset"){if(typeof args.base64_data!=="string"||args.base64_data.length>9_000_000)throw new Error("Base64 asset is missing or exceeds the 6 MB direct-upload limit. Use the trusted URL tool for larger files.");bytes=Uint8Array.from(atob(args.base64_data),c=>c.charCodeAt(0))}
@@ -242,9 +243,14 @@ Deno.serve(async(req:Request)=>{
    }
    if(project.kind==="pinterest"&&!project.manifest.pins.every((p:any,i:number)=>media.some((x:any)=>x.role===(p.imageRole||`pin-${i+1}`))))throw new Error("Attach an image for each Pin before finalizing.");
    for(const asset of media){if(typeof asset.path!=='string'||!asset.path.startsWith(userData.user.id+'/'+project.id+'/'))throw new Error('Invalid asset ownership.');const stored=await db.storage.from(bucketFor[project.kind]).download(asset.path);if(stored.error)throw stored.error;const pdf=asset.role==='customer-pdf'||(project.manifest.fileUpdates||[]).some((f:any)=>f.role===asset.role);await validateAssetBlob(asset,stored.data,pdf?'pdf':'image');}
+   let etsyDraftVerification;
+   if(project.kind==='etsy'&&project.manifest?.mode!=='edit'&&project.manifest?.etsyPublish?.listingId){
+    etsyDraftVerification=await publisherRequest(auth,'',{method:'POST',body:JSON.stringify({action:'revalidate_draft',project_id:project.id,expected_revision:project.revision})});
+    if(etsyDraftVerification.verified!==true||etsyDraftVerification.state!=='draft'||etsyDraftVerification.listing_id!==String(project.platform_id))throw new Error('The existing Etsy draft could not be verified.');
+   }
    const status="ready";
    const {error}=await db.from("review_projects").update({status,preview_path:project.preview_path,revision_request:null,last_error:null}).eq("id",project.id).eq("revision",project.revision).eq("status",project.status).select("id").single();if(error)throw error;
-   return rpc(id,output({project_id:project.id,status,revision:project.revision}));
+   return rpc(id,output({project_id:project.id,status,revision:project.revision,...(etsyDraftVerification?{etsy_draft_verification:etsyDraftVerification}:{})}));
   }
   if(name==="update_review_project"){
    const changes:any={revision:project.revision+1};if(args.title)changes.title=String(args.title).slice(0,180);if(args.manifest){

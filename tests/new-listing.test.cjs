@@ -12,7 +12,7 @@ function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescript
   const path=new URL(url).pathname,method=init.method||'GET';
   if(!url.startsWith('https://openapi.etsy.com/'))throw Error('Unexpected external request');
   const ok=data=>new Response(JSON.stringify(data),{status:200});
-  if(path.endsWith('/listings')&&method==='POST'){writes.push('create');draftFields={title:init.body.get('title'),description:wrongDescription?'Unexpected':init.body.get('description'),tags:init.body.getAll('tags'),price:Number(init.body.get('price'))};return ok({listing_id:'12345'});}
+  if(path.endsWith('/listings')&&method==='POST'){writes.push('create');draftFields={title:init.body.get('title'),description:wrongDescription?'Unexpected':init.body.get('description'),tags:[...init.body].filter(([key])=>/^tags\[\d+\]$/.test(key)).map(([,value])=>value),price:Number(init.body.get('price'))};return ok({listing_id:'12345'});}
   if(path.endsWith('/images')&&method==='GET')return ok({results:images});
   if(path.endsWith('/images')&&method==='POST'){
    const form=init.body;
@@ -24,10 +24,10 @@ function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescript
   if(method==='GET'&&/\/listings\/\d+$/.test(path))return ok({listing_id:path.split('/').at(-1),user_id:'owner',state,images,price:{amount:1499,divisor:100,currency_code:'GBP'},...draftFields,who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
   throw Error('Unhandled '+method+' '+path);
  };
- const c=vm.createContext({Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,TextDecoder,TextEncoder,setTimeout:(f)=>f(),URL,fetch,createClient:()=>admin,Deno:{env:{get:()=> 'test'},serve:f=>handler=f}});
- for(const file of ['assets.ts','safety.ts','image-state.ts','safe-edit.ts','index.ts']){const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');vm.runInContext(stripTypeScriptTypes(source),c);}
+ const c=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,TextDecoder,TextEncoder,setTimeout:(f)=>f(),URL,fetch,createClient:()=>admin,Deno:{env:{get:()=> 'test'},serve:f=>handler=f}});
+ for(const file of ['assets.ts','safety.ts','verify-draft.ts','image-state.ts','safe-edit.ts','index.ts']){const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');vm.runInContext(stripTypeScriptTypes(source),c);}
  project.manifest.listingDefaults=c.listingDefaults({price:{amount:1499,divisor:100,currency_code:'GBP'},who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
- return {project,writes,images,files,run:async()=>{const response=await handler(new Request('https://example.com/etsy-publish',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({project_id:'project',expected_revision:project.revision})}));return {status:response.status,body:await response.json()};}};
+ return {project,writes,images,files,setDescription:value=>{draftFields.description=value;},run:async(overrides={})=>{const response=await handler(new Request('https://example.com/etsy-publish',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({project_id:'project',expected_revision:project.revision,...overrides})}));return {status:response.status,body:await response.json()};}};
 }
 test('new listing verifies six images, alt text and PDF before activation',async()=>{const s=setup();const r=await s.run();assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(s.writes.filter(x=>x==='image').length,6);assert.equal(s.writes.filter(x=>x==='alt').length,0);assert.equal(s.writes.at(-1),'activate');assert.equal(s.project.status,'published');});
 test('invalid customer file blocks even draft creation',async()=>{const s=setup({invalidPdf:true});const r=await s.run();assert.equal(r.status,400);assert.match(r.body.error,/genuine PDFs/);assert.deepEqual(s.writes,[]);});
@@ -35,3 +35,21 @@ test('uncertain new-listing image upload cannot be duplicated by retry',async()=
 test('incorrect new-listing alt text blocks activation',async()=>{const s=setup({wrongAlt:true});const r=await s.run();assert.equal(r.status,400);assert.match(r.body.error,/Image 1 alt text/);assert.equal(s.writes.includes('activate'),false);});
 test('parallel new-listing requests create only one Etsy draft',async()=>{const s=setup();await Promise.all([s.run(),s.run()]);assert.equal(s.writes.filter(x=>x==='create').length,1);assert.equal(s.writes.filter(x=>x==='image').length,6);});
 test('unexpected listing copy is caught before activation',async()=>{const s=setup({wrongDescription:true});const r=await s.run();assert.equal(r.status,400);assert.match(r.body.error,/description differs/);assert.equal(s.writes.includes('activate'),false);});
+test('failed existing draft is revalidated read-only with encoded apostrophes and all uploads retained',async()=>{
+ const s=setup({wrongDescription:true});assert.equal((await s.run()).status,400);
+ s.project.manifest.description="The itinerary's shuttle and Lake O'Hara.";
+ s.setDescription('The itinerary&#39;s shuttle and Lake O&#39;Hara.');
+ const before=structuredClone({project:s.project,images:s.images,files:s.files,writes:s.writes});
+ const r=await s.run({action:'revalidate_draft'});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.verified,true);assert.equal(r.body.listing_id,'12345');assert.equal(r.body.state,'draft');assert.equal(r.body.published,false);
+ assert.deepEqual({project:s.project,images:s.images,files:s.files,writes:s.writes},before);
+});
+test('draft revalidation rejects wording or asset differences without writes or approval',async()=>{
+ for(const change of [s=>s.setDescription('Different words'),s=>s.images[0].alt_text='Wrong alt',s=>s.images[0].listing_image_id='other',s=>s.files[0].listing_file_id='other',s=>s.project.manifest.etsyPublish.imageUploadAttempted=true,s=>s.project.platform_id='other']){
+  const s=setup({wrongDescription:true});await s.run();s.setDescription(s.project.manifest.description);change(s);const writes=[...s.writes];
+  const r=await s.run({action:'revalidate_draft'});assert.equal(r.status,400);assert.equal(s.project.status,'failed');assert.deepEqual(s.writes,writes);
+ }
+});
+test('draft revalidation requires the exact current review revision',async()=>{
+ const s=setup({wrongDescription:true});await s.run();const writes=[...s.writes];
+ for(const expected_revision of [null,undefined,s.project.revision-1]){assert.equal((await s.run({action:'revalidate_draft',expected_revision})).status,400);assert.deepEqual(s.writes,writes);}
+});

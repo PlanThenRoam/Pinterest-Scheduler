@@ -1,6 +1,6 @@
 import {syncConfirmedImageAlt} from './image-state.ts';
 import { validateAssetBlob } from './assets.ts';
-import { listingSnapshot, equivalent, preflightFiles, verifyFields } from './safety.ts';
+import { listingSnapshot, equivalent, equivalentField, preflightFiles, verifyFields } from './safety.ts';
 
 // Etsy changes span multiple HTTP calls. Persist attempts before each write and
 // keep the listing locked when a timeout makes the outcome uncertain.
@@ -44,7 +44,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     const before = listingSnapshot(original);
     const captured = listing.manifest.existingSnapshot;
     if (captured) for (const key of Object.keys(before)) {
-      if (key in captured && !equivalent(captured[key], before[key])) throw new Error(`The live ${key} changed since this draft was prepared. Reopen the listing and review a fresh update.`);
+      if (key in captured && !equivalentField(key, captured[key], before[key])) throw new Error(`The live ${key} changed since this draft was prepared. Reopen the listing and review a fresh update.`);
     }
     const updates = [...(listing.fileUpdates || [])].sort((a, b) => (a.action === 'add' ? 1 : 0) - (b.action === 'add' ? 1 : 0));
     if (listing.scopes.includes('files')) preflightFiles(files, updates);

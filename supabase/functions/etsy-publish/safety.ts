@@ -1,3 +1,4 @@
+import { decodeHTMLStrict } from 'npm:entities@6.0.1';
 // Pure preflight and comparison helpers shared by the publisher regression tests.
 export const FIELD_KEYS: Record<string, string> = {
   title: 'title', description: 'description', price: 'price', quantity: 'quantity',
@@ -23,6 +24,14 @@ export function equivalent(a: any, b: any): boolean {
   }
   return a === b;
 }
+export function equivalentField(key: string, expected: any, actual: any): boolean {
+  // Decode one layer only. Do not strip markup, fold whitespace, change case,
+  // or recursively decode literal entity text: genuine copy changes must fail.
+  if (key === 'description' && typeof expected === 'string' && typeof actual === 'string') {
+    return decodeHTMLStrict(expected) === decodeHTMLStrict(actual);
+  }
+  return equivalent(expected, actual);
+}
 export function preflightFiles(existing: any[], updates: any[]) {
   let count = existing.length;
   const targeted = new Set<string>();
@@ -40,6 +49,6 @@ export function verifyFields(before: any, after: any, fields: any) {
   for (const key of Object.keys(FIELD_KEYS)) {
     if (!(key in before)) continue;
     const expected = Object.prototype.hasOwnProperty.call(fields, key) ? fields[key] : before[key];
-    if (!equivalent(expected, after[key])) throw new Error(`Etsy verification needs review: ${key} differs from the expected value.`);
+    if (!equivalentField(key, expected, after[key])) throw new Error(`Etsy verification needs review: ${key} differs from the expected value.`);
   }
 }

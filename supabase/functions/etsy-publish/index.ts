@@ -6,6 +6,7 @@ import {readImageState,syncConfirmedImageAlt} from './image-state.ts';
 import { reconcileEdit } from './reconcile-edit.ts';
 import { runEdit } from './safe-edit.ts';
 import { listingSnapshot, verifyFields, equivalent } from './safety.ts';
+import { verifyExistingDraft } from './verify-draft.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -347,6 +348,10 @@ Deno.serve(async (req: Request) => {
     if (!projectId) throw new Error("Choose an Etsy project to publish.");
     const { data: project, error: projectError } = await admin.from("review_projects").select("*").eq("id", projectId).single();
     if (projectError) throw projectError;
+    if(body.action==='revalidate_draft'){
+      if(!Number.isInteger(body.expected_revision)||body.expected_revision!==project.revision)throw new Error('The project changed. Refresh and review its latest revision.');
+      return json(await verifyExistingDraft(project,credential,token,validateProject(project),{fetch:etsyFetch}));
+    }
     if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
     if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
     if(body.action==='resume_images')return json(await resumeImages(admin,credential,token,project,{fetch:etsyFetch,storageFile,uploadImage,altText:updateExistingImageAltText}));
