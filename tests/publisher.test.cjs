@@ -6,7 +6,7 @@ const {stripTypeScriptTypes}=require('node:module');
 const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
 const context=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,TextDecoder,TextEncoder,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,setTimeout});
 function load(name){return stripTypeScriptTypes(fs.readFileSync(base+'/'+name,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,''));}
-vm.runInContext(load('assets.ts')+'\n'+load('safety.ts')+'\n'+load('image-state.ts')+'\n'+load('resume-images.ts')+'\n'+load('safe-edit.ts')+'\n'+load('reconcile-edit.ts'),context);
+vm.runInContext(load('assets.ts')+'\n'+load('alt-text.ts')+'\n'+load('safety.ts')+'\n'+load('image-state.ts')+'\n'+load('resume-images.ts')+'\n'+load('safe-edit.ts')+'\n'+load('reconcile-edit.ts'),context);
 const {runEdit,preflightFiles,verifyFields}=context;
 test('description verification decodes named, decimal and hexadecimal HTML entities on both sides',()=>{
  for(const [expected,actual] of [["The itinerary's shuttle; Lake O'Hara",'The itinerary&#39;s shuttle; Lake O&#39;Hara'],['A & B < C > D "quote" £ café •','A &amp; B &lt; C &gt; D &quot;quote&quot; &pound; caf&eacute; &bull;'],['Lake O&apos;Hara','Lake O&#x27;Hara'],['A\u00a0B','A&nbsp;B'],['Mountain 🏔','Mountain &#x1F3D4;']]){
@@ -67,3 +67,25 @@ test('resume corrects inherited alt text without uploading or deleting any photo
 test('resume refuses to repeat an upload whose response was lost',async()=>{const s=imageSetup();s.api.uploadImage=async()=>{s.writes.push('image');throw Error('timeout')};await assert.rejects(s.run());await assert.rejects(context.resumeImages(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api),/not confirmed/);assert.deepEqual(s.writes,['image']);});
 test('resume rejects externally changed photo identity without writes',async()=>{const s=imageSetup();s.api.altText=async()=>{throw Error('timeout')};await assert.rejects(s.run());s.current.images[0].listing_image_id='external';await assert.rejects(context.resumeImages(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api),/outside this update/);assert.deepEqual(s.writes,['image']);});
 test('alt-text request explicitly disables image replacement',()=>{const helper=source.slice(source.indexOf('async function updateExistingImageAltText'),source.indexOf('async function updateListing('));assert.match(helper,/form.set\("overwrite","false"\)/);assert.doesNotMatch(helper,/"overwrite","true"/);});
+
+function altOnlySetup(){
+ const s=setup();s.project.media=[];s.project.manifest.updateScope=['alt_text'];s.project.manifest.fileUpdates=[];
+ s.current.images=[{listing_image_id:'10',rank:1,alt_text:''},{listing_image_id:'11',rank:2,alt_text:'Keep this text'}];
+ s.project.manifest.existingImages=s.current.images.map(x=>({id:x.listing_image_id,rank:x.rank,altText:x.alt_text}));
+ s.project.manifest.altTextUpdates=[{listingImageId:'10',rank:1,altText:'New thumbnail description'}];
+ s.api.altText=async(shop,id,token,image)=>{s.writes.push('alt');assert.equal(image.listingImageId,'10');assert.equal(image.rank,1);s.current.images[0].alt_text=image.altText;return {...s.current.images[0]};};
+ return s;
+}
+test('alt-text-only publication needs no attachment and preserves all image IDs, other alt text, files and fields',async()=>{
+ const s=altOnlySetup(),files=structuredClone(s.files),before=structuredClone(s.current);const r=await s.run();assert.equal(r.verified,true);assert.deepEqual(s.writes,['alt']);assert.deepEqual(s.files,files);before.images[0].alt_text='New thumbnail description';assert.deepEqual(s.current,before);assert.equal(s.project.status,'published');
+});
+test('moved, replaced or externally edited alt text blocks before any Etsy write',async()=>{
+ for(const change of [s=>s.current.images[0].listing_image_id='20',s=>s.current.images[0].rank=3,s=>s.current.images[0].alt_text='Changed elsewhere']){const s=altOnlySetup();change(s);await assert.rejects(s.run(),/moved|replaced|alt text changed/);assert.deepEqual(s.writes,[]);}
+});
+test('alt-text validation rejects duplicate, missing, mismatched and replacement targets',()=>{
+ for(const change of [m=>m.altTextUpdates.push({...m.altTextUpdates[0]}),m=>delete m.altTextUpdates[0].listingImageId,m=>m.altTextUpdates[0].rank=2,m=>m.altTextUpdates[0].altText='a'.repeat(501),m=>m.imageReplacements=[{rank:1,role:'thumbnail'}]]){const s=altOnlySetup();change(s.project.manifest);assert.throws(()=>s.listing(),/existing image|image only once|saved listing|replacement/);assert.deepEqual(s.writes,[]);}
+});
+test('unconfirmed alt text does not pass verification and cannot be written again blindly',async()=>{const s=altOnlySetup();s.api.altText=async()=>{s.writes.push('alt');return {listing_image_id:'10'}};await assert.rejects(s.run(),/Image 1 verification/);await assert.rejects(s.run(),/unresolved/);assert.deepEqual(s.writes,['alt']);});
+test('delayed confirmed alt-text readback can reconcile without repeating the write',async()=>{
+ const s=altOnlySetup();s.api.altText=async()=>{s.writes.push('alt');return {listing_image_id:'10'}};await assert.rejects(s.run());s.current.images[0].alt_text='New thumbnail description';const r=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(r.verified,true);assert.deepEqual(s.writes,['alt']);
+});

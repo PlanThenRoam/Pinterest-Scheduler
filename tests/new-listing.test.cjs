@@ -25,7 +25,7 @@ function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescript
   throw Error('Unhandled '+method+' '+path);
  };
  const c=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,TextDecoder,TextEncoder,setTimeout:(f)=>f(),URL,fetch,createClient:()=>admin,Deno:{env:{get:()=> 'test'},serve:f=>handler=f}});
- for(const file of ['assets.ts','safety.ts','verify-draft.ts','image-state.ts','safe-edit.ts','index.ts']){const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');vm.runInContext(stripTypeScriptTypes(source),c);}
+ for(const file of ['assets.ts','alt-text.ts','safety.ts','verify-draft.ts','image-state.ts','safe-edit.ts','index.ts']){const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');vm.runInContext(stripTypeScriptTypes(source),c);}
  project.manifest.listingDefaults=c.listingDefaults({price:{amount:1499,divisor:100,currency_code:'GBP'},who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
  return {project,writes,images,files,setDescription:value=>{draftFields.description=value;},run:async(overrides={})=>{const response=await handler(new Request('https://example.com/etsy-publish',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({project_id:'project',expected_revision:project.revision,...overrides})}));return {status:response.status,body:await response.json()};}};
 }

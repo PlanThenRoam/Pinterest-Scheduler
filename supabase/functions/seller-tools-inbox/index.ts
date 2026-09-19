@@ -1,4 +1,5 @@
 import { validateAssetBlob } from '../etsy-publish/assets.ts';
+import { validateAltTextUpdates } from '../etsy-publish/alt-text.ts';
 import { listBoards } from '../pinterest-publish/api.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
@@ -13,7 +14,7 @@ const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const APP_VERSION = 37;
-const API_CAPABILITY_VERSION = "4.1.2";
+const API_CAPABILITY_VERSION = "4.1.3";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -50,9 +51,9 @@ for(const definition of toolDefinitions){
  if(definition.name==='create_review_project'){definition.inputSchema.properties.idempotency_key={type:'string',minLength:8,maxLength:120};definition.inputSchema.required.push('idempotency_key');}
  if(definition.name==='prepare_etsy_listing_update'){
   definition.inputSchema.properties.idempotency_key={type:'string',minLength:8,maxLength:120};definition.inputSchema.required.push('idempotency_key');definition.annotations.idempotentHint=true;
-  delete definition.inputSchema.properties.tags;delete definition.inputSchema.properties.price;delete definition.inputSchema.properties.alt_text;
+  delete definition.inputSchema.properties.tags;delete definition.inputSchema.properties.price;
   definition.inputSchema.properties.digital_files.items.properties.action.enum=['replace'];
-  definition.description='Prepare title, description, individual image replacements with matching alt text, or PDF replacements for owner approval. Only these selected items change.';
+  definition.description='Prepare title, description, existing-image alt text, image replacements, or PDF replacements for owner approval. Alt-text-only updates need an existing image ID and rank, with no replacement image upload. Only selected items change.';
  }
 }
 const tools=toolDefinitions.filter(t=>supportedActions.has(t.name)).map((t:any)=>({...t,securitySchemes:authSchemes,_meta:{...t._meta,securitySchemes:authSchemes}}));
@@ -72,7 +73,7 @@ function validate(kind:string, manifest:any){
    if(!/^\d+$/.test(listingId))throw new Error("Etsy updates require the exact existing listing ID.");
    const legacyImages=manifest.updateScope==="images_only";const fields=manifest.updateFields&&typeof manifest.updateFields==="object"?manifest.updateFields:{};
    const scopes=Array.isArray(manifest.updateScope)?manifest.updateScope.map(String):legacyImages?["images"]:[...Object.keys(fields),...(manifest.imageUpdate?["images"]:[]),...(manifest.altTextUpdates?.length?["alt_text"]:[]),...((manifest.fileUpdates?.length||manifest.fileReplacements?.length)?["files"]:[])];
-   const allowed=["title","description","images","files"];
+   const allowed=["title","description","images","alt_text","files"];
    if(!scopes.length||scopes.some((x:string)=>!allowed.includes(x)))throw new Error("Choose at least one supported Etsy field to update.");
    if(Object.keys(fields).some(x=>!allowed.includes(x)||["images","alt_text","files"].includes(x)))throw new Error("The Etsy update contains an unsupported field.");
    if(Object.keys(fields).some(x=>!scopes.includes(x))||scopes.some((x:string)=>!["images","alt_text","files"].includes(x)&&!Object.prototype.hasOwnProperty.call(fields,x)))throw new Error("Every Etsy update scope must have exactly one approved value.");
@@ -89,7 +90,7 @@ function validate(kind:string, manifest:any){
    for(const key of ["materials","styles"])if(key in fields&&(!Array.isArray(fields[key])||fields[key].some((x:any)=>!String(x).trim())))throw new Error(`Etsy ${key} must be a list of non-empty values.`);
    if("tags" in fields){const tags=Array.isArray(fields.tags)?fields.tags.map((x:any)=>String(x).trim()).filter(Boolean):[];if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13||tags.some((x:string)=>x.length>20))throw new Error("Etsy tags require exactly 13 unique entries, each 20 characters or fewer.");fields.tags=tags;}
    if(scopes.includes("images")){const legacyAlt=Array.isArray(manifest.altText)?manifest.altText.map((x:any)=>String(x).trim()):[],replacements=Array.isArray(manifest.imageReplacements)&&manifest.imageReplacements.length?manifest.imageReplacements:(legacyAlt.length===6?["thumbnail","listing-image-1","listing-image-2","listing-image-3","listing-image-4","listing-image-5"].map((role,i)=>({role,rank:i+1,altText:legacyAlt[i]})):[]);if(!replacements.length||replacements.length>20)throw new Error("Image updates require one to twenty explicit replacements.");const ranks=new Set<number>();for(const [i,image] of replacements.entries()){const rank=Number(image?.rank),role=String(image?.role||""),alt=String(image?.altText||"").trim();if(!role||!Number.isInteger(rank)||rank<1||rank>20||!alt||alt.length>500)throw new Error(`Image replacement ${i+1} needs a role, rank from 1 to 20 and alt text.`);if(ranks.has(rank))throw new Error("Image replacement ranks must be unique.");ranks.add(rank);image.rank=rank;image.altText=alt;}manifest.imageReplacements=replacements;manifest.imageUpdate=true;}
-   if(scopes.includes("alt_text")){const updates=Array.isArray(manifest.altTextUpdates)?manifest.altTextUpdates:[];if(!updates.length||updates.length>20)throw new Error("Alt-text updates require one to twenty existing Etsy images.");for(const [i,image] of updates.entries()){if(!/^\d+$/.test(String(image?.listingImageId||""))||!Number.isInteger(Number(image?.rank))||Number(image.rank)<1||Number(image.rank)>20||!String(image?.altText||"").trim()||String(image.altText).length>500)throw new Error(`Alt-text update ${i+1} needs an existing image ID, rank from 1 to 20 and text.`);image.altText=String(image.altText).trim().slice(0,500);}}
+   if(scopes.includes('alt_text'))manifest.altTextUpdates=validateAltTextUpdates(manifest);
    if(scopes.includes("files")){const files=Array.isArray(manifest.fileUpdates)?manifest.fileUpdates:[];if(!files.length||files.length>5)throw new Error("Digital-file updates require one to five explicit additions or replacements.");for(const [i,file] of files.entries()){if(file?.action!=="replace"||!file?.role||!/\.pdf$/i.test(file.filename||""))throw new Error(`Digital-file update ${i+1} needs add or replace, an asset role and filename.`);if(file.action==="replace"&&!/^\d+$/.test(String(file.listingFileId||"")))throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`);}}
    if("personalization" in fields&&fields.personalization?.enabled!==false){const questions=fields.personalization?.personalization_questions;if(!Array.isArray(questions)||!questions.length)throw new Error("Personalisation requires at least one question or enabled:false.");for(const [i,q] of questions.entries()){if(!q?.question_text||String(q.question_text).length>45||!['text_input','dropdown','unlabeled_upload','labeled_upload'].includes(String(q.question_type)))throw new Error(`Personalisation question ${i+1} has an invalid label or type.`);if(q.instructions&&String(q.instructions).length>120)throw new Error(`Personalisation question ${i+1} instructions exceed 120 characters.`);if("required" in q&&typeof q.required!=="boolean")throw new Error(`Personalisation question ${i+1} required must be true or false.`);if(q.question_id!=null&&!/^\d+$/.test(String(q.question_id)))throw new Error(`Personalisation question ${i+1} has an invalid question ID.`);}}
    manifest.mode="edit";manifest.updateScope=[...new Set(scopes)];manifest.updateFields=fields;manifest.listingId=listingId;
@@ -165,7 +166,7 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output({listings}));
   }
   if(name==="prepare_etsy_listing_update"){
-   if(["price","tags","alt_text"].some(key=>key in args))throw new Error("Editing supports title, description, image replacements with alt text, and PDF replacements only.");
+   if(["price","tags"].some(key=>key in args))throw new Error("Editing supports title, description, existing-image alt text, image replacements, and PDF replacements only.");
    if((args.digital_files||[]).some((f:any)=>f.action!=="replace"||!/\.pdf$/i.test(f.filename)))throw new Error("Choose an existing customer PDF to replace.");
    const projectId=await submissionId(userData.user.id,args.idempotency_key),fingerprint=await fingerprintOf(args);
    const prior=await db.from('review_projects').select('*').eq('id',projectId).maybeSingle();if(prior.error)throw prior.error;

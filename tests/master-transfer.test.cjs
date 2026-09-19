@@ -42,6 +42,7 @@ test('MCP discovery exposes all master actions without reading private data; cal
  vm.runInContext(stripTypeScriptTypes(source),server);
  const call=(method,params={},auth)=>handler(new Request('https://project.supabase.co/functions/v1/seller-tools-inbox',{method:'POST',headers:{'Content-Type':'application/json',...(auth?{authorization:auth}:{})},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}));
  const list=await call('tools/list'),body=await list.json();assert.equal(list.status,200);assert.equal(list.headers.get('cache-control'),'no-store');assert.equal(authChecks,0);
+ const alt=body.result.tools.find(t=>t.name==='prepare_etsy_listing_update').inputSchema.properties.alt_text;assert.deepEqual(plain(alt.items.required),['listing_image_id','rank','text']);
  for(const name of ['list_master_files','get_master_file','prepare_master_upload','commit_master_upload','upload_master_files','delete_master_file']){const t=body.result.tools.find(t=>t.name===name);assert.ok(t);assert.equal(t.inputSchema.type,'object');assert.equal(t.securitySchemes[0].type,'oauth2');}
  for(const name of ['list_master_files','get_master_file','prepare_master_upload','commit_master_upload','upload_master_files','delete_master_file']){const denied=await call('tools/call',{name,arguments:{}});assert.equal(denied.status,401);assert.ok(denied.headers.get('www-authenticate'));assert.equal((await denied.json()).result.isError,true);}
  assert.equal((await call('tools/call',{name:'list_master_files'},'Bearer invalid')).status,401);

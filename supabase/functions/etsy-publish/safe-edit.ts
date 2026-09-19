@@ -64,6 +64,9 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (ranks.has(Number(image.rank))) throw new Error('An image position has more than one change.');
       ranks.add(Number(image.rank));
       if (!images.some((x: any) => String(x.listing_image_id) === String(image.listingImageId) && Number(x.rank) === Number(image.rank))) throw new Error('An image moved or was replaced. Reopen the listing before editing its alt text.');
+      const saved = listing.manifest.existingImages.find((x: any) => String(x.id) === String(image.listingImageId));
+      const live = images.find((x: any) => String(x.listing_image_id) === String(image.listingImageId));
+      if (String(saved.altText || '') !== String(live.alt_text || '')) throw new Error('The image alt text changed since this draft was prepared. Review a fresh update.');
     }
     const resultingRanks=[...new Set([...images.map((x:any)=>Number(x.rank)),...(listing.images||[]).map((x:any)=>Number(x.rank))])].sort((a,b)=>a-b);
     if(resultingRanks.some((rank,i)=>rank!==i+1))throw new Error('Add images in consecutive positions after the current final image.');

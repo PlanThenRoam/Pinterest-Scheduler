@@ -4,7 +4,7 @@ Private mobile-first app at the existing GitHub Pages URL. Release 35 / connecto
 
 Bottom tabs: Editing, Posting, Storage. Owner sign-in and existing Etsy access are retained.
 
-- Editing: owner-approved title, description, individual image with matching alt text, and PDF replacement. Unselected listing content is preserved and checked after publication.
+- Editing: owner-approved title, description, alt text for an existing image, individual image replacement with matching alt text, and PDF replacement. Alt-text-only changes use the existing image ID and position and require no upload. Unselected listing content is preserved and checked after publication.
 - Posting: new Etsy listing with customer PDF, title, description, 13 tags and six images/alt texts; shared defaults captured from an existing listing. Pinterest pins use an existing board and the planner's resolved Etsy link, with owner approval.
 - Storage: one private current DOCX per planner, with verified replacement and durable deletion of superseded objects. No content history.
 

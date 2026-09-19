@@ -9,7 +9,7 @@ export async function reconcileEdit(admin:any,credential:any,token:string,projec
  const images=(await api.fetch('/listings/'+listingId+'/images',token)).results;
  const files=(await api.fetch('/shops/'+credential.shop_id+'/listings/'+listingId+'/files',token)).results;
  if(!Array.isArray(images)||!Array.isArray(files))throw new Error('Etsy readback is unavailable.');
- const m=project.manifest,steps=run.steps||[],before=run.before_state||{},replacements=m.imageReplacements||[],updates=m.fileUpdates||[];
+ const m=project.manifest,steps=run.steps||[],before=run.before_state||{},replacements=m.imageReplacements||[],updates=m.fileUpdates||[],altUpdates=m.updateScope?.includes('alt_text')?m.altTextUpdates||[]:[];
  let verified=true;
  try{
   if(!before.fields||!before.images||!before.files)throw Error('The complete operation was not confirmed.');
@@ -17,7 +17,8 @@ export async function reconcileEdit(admin:any,credential:any,token:string,projec
   if(steps.some((s:any)=>s.status!=='confirmed'&&!/^Confirm image \d+ alt text$/.test(s.name)))throw Error('An operation remains uncertain.');
   verifyFields(before.fields,listingSnapshot(listing),m.updateFields||{});
   if(images.length!==before.images.length+replacements.filter((r:any)=>!before.images.some((i:any)=>Number(i.rank)===Number(r.rank))).length)throw Error('Image count differs.');
-  for(const old of before.images){if(replacements.some((r:any)=>Number(r.rank)===Number(old.rank)))continue;const actual=images.find((i:any)=>Number(i.rank)===Number(old.rank));if(!actual||String(actual.listing_image_id)!==String(old.listing_image_id)||String(actual.alt_text||'')!==String(old.alt_text||''))throw Error('Untouched image differs.');}
+  for(const old of before.images){if(replacements.some((r:any)=>Number(r.rank)===Number(old.rank)))continue;const actual=images.find((i:any)=>Number(i.rank)===Number(old.rank)),alt=altUpdates.find((a:any)=>Number(a.rank)===Number(old.rank));if(!actual||String(actual.listing_image_id)!==String(old.listing_image_id)||String(actual.alt_text||'')!==String(alt?.altText??old.alt_text??''))throw Error('Image alt text or identity differs.');}
+  for(const alt of altUpdates){const actual=images.find((i:any)=>String(i.listing_image_id)===String(alt.listingImageId)&&Number(i.rank)===Number(alt.rank));if(!actual||String(actual.alt_text||'')!==alt.altText||!steps.some((s:any)=>s.name==='Update alt text '+alt.rank&&s.status==='confirmed'))throw Error('Alt-text update was not confirmed.');}
   for(const replacement of replacements){const step=steps.findLast((s:any)=>(s.name==='Replace image '+replacement.rank||s.name==='Restore image '+replacement.rank)&&s.status==='confirmed'),actual=images.find((i:any)=>Number(i.rank)===Number(replacement.rank));if(!step?.image_id||!actual||String(actual.listing_image_id)!==String(step.image_id)||String(actual.alt_text||'')!==String(replacement.altText))throw Error('Image result differs.');}
   const expected=before.files.map((f:any)=>String(f.listing_file_id));
   for(const update of updates){const step=steps.find((s:any)=>s.name==='Upload '+update.filename),index=expected.indexOf(String(update.listingFileId));if(!step?.file_id||step.status!=='confirmed')throw Error('File result is unconfirmed.');if(update.action==='add')expected.push(String(step.file_id));else {if(index<0||!steps.some((s:any)=>s.name==='Remove replaced file '+update.listingFileId&&s.status==='confirmed'))throw Error('File replacement is unconfirmed.');expected[index]=String(step.file_id);}}

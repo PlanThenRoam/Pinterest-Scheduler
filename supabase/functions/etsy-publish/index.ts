@@ -7,6 +7,7 @@ import { reconcileEdit } from './reconcile-edit.ts';
 import { runEdit } from './safe-edit.ts';
 import { listingSnapshot, verifyFields, equivalent } from './safety.ts';
 import { verifyExistingDraft } from './verify-draft.ts';
+import { validateAltTextUpdates } from './alt-text.ts';
 
 const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -56,7 +57,7 @@ function validateProject(project: any) {
   if (editMode) {
     const fields = manifest.updateFields && typeof manifest.updateFields === "object" ? manifest.updateFields : {};
     const scopes = Array.isArray(manifest.updateScope) ? manifest.updateScope.map(String) : manifest.updateScope === "images_only" ? ["images"] : [];
-    const allowed = new Set(["title","description","images","files"]);
+    const allowed = new Set(["title","description","images","alt_text","files"]);
     if (!scopes.length) throw new Error("This Etsy update has no approved fields.");
     if (scopes.some((scope: string) => !allowed.has(scope))) throw new Error("This Etsy update contains an unsupported scope.");
     if (Object.keys(fields).some((key) => !allowed.has(key) || ["images","alt_text","files"].includes(key))) throw new Error("This Etsy update contains an unsupported field.");
@@ -72,8 +73,7 @@ function validateProject(project: any) {
       if (!imageReplacements.length) throw new Error("Choose at least one Etsy image to replace.");
       for (const replacement of imageReplacements) { replacement.item=mediaByRole(project,String(replacement.role)); if(!replacement.item)throw new Error(`Attach image replacement ${replacement.role}.`); if(!(Number.isInteger(Number(replacement.rank))&&Number(replacement.rank)>=1&&Number(replacement.rank)<=20&&String(replacement.altText||"").trim()&&String(replacement.altText).length<=500))throw new Error(`Image replacement ${replacement.role} needs a valid rank and alt text.`); }
     }
-    const altTextUpdates = Array.isArray(manifest.altTextUpdates) ? manifest.altTextUpdates : [];
-    if (scopes.includes("alt_text")) { if (!altTextUpdates.length || altTextUpdates.length > 20) throw new Error("Choose one to twenty existing Etsy images for alt-text updates."); for (const [i,image] of altTextUpdates.entries()) { if (!/^\d+$/.test(String(image?.listingImageId||"")) || !Number.isInteger(Number(image?.rank)) || Number(image.rank)<1 || Number(image.rank)>20 || !String(image?.altText||"").trim() || String(image.altText).length>500) throw new Error(`Alt-text update ${i+1} is incomplete.`); image.altText=String(image.altText).trim().slice(0,500); } }
+    const altTextUpdates = scopes.includes('alt_text') ? validateAltTextUpdates(manifest) : [];
     const fileUpdates = Array.isArray(manifest.fileUpdates) ? manifest.fileUpdates.map((file: any) => ({ ...file, item: mediaByRole(project, String(file.role)) })) : [];
     if (scopes.includes("files")) { if (!fileUpdates.length || fileUpdates.length > 5) throw new Error("Choose one to five digital-file additions or replacements."); for (const [i,file] of fileUpdates.entries()) { if (!["add","replace"].includes(String(file?.action)) || !file?.role || !file.filename || !file.item) throw new Error(`Digital-file update ${i+1} is incomplete or its asset is not attached.`); if (file.action==="replace" && !/^\d+$/.test(String(file.listingFileId||""))) throw new Error(`Digital-file replacement ${i+1} needs the existing Etsy file ID.`); } }
     return { manifest, title: project.title, description: "", tags: [], images: scopes.includes("images") ? imageReplacements : [], altTextUpdates: scopes.includes("alt_text") ? altTextUpdates : [], fileUpdates: scopes.includes("files") ? fileUpdates : [], fields, scopes, pdf: null, editMode: true };
