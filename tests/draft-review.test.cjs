@@ -16,9 +16,10 @@ function setup({verified=true,status='failed',concurrentChange=false,altOnly=fal
  const context=vm.createContext({Request,Response,URL,Blob,crypto,Date,Set,Map,masterTools:[],masterToolNames:new Set(),createClient:()=>db,validateAssetBlob:async asset=>validated.push(asset.role),fetch:async(url,init)=>{
   const body=JSON.parse(init.body);publisherCalls.push(body);assert.equal(body.action,project.manifest.updateScope?.includes('price')?'validate_price_review':'revalidate_draft');assert.equal(body.project_id,'review');assert.equal(body.expected_revision,project.revision);
   if(concurrentChange)project.status='publishing';
-  return new Response(JSON.stringify(verified?{verified:true,state:'draft',listing_id:'123',published:false}:{error:'description differs'}),{status:verified?200:400});
+  return new Response(JSON.stringify(verified?{verified:true,state:'draft',listing_id:'123',price:body.proposed_price??project.manifest.price,published:false}:{error:'description differs'}),{status:verified?200:400});
  },Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://project.supabase.co':'test'},serve:f=>handler=f}});
  vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/etsy-publish/alt-text.ts','utf8').replace(/\bexport /g,'')),context);
+ vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/seller-tools-inbox/recover-draft-price.ts','utf8').replace(/\bexport /g,'')),context);
  const source=fs.readFileSync('supabase/functions/seller-tools-inbox/index.ts','utf8').replace(/^import .*?;\s*$/gm,'');vm.runInContext(stripTypeScriptTypes(source),context);
  const call=async(name,args)=>{
   const r=await handler(new Request('https://project.supabase.co/functions/v1/seller-tools-inbox',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name,arguments:args}})}));return r.json();
@@ -57,3 +58,26 @@ test('price review cannot change the captured shop currency',async()=>{
 });
 
 test('failed live price preflight cannot mark a review ready',async()=>{const s=setup({verified:false,status:'editing',altOnly:true});s.project.manifest={mode:'edit',listingId:'123',updateScope:['price'],updateFields:{price:7.99}};const before=structuredClone(s.project);const r=await s.run();assert.equal(r.error.code,-32000);assert.deepEqual(s.project,before);assert.deepEqual(s.writes,[]);assert.equal(s.publisherCalls.length,1);});
+
+function recoverySetup(options={}) {
+ const s=setup(options);s.project.manifest.price=6.99;s.project.manifest.listingDefaults={price:6.99,currency:'GBP'};s.project.manifest.etsyPublish.fileId='99';
+ return s;
+}
+test('failed draft price correction verifies Etsy then retains the lock until finalisation',async()=>{
+ const s=recoverySetup(),before=structuredClone(s.project),manifest={...structuredClone(s.project.manifest),price:7.99};
+ const r=await s.call('update_review_project',{project_id:'review',expected_revision:24,manifest});
+ assert.equal(r.result.structuredContent.revision,25,JSON.stringify(r));assert.equal(s.project.status,'failed');assert.equal(s.project.manifest.price,7.99);
+ assert.equal(s.publisherCalls[0].proposed_price,7.99);assert.deepEqual(s.project.media,before.media);assert.deepEqual(s.project.manifest.listingDefaults,before.manifest.listingDefaults);assert.equal(s.project.platform_id,before.platform_id);
+ const ready=await s.call('finalize_review_project',{project_id:'review',expected_revision:25});assert.equal(ready.result.structuredContent.status,'ready',JSON.stringify(ready));assert.equal(s.validated.length,7);assert.equal(s.publisherCalls.length,2);
+});
+test('failed, concurrent and stale recovery cannot change the saved price or release approval',async()=>{
+ for(const options of [{verified:false},{concurrentChange:true},{}]){
+  const s=recoverySetup(options),manifest={...structuredClone(s.project.manifest),price:7.99};
+  const r=await s.call('update_review_project',{project_id:'review',expected_revision:Object.keys(options).length?24:23,manifest});
+  assert.equal(r.error.code,-32000);assert.deepEqual(s.writes,[]);assert.equal(s.project.manifest.price,6.99);assert.notEqual(s.project.status,'ready');
+ }
+});
+test('failed draft recovery cannot change any unrelated field',async()=>{
+ const s=recoverySetup(),before=structuredClone(s.project),manifest={...structuredClone(s.project.manifest),price:7.99,description:'changed'};
+ const r=await s.call('update_review_project',{project_id:'review',expected_revision:24,manifest});assert.equal(r.error.code,-32000);assert.deepEqual(s.project,before);assert.equal(s.publisherCalls.length,0);
+});
