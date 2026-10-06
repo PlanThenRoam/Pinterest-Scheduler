@@ -31,7 +31,7 @@ function setup({count=2,uploadFail=false,drift=false,unexpectedField=false}={}){
  const listing=()=>context.validateProject(project);
  return {project,runs,writes,files,current,admin,api,listing,run:()=>runEdit(admin,{shop_id:'shop',etsy_user_id:'owner'},'test',project,listing(),api)};
 }
-test('unsupported edit fields are rejected before publishing',()=>{for(const key of ['price','tags','alt_text','quantity']){const s=setup();s.project.manifest.updateScope=[key];s.project.manifest.updateFields={[key]:'value'};assert.throws(()=>s.listing(),/unsupported/);}});
+test('unsupported edit fields are rejected before publishing',()=>{for(const key of ['tags','alt_text','quantity']){const s=setup();s.project.manifest.updateScope=[key];s.project.manifest.updateFields={[key]:'value'};assert.throws(()=>s.listing(),/unsupported/);}});
 test('replacement uploads before deleting original and verifies the exact file set',async()=>{const s=setup();const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['upload','delete']);assert.deepEqual(s.files.map(x=>x.listing_file_id).sort(),['101','200']);assert.equal(s.runs[0].status,'succeeded');});
 test('full five-file listing is blocked before any Etsy write',async()=>{const s=setup({count:5});await assert.rejects(s.run(),/one free Etsy file slot/);assert.deepEqual(s.writes,[]);assert.equal(s.files.length,5);assert.equal(s.runs[0].status,'blocked');});
 test('upload failure retains original and blocks unsafe retry',async()=>{const s=setup({uploadFail:true});await assert.rejects(s.run(),/may already be live/);assert.deepEqual(s.writes,['upload']);assert.equal(s.files[0].listing_file_id,'100');assert.equal(s.runs[0].status,'needs_review');await assert.rejects(s.run(),/unresolved update/);assert.deepEqual(s.writes,['upload']);});
@@ -54,7 +54,7 @@ test('unsupported image formats are rejected before any Etsy write',async()=>{co
 test('overlong replacement alt text is rejected rather than silently truncated',()=>{const s=imageSetup();s.project.manifest.imageReplacements[0].altText='a'.repeat(501);assert.throws(()=>s.listing(),/alt text/);});
 test('image position 20 is accepted and position 21 rejected',()=>{const s=imageSetup();s.project.manifest.imageReplacements[0].rank=20;assert.equal(s.listing().images[0].rank,20);s.project.manifest.imageReplacements[0].rank=21;assert.throws(()=>s.listing(),/rank/);});
 test('new listing asset verification rejects missing, reordered or wrong-alt images and wrong PDF',()=>{const images=Array.from({length:6},(_,i)=>({rank:i+1,listing_image_id:String(i+10),alt_text:`Alt ${i}`}));const checkpoint={imageIds:images.map(x=>x.listing_image_id),fileId:'55'},alt=images.map(x=>x.alt_text),files=[{listing_file_id:'55'}];context.verifyNewListingAssets({images},files,checkpoint,alt);for(const change of [x=>x.pop(),x=>x[3].alt_text='old',x=>x[3].listing_image_id='999',x=>x[3].rank=6]){const bad=structuredClone(images);change(bad);assert.throws(()=>context.verifyNewListingAssets({images:bad},files,checkpoint,alt),/not been activated/);}assert.throws(()=>context.verifyNewListingAssets({images},[{listing_file_id:'wrong'}],checkpoint,alt),/PDF/);});
-test('invalid or overprecise price cannot cause a partial listing update',()=>{for(const price of [Infinity,NaN,0,-1,1.999]){const s=setup();s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price};assert.throws(()=>s.listing(),/unsupported/);}});
+test('invalid or overprecise price cannot cause a partial listing update',()=>{for(const price of [Infinity,NaN,0,-1,1.999,'5.99',true,null]){const s=setup();s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price};assert.throws(()=>s.listing(),/price must be/);}});
 test('each requested text field is independent and leaves images and files untouched',async()=>{for(const [key,value] of Object.entries({title:'New title',description:'New description'})){const s=setup();const oldFiles=JSON.stringify(s.files);s.project.manifest.updateScope=[key];s.project.manifest.updateFields={[key]:value};await s.run();assert.deepEqual(s.writes,['fields']);assert.equal(JSON.stringify(s.files),oldFiles);assert.deepEqual(s.current[key],value);}});
 test('an externally replaced selected image blocks before writes',async()=>{const s=imageSetup();s.project.manifest.existingImages=[{id:'9',rank:1}];await assert.rejects(s.run(),/changed since this draft/);assert.deepEqual(s.writes,[]);});
 test('unexpected additional image is not mistaken for a successful replacement',async()=>{const s=imageSetup();const upload=s.api.uploadImage;s.api.uploadImage=async(...args)=>{const result=await upload(...args);s.current.images.push({listing_image_id:'30',rank:2,alt_text:'Unexpected'});return result;};await assert.rejects(s.run(),/Image count/);assert.equal(s.runs[0].status,'needs_review');});
@@ -88,4 +88,24 @@ test('alt-text validation rejects duplicate, missing, mismatched and replacement
 test('unconfirmed alt text does not pass verification and cannot be written again blindly',async()=>{const s=altOnlySetup();s.api.altText=async()=>{s.writes.push('alt');return {listing_image_id:'10'}};await assert.rejects(s.run(),/Image 1 verification/);await assert.rejects(s.run(),/unresolved/);assert.deepEqual(s.writes,['alt']);});
 test('delayed confirmed alt-text readback can reconcile without repeating the write',async()=>{
  const s=altOnlySetup();s.api.altText=async()=>{s.writes.push('alt');return {listing_image_id:'10'}};await assert.rejects(s.run());s.current.images[0].alt_text='New thumbnail description';const r=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(r.verified,true);assert.deepEqual(s.writes,['alt']);
+});
+
+test('price-only and title-plus-price changes preserve every omitted field, image and PDF',async()=>{
+ for(const fields of [{price:5.99},{title:'New title',price:7.99}]){
+  const s=setup();s.project.media=[];s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=Object.keys(fields);s.project.manifest.updateFields=fields;
+  s.current.images=[{listing_image_id:'10',rank:1,alt_text:'Original alt'}];s.current.quantity=999;s.current.taxonomy_id=343;s.current.state='active';
+  const before=context.listingSnapshot(s.current),images=structuredClone(s.current.images),files=structuredClone(s.files);
+  const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['fields']);assert.deepEqual(s.files,files);assert.deepEqual(s.current.images,images);
+  const after=context.listingSnapshot(s.current);for(const key of Object.keys(before))assert.deepEqual(after[key],key in fields?fields[key]:before[key]);
+ }
+});
+test('price request body contains only explicitly selected fields',async()=>{
+ const requests=[];const c=vm.createContext({URLSearchParams,etsyFetch:async(path,token,init)=>{requests.push({path,method:init.method,fields:Object.fromEntries(init.body)});}});
+ const text=source.slice(source.indexOf('async function updateSelectedListingFields('),source.indexOf('async function updatePersonalization('));vm.runInContext(stripTypeScriptTypes(text),c);
+ await c.updateSelectedListingFields('shop','123','token',{price:5.99});await c.updateSelectedListingFields('shop','123','token',{title:'New title',price:7.99});
+ assert.deepEqual(requests,[{path:'/shops/shop/listings/123',method:'PATCH',fields:{price:'5.99'}},{path:'/shops/shop/listings/123',method:'PATCH',fields:{title:'New title',price:'7.99'}}]);
+});
+test('unexpected price readback is held for review instead of reported as successful',async()=>{
+ const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price:5.99};s.api.updateFields=async()=>{s.writes.push('fields');s.current.price=6.99};
+ await assert.rejects(s.run(),/price differs/);assert.equal(s.runs[0].status,'needs_review');assert.deepEqual(s.writes,['fields']);
 });

@@ -57,14 +57,14 @@ function validateProject(project: any) {
   if (editMode) {
     const fields = manifest.updateFields && typeof manifest.updateFields === "object" ? manifest.updateFields : {};
     const scopes = Array.isArray(manifest.updateScope) ? manifest.updateScope.map(String) : manifest.updateScope === "images_only" ? ["images"] : [];
-    const allowed = new Set(["title","description","images","alt_text","files"]);
+    const allowed = new Set(["title","price","description","images","alt_text","files"]);
     if (!scopes.length) throw new Error("This Etsy update has no approved fields.");
     if (scopes.some((scope: string) => !allowed.has(scope))) throw new Error("This Etsy update contains an unsupported scope.");
     if (Object.keys(fields).some((key) => !allowed.has(key) || ["images","alt_text","files"].includes(key))) throw new Error("This Etsy update contains an unsupported field.");
     if (Object.keys(fields).some((key) => !scopes.includes(key)) || scopes.some((scope: string) => !["images","alt_text","files"].includes(scope) && !Object.prototype.hasOwnProperty.call(fields, scope))) throw new Error("The approved Etsy fields do not match the update scope.");
     if ("title" in fields && (!String(fields.title).trim() || String(fields.title).length > 140)) throw new Error("Etsy titles must be 1–140 characters.");
     if ("description" in fields && !String(fields.description).trim()) throw new Error("The Etsy description cannot be empty.");
-    if ("price" in fields && (!Number.isFinite(Number(fields.price)) || Number(fields.price)<=0 || Math.abs(Number(fields.price)*100-Math.round(Number(fields.price)*100))>1e-8)) throw new Error("The Etsy price must be positive with at most two decimal places.");
+    if ("price" in fields && (typeof fields.price!=="number" || !Number.isFinite(fields.price) || fields.price<=0 || Math.abs(fields.price*100-Math.round(fields.price*100))>1e-8)) throw new Error("The Etsy price must be a positive number with at most two decimal places.");
     if ("tags" in fields) { const fieldTags=Array.isArray(fields.tags)?fields.tags.map((x:any)=>String(x).trim()).filter(Boolean):[]; if(fieldTags.length!==13||new Set(fieldTags.map((x:string)=>x.toLowerCase())).size!==13||fieldTags.some((x:string)=>x.length>20)) throw new Error("Etsy tags require exactly 13 unique entries, each 20 characters or fewer."); fields.tags=fieldTags; }
     const allImages = (Array.isArray(project.media) ? project.media : []).filter((item: any) => item?.role === "thumbnail" || String(item?.role || "").startsWith("listing-image"));
     let imageReplacements = Array.isArray(manifest.imageReplacements) ? manifest.imageReplacements : [];
@@ -329,6 +329,7 @@ Deno.serve(async (req: Request) => {
       if (String(existing.user_id || "") && String(existing.user_id) !== String(credential.etsy_user_id)) throw new Error("That listing does not belong to the connected Etsy account.");
       const manifest = {
         mode: "edit", updateScope: [], updateFields: {}, listingId, submissionFingerprint:body.submission_fingerprint,
+        currency: existing.price?.currency_code || "GBP",
         altText: (existing.images || []).map((image: any) => image.alt_text || ""),
         existingImages: (existing.images || []).map((image: any) => ({ id: String(image.listing_image_id), rank: image.rank, url: image.url_570xN, altText: image.alt_text || "" })),
         existingFiles: (files.results || []).map((file:any)=>({id:String(file.listing_file_id),rank:file.rank,name:file.filename||file.display_name||"Digital file"})),
