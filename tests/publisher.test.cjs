@@ -6,7 +6,7 @@ const {stripTypeScriptTypes}=require('node:module');
 const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
 const context=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,TextDecoder,TextEncoder,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,setTimeout});
 function load(name){return stripTypeScriptTypes(fs.readFileSync(base+'/'+name,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,''));}
-vm.runInContext(load('assets.ts')+'\n'+load('alt-text.ts')+'\n'+load('safety.ts')+'\n'+load('image-state.ts')+'\n'+load('resume-images.ts')+'\n'+load('safe-edit.ts')+'\n'+load('reconcile-edit.ts'),context);
+vm.runInContext(load('price-inventory.ts')+'\n'+load('price-review.ts')+'\n'+load('assets.ts')+'\n'+load('alt-text.ts')+'\n'+load('safety.ts')+'\n'+load('image-state.ts')+'\n'+load('resume-images.ts')+'\n'+load('safe-edit.ts')+'\n'+load('reconcile-edit.ts'),context);
 const {runEdit,preflightFiles,verifyFields}=context;
 test('description verification decodes named, decimal and hexadecimal HTML entities on both sides',()=>{
  for(const [expected,actual] of [["The itinerary's shuttle; Lake O'Hara",'The itinerary&#39;s shuttle; Lake O&#39;Hara'],['A & B < C > D "quote" £ café •','A &amp; B &lt; C &gt; D &quot;quote&quot; &pound; caf&eacute; &bull;'],['Lake O&apos;Hara','Lake O&#x27;Hara'],['A\u00a0B','A&nbsp;B'],['Mountain 🏔','Mountain &#x1F3D4;']]){
@@ -23,13 +23,14 @@ const source=fs.readFileSync(base+'/index.ts','utf8');
 vm.runInContext(stripTypeScriptTypes(source.slice(source.indexOf('function numberValue('),source.indexOf('async function etsyFetch('))),context);
 function setup({count=2,uploadFail=false,drift=false,unexpectedField=false}={}){
  const files=Array.from({length:count},(_,i)=>({listing_file_id:String(100+i),rank:i+1,filename:`file${i}.pdf`}));
- const original={user_id:'owner',title:'Old title',description:'Original copy',price:{amount:1499,divisor:100},tags:['one'],images:[]};
+ const original={user_id:'owner',title:'Old title',description:'Original copy',listing_type:'download',price:{amount:1499,divisor:100,currency_code:'GBP'},tags:['one'],images:[]};
  const current=structuredClone(original),runs=[],writes=[];
+ const inventory={products:[{product_id:1,sku:'KEEP-SKU',is_deleted:false,property_values:[],offerings:[{offering_id:2,price:{amount:1499,divisor:100,currency_code:'GBP'},quantity:999,is_enabled:true,is_deleted:false,readiness_state_id:null}]}],price_on_property:[],quantity_on_property:[],sku_on_property:[],readiness_state_on_property:[]};
  const project={id:'project',kind:'etsy',title:'Sample',revision:1,status:'ready',media:[{role:'pdf',path:'safe/path',name:'new.pdf'}],manifest:{mode:'edit',listingId:'12345',updateScope:['files'],updateFields:{},fileUpdates:[{action:'replace',listingFileId:'100',role:'pdf',filename:'new.pdf'}]}};
  const admin={from(table){const q={changes:null,filters:[],insert:async value=>{if(table==='seller_publish_runs'&&runs.some(r=>r.listing_key===value.listing_key&&['running','needs_review'].includes(r.status)))return {error:Error('duplicate')};runs.push({...structuredClone(value)});return {error:null};},update(v){this.changes=structuredClone(v);return this;},eq(k,v){this.filters.push([k,v]);return this;},in(k,v){this.filters.push([k,v]);return this;},select(){return this;},order(){return this;},limit(){return this;},maybeSingle(){return Promise.resolve(this.apply());},then(resolve,reject){return Promise.resolve(this.apply()).then(resolve,reject);},apply(){const rows=table==='seller_publish_runs'?runs:[project];const matches=rows.filter(r=>this.filters.every(([k,v])=>Array.isArray(v)?v.includes(r[k]):r[k]===v));matches.forEach(r=>Object.assign(r,this.changes));return {data:matches[0]?structuredClone(matches[0]):null,error:null};}};return q;}};
- const api={wait:async()=>{},fetch:async(path,token,init)=>{if(init?.method==='DELETE'){writes.push('delete');const i=files.findIndex(x=>String(x.listing_file_id)===path.split('/').at(-1));files.splice(i,1);return {};}if(path.endsWith('/images'))return {results:structuredClone(current.images)};if(path.endsWith('/files'))return {results:structuredClone(files)};if(drift)current.title='Externally edited';return structuredClone(current);},storageFile:async()=>new Blob(['%PDF-1.7 content']),uploadFile:async()=>{writes.push('upload');if(uploadFail)throw Error('upload timeout');const file={listing_file_id:'200',rank:1,filename:'new.pdf'};files.push(file);return file;},updateFields:async(shop,id,token,fields)=>{writes.push('fields');Object.assign(current,fields);if(unexpectedField)current.description='Unexpected mutation';},uploadImage:async()=>{writes.push('image');},altText:async()=>{writes.push('alt');},personalization:async()=>{writes.push('personalization');}};
+ const api={wait:async()=>{},fetch:async(path,token,init)=>{if(init?.method==='DELETE'){writes.push('delete');const i=files.findIndex(x=>String(x.listing_file_id)===path.split('/').at(-1));files.splice(i,1);return {};}if(path.endsWith('/inventory')){if(init){assert.equal(init.method,'PUT');assert.equal(init.headers['content-type'],'application/json');writes.push('inventory');const b=JSON.parse(init.body),offer=b.products[0].offerings[0];assert.equal(typeof offer.price,'number');const price={amount:Math.round(offer.price*100),divisor:100,currency_code:'GBP'};Object.assign(inventory.products[0],b.products[0]);inventory.products[0].offerings[0].price=price;current.price=price;}return structuredClone(inventory);}if(path.endsWith('/images'))return {results:structuredClone(current.images)};if(path.endsWith('/files'))return {results:structuredClone(files)};if(drift)current.title='Externally edited';return structuredClone(current);},storageFile:async()=>new Blob(['%PDF-1.7 content']),uploadFile:async()=>{writes.push('upload');if(uploadFail)throw Error('upload timeout');const file={listing_file_id:'200',rank:1,filename:'new.pdf'};files.push(file);return file;},updateFields:async(shop,id,token,fields)=>{assert.ok(!('price' in fields),'PATCH does not support price');writes.push('fields');Object.assign(current,fields);if(unexpectedField)current.description='Unexpected mutation';},uploadImage:async()=>{writes.push('image');},altText:async()=>{writes.push('alt');},personalization:async()=>{writes.push('personalization');}};
  const listing=()=>context.validateProject(project);
- return {project,runs,writes,files,current,admin,api,listing,run:()=>runEdit(admin,{shop_id:'shop',etsy_user_id:'owner'},'test',project,listing(),api)};
+ return {project,runs,writes,files,current,inventory,admin,api,listing,run:()=>runEdit(admin,{shop_id:'shop',etsy_user_id:'owner'},'test',project,listing(),api)};
 }
 test('unsupported edit fields are rejected before publishing',()=>{for(const key of ['tags','alt_text','quantity']){const s=setup();s.project.manifest.updateScope=[key];s.project.manifest.updateFields={[key]:'value'};assert.throws(()=>s.listing(),/unsupported/);}});
 test('replacement uploads before deleting original and verifies the exact file set',async()=>{const s=setup();const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['upload','delete']);assert.deepEqual(s.files.map(x=>x.listing_file_id).sort(),['101','200']);assert.equal(s.runs[0].status,'succeeded');});
@@ -95,17 +96,46 @@ test('price-only and title-plus-price changes preserve every omitted field, imag
   const s=setup();s.project.media=[];s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=Object.keys(fields);s.project.manifest.updateFields=fields;
   s.current.images=[{listing_image_id:'10',rank:1,alt_text:'Original alt'}];s.current.quantity=999;s.current.taxonomy_id=343;s.current.state='active';
   const before=context.listingSnapshot(s.current),images=structuredClone(s.current.images),files=structuredClone(s.files);
-  const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['fields']);assert.deepEqual(s.files,files);assert.deepEqual(s.current.images,images);
+  const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,'title' in fields?['inventory','fields']:['inventory']);assert.deepEqual(s.files,files);assert.deepEqual(s.current.images,images);
   const after=context.listingSnapshot(s.current);for(const key of Object.keys(before))assert.deepEqual(after[key],key in fields?fields[key]:before[key]);
  }
 });
-test('price request body contains only explicitly selected fields',async()=>{
+test('listing PATCH rejects price and sends only supported selected text fields',async()=>{
  const requests=[];const c=vm.createContext({URLSearchParams,etsyFetch:async(path,token,init)=>{requests.push({path,method:init.method,fields:Object.fromEntries(init.body)});}});
  const text=source.slice(source.indexOf('async function updateSelectedListingFields('),source.indexOf('async function updatePersonalization('));vm.runInContext(stripTypeScriptTypes(text),c);
- await c.updateSelectedListingFields('shop','123','token',{price:5.99});await c.updateSelectedListingFields('shop','123','token',{title:'New title',price:7.99});
- assert.deepEqual(requests,[{path:'/shops/shop/listings/123',method:'PATCH',fields:{price:'5.99'}},{path:'/shops/shop/listings/123',method:'PATCH',fields:{title:'New title',price:'7.99'}}]);
+ for(const fields of [{price:5.99},{title:'New title',price:7.99}])await assert.rejects(c.updateSelectedListingFields('shop','123','token',fields),/inventory endpoint/);
+ await c.updateSelectedListingFields('shop','123','token',{title:'New title'});
+ assert.deepEqual(requests,[{path:'/shops/shop/listings/123',method:'PATCH',fields:{title:'New title'}}]);
 });
-test('unexpected price readback is held for review instead of reported as successful',async()=>{
- const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price:5.99};s.api.updateFields=async()=>{s.writes.push('fields');s.current.price=6.99};
- await assert.rejects(s.run(),/price differs/);assert.equal(s.runs[0].status,'needs_review');assert.deepEqual(s.writes,['fields']);
+test('unapplied inventory price is held for review before title is changed',async()=>{
+ const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['title','price'];s.project.manifest.updateFields={title:'New title',price:5.99};const read=s.api.fetch;
+ s.api.fetch=async(path,token,init)=>{if(init?.method==='PUT'){s.writes.push('inventory');return structuredClone(s.inventory);}return read(path,token,init);};
+ await assert.rejects(s.run(),/inventory readback differs/);assert.equal(s.runs[0].status,'needs_review');assert.deepEqual(s.writes,['inventory']);assert.equal(s.current.title,'Old title');
+});
+test('missing inventory and non-download listings block price changes before title writes',async()=>{
+ for(const invalid of ['missing','multiple','physical']){const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['title','price'];s.project.manifest.updateFields={title:'New title',price:5.99};if(invalid==='physical')s.current.listing_type='physical';else if(invalid==='multiple')s.inventory.products.push(structuredClone(s.inventory.products[0]));else s.inventory.products=[];
+ await assert.rejects(s.run(),/digital planners|exactly one/);assert.deepEqual(s.writes,[]);assert.equal(s.runs[0].status,'blocked');}
+});
+test('price reconciliation checks inventory and never repeats an uncertain write',async()=>{
+ const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price:5.99};const read=s.api.fetch;
+ s.api.fetch=async(path,token,init)=>{if(init?.method==='PUT'){const r=await read(path,token,init);s.current.price={amount:1499,divisor:100,currency_code:'GBP'};return r;}return read(path,token,init);};
+ await assert.rejects(s.run(),/price differs/);s.current.price={amount:599,divisor:100,currency_code:'GBP'};
+ const result=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(result.verified,true);assert.deepEqual(s.writes,['inventory']);
+});
+test('inventory preservation failure cannot reconcile as a successful price update',async()=>{
+ const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price:5.99};const read=s.api.fetch;
+ s.api.fetch=async(path,token,init)=>{const r=await read(path,token,init);if(init?.method==='PUT')s.inventory.products[0].offerings[0].quantity=888;return r;};
+ await assert.rejects(s.run(),/inventory readback differs/);const result=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(result.verified,false);assert.equal(s.project.status,'failed');assert.deepEqual(s.writes,['inventory']);
+});
+
+test('price review preflight checks real inventory and attachments using GET only',async()=>{
+ const s=setup();s.project.manifest.updateScope=['price'];s.project.manifest.updateFields={price:7.99};s.project.manifest.existingSnapshot=context.listingSnapshot(s.current);s.project.manifest.existingImages=[];s.project.manifest.existingFiles=s.files.map(f=>({id:f.listing_file_id,rank:f.rank,name:f.filename}));
+ const result=await context.verifyPriceReview(s.project,{shop_id:'shop',etsy_user_id:'owner'},'test',s.api);assert.equal(result.verified,true);assert.equal(result.published,false);assert.equal(result.current_price,14.99);assert.deepEqual(s.writes,[]);
+ s.files[0].filename='changed.pdf';await assert.rejects(context.verifyPriceReview(s.project,{shop_id:'shop',etsy_user_id:'owner'},'test',s.api),/PDFs changed/);assert.deepEqual(s.writes,[]);
+});
+
+test('inventory drift during preflight blocks every write',async()=>{
+ const s=setup();s.project.manifest.fileUpdates=[];s.project.manifest.updateScope=['title','price'];s.project.manifest.updateFields={title:'New title',price:5.99};const read=s.api.fetch;let reads=0;
+ s.api.fetch=async(path,token,init)=>{if(path.endsWith('/inventory')&&!init&&++reads===2)s.inventory.products[0].offerings[0].quantity=998;return read(path,token,init);};
+ await assert.rejects(s.run(),/inventory readback differs/);assert.deepEqual(s.writes,[]);assert.equal(s.runs[0].status,'blocked');
 });

@@ -13,8 +13,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 38;
-const API_CAPABILITY_VERSION = "4.2.0";
+const APP_VERSION = 39;
+const API_CAPABILITY_VERSION = "4.2.1";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -245,14 +245,18 @@ Deno.serve(async(req:Request)=>{
    }
    if(project.kind==="pinterest"&&!project.manifest.pins.every((p:any,i:number)=>media.some((x:any)=>x.role===(p.imageRole||`pin-${i+1}`))))throw new Error("Attach an image for each Pin before finalizing.");
    for(const asset of media){if(typeof asset.path!=='string'||!asset.path.startsWith(userData.user.id+'/'+project.id+'/'))throw new Error('Invalid asset ownership.');const stored=await db.storage.from(bucketFor[project.kind]).download(asset.path);if(stored.error)throw stored.error;const pdf=asset.role==='customer-pdf'||(project.manifest.fileUpdates||[]).some((f:any)=>f.role===asset.role);await validateAssetBlob(asset,stored.data,pdf?'pdf':'image');}
-   let etsyDraftVerification;
+   let etsyDraftVerification, etsyPriceVerification;
+   if(project.kind==='etsy'&&project.manifest?.mode==='edit'&&project.manifest.updateScope?.includes('price')){
+    etsyPriceVerification=await publisherRequest(auth,'',{method:'POST',body:JSON.stringify({action:'validate_price_review',project_id:project.id,expected_revision:project.revision})});
+    if(etsyPriceVerification.verified!==true||etsyPriceVerification.listing_id!==String(project.manifest.listingId)||etsyPriceVerification.published!==false)throw new Error('The Etsy price review could not be verified.');
+   }
    if(project.kind==='etsy'&&project.manifest?.mode!=='edit'&&project.manifest?.etsyPublish?.listingId){
     etsyDraftVerification=await publisherRequest(auth,'',{method:'POST',body:JSON.stringify({action:'revalidate_draft',project_id:project.id,expected_revision:project.revision})});
     if(etsyDraftVerification.verified!==true||etsyDraftVerification.state!=='draft'||etsyDraftVerification.listing_id!==String(project.platform_id))throw new Error('The existing Etsy draft could not be verified.');
    }
    const status="ready";
    const {error}=await db.from("review_projects").update({status,preview_path:project.preview_path,revision_request:null,last_error:null}).eq("id",project.id).eq("revision",project.revision).eq("status",project.status).select("id").single();if(error)throw error;
-   return rpc(id,output({project_id:project.id,status,revision:project.revision,...(etsyDraftVerification?{etsy_draft_verification:etsyDraftVerification}:{})}));
+   return rpc(id,output({project_id:project.id,status,revision:project.revision,...(etsyDraftVerification?{etsy_draft_verification:etsyDraftVerification}:{}),...(etsyPriceVerification?{etsy_price_verification:etsyPriceVerification}:{})}));
   }
   if(name==="update_review_project"){
    const changes:any={revision:project.revision+1};if(args.title)changes.title=String(args.title).slice(0,180);if(args.manifest){
