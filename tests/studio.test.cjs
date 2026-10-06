@@ -21,4 +21,34 @@ test('failed image review offers guarded completion while ordinary approval stay
 test('blueprint is first and exposes the same current DOCX controls',()=>{const {w,run,dom}=studio();run(`state.masters=[{id:'planner',category:'planner',title:'Japan',files:[]},{id:'blueprint',category:'blueprint',title:'Planner & Listing Blueprint',files:[{role:'docx',name:'Blueprint.docx'}]}];renderStorage();`);const first=w.document.querySelector('.storage-row');assert.match(first.textContent,/Blueprint.docx/);for(const action of ['download','upload','delete'])assert.equal(first.querySelector('[data-'+action+']').dataset[action],'blueprint');dom.window.close();});
 test('empty blueprint slot remains available above planners',()=>{const {w,run,dom}=studio();run(`state.masters=[];renderStorage();`);assert.equal(w.document.querySelector('[data-upload]').dataset.upload,'blueprint-new');assert.equal(w.document.querySelector('#content input').accept,'.docx');dom.window.close();});
 test('file picker survives focus and auth refresh, supports selection and same-file retry',async()=>{const {w,run,auth,dom}=studio();run(`state.session={user:{id:'owner'}};state.tab='storage';state.masters=[{id:'blueprint',category:'blueprint',title:'Blueprint',files:[]}];renderStorage();globalThis.received=[];upload=async(id,file)=>{received.push([id,file.name]);render();};`);w.document.querySelector('[data-upload]').click();const input=w.document.querySelector('#file-blueprint');assert.equal(input.parentNode,w.document.body);w.location.hash='storage';w.dispatchEvent(new w.Event('focus'));auth('SIGNED_IN',{user:{id:'owner'}});await new Promise(r=>setTimeout(r,5));assert.equal(w.document.querySelector('#file-blueprint'),input);Object.defineProperty(input,'files',{value:[new w.File(['docx'],'Blueprint.docx')]});input.dispatchEvent(new w.Event('change',{bubbles:true}));await new Promise(r=>setTimeout(r,0));assert.equal(run('received.length'),1);assert.equal(run('state.pickingFile'),false);w.document.querySelector('[data-upload]').click();const retry=w.document.querySelector('#file-blueprint');assert.notEqual(retry,input);retry.dispatchEvent(new w.Event('cancel'));assert.equal(run('state.pickingFile'),false);dom.window.close();});
-test('release check uses displayed version and suppresses reload during file selection',async()=>{const {w,run,dom}=studio();w.fetch=async()=>({ok:true,json:async()=>({app_version:37})});assert.equal(run('APP_VERSION'),37);await run('checkRelease()');assert.doesNotMatch(fs.readFileSync('studio.js','utf8'),/release.app_version>36/);assert.match(fs.readFileSync('studio.js','utf8'),/release.app_version>APP_VERSION.*!state.pickingFile/);dom.window.close();});
+test('release check uses displayed version and suppresses reload during file selection',async()=>{const {w,run,dom}=studio();w.fetch=async()=>({ok:true,json:async()=>({app_version:38})});assert.equal(run('APP_VERSION'),38);await run('checkRelease()');assert.doesNotMatch(fs.readFileSync('studio.js','utf8'),/release.app_version>36/);assert.match(fs.readFileSync('studio.js','utf8'),/release.app_version>APP_VERSION.*!state.pickingFile/);dom.window.close();});
+
+
+test('price-only review shows pounds, needs no attachments and waits for owner approval',async()=>{
+ const {w,run,dom}=studio();
+ run(`state.session={access_token:'test'};state.connections=[{platform:'etsy',status:'connected'}];globalThis.publicationCalls=0;request=async()=>{publicationCalls++;};state.projects=[{id:'price',title:'Planner price',status:'editing',kind:'etsy',media:[],manifest:{mode:'edit',updateFields:{price:5.99},existingSnapshot:{price:14.99},updateScope:['price']}}];openReview('price');`);
+ const text=w.document.querySelector('#review-content').textContent;
+ assert.match(text,/Price/);assert.match(text,/£14\.99/);assert.match(text,/£5\.99/);
+ assert.equal(w.document.querySelector('[data-approve]').disabled,true);
+ await run(`approve('price')`);assert.equal(run('publicationCalls'),0);
+ run(`state.projects[0].status='ready';openReview('price');`);
+ assert.equal(w.document.querySelector('[data-approve]').disabled,false);
+ assert.equal(w.document.querySelector('[data-approve]').textContent,'Approve changes');
+ assert.equal(run('publicationCalls'),0);
+ assert.equal(w.document.querySelector('#review-content input[type=file]'),null);
+ assert.doesNotMatch(text,/Preview unavailable|Customer PDF|Listing image|Alt text/);
+ dom.window.close();
+});
+test('title and price review displays each selected change with the captured currency',()=>{
+ const {w,run,dom}=studio();
+ run(`state.connections=[{platform:'etsy',status:'connected'}];globalThis.publicationCalls=0;request=async()=>{publicationCalls++;};state.projects=[{id:'both',title:'Japan review',status:'ready',kind:'etsy',media:[],manifest:{mode:'edit',currency:'EUR',listingDefaults:{currency:'USD'},updateFields:{title:'Japan 14 Day Travel Itinerary PDF',price:7.99},existingSnapshot:{title:'Old Japan title',price:14.99},updateScope:['title','price']}}];openReview('both');`);
+ const text=w.document.querySelector('#review-content').textContent;
+ assert.match(text,/Old Japan title/);assert.match(text,/Japan 14 Day Travel Itinerary PDF/);
+ assert.match(text,/€14\.99/);assert.match(text,/€7\.99/);assert.doesNotMatch(text,/£|US\$/);
+ assert.equal(w.document.querySelectorAll('.comparison').length,2);
+ assert.equal(w.document.querySelector('[data-approve]').disabled,false);
+ assert.equal(run('publicationCalls'),0);
+ run(`delete state.projects[0].manifest.currency;openReview('both');`);
+ assert.match(w.document.querySelector('#review-content').textContent,/US\$7\.99/);
+ dom.window.close();
+});

@@ -13,8 +13,8 @@ const projectUrl = Deno.env.get("SUPABASE_URL")!;
 const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
-const APP_VERSION = 37;
-const API_CAPABILITY_VERSION = "4.1.3";
+const APP_VERSION = 38;
+const API_CAPABILITY_VERSION = "4.2.0";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -51,9 +51,10 @@ for(const definition of toolDefinitions){
  if(definition.name==='create_review_project'){definition.inputSchema.properties.idempotency_key={type:'string',minLength:8,maxLength:120};definition.inputSchema.required.push('idempotency_key');}
  if(definition.name==='prepare_etsy_listing_update'){
   definition.inputSchema.properties.idempotency_key={type:'string',minLength:8,maxLength:120};definition.inputSchema.required.push('idempotency_key');definition.annotations.idempotentHint=true;
-  delete definition.inputSchema.properties.tags;delete definition.inputSchema.properties.price;
+  delete definition.inputSchema.properties.tags;
+  definition.inputSchema.properties.price={type:'number',exclusiveMinimum:0,multipleOf:0.01,description:'Proposed price in the existing Etsy shop currency. Requires owner review; does not change currency.'};
   definition.inputSchema.properties.digital_files.items.properties.action.enum=['replace'];
-  definition.description='Prepare title, description, existing-image alt text, image replacements, or PDF replacements for owner approval. Alt-text-only updates need an existing image ID and rank, with no replacement image upload. Only selected items change.';
+  definition.description='Prepare title, price, description, existing-image alt text, image replacements, or PDF replacements for owner approval. Price-only updates require no assets. Alt-text-only updates need an existing image ID and rank, with no replacement image upload. Only selected items change.';
  }
 }
 const tools=toolDefinitions.filter(t=>supportedActions.has(t.name)).map((t:any)=>({...t,securitySchemes:authSchemes,_meta:{...t._meta,securitySchemes:authSchemes}}));
@@ -73,13 +74,13 @@ function validate(kind:string, manifest:any){
    if(!/^\d+$/.test(listingId))throw new Error("Etsy updates require the exact existing listing ID.");
    const legacyImages=manifest.updateScope==="images_only";const fields=manifest.updateFields&&typeof manifest.updateFields==="object"?manifest.updateFields:{};
    const scopes=Array.isArray(manifest.updateScope)?manifest.updateScope.map(String):legacyImages?["images"]:[...Object.keys(fields),...(manifest.imageUpdate?["images"]:[]),...(manifest.altTextUpdates?.length?["alt_text"]:[]),...((manifest.fileUpdates?.length||manifest.fileReplacements?.length)?["files"]:[])];
-   const allowed=["title","description","images","alt_text","files"];
+   const allowed=["title","price","description","images","alt_text","files"];
    if(!scopes.length||scopes.some((x:string)=>!allowed.includes(x)))throw new Error("Choose at least one supported Etsy field to update.");
    if(Object.keys(fields).some(x=>!allowed.includes(x)||["images","alt_text","files"].includes(x)))throw new Error("The Etsy update contains an unsupported field.");
    if(Object.keys(fields).some(x=>!scopes.includes(x))||scopes.some((x:string)=>!["images","alt_text","files"].includes(x)&&!Object.prototype.hasOwnProperty.call(fields,x)))throw new Error("Every Etsy update scope must have exactly one approved value.");
    if("title" in fields&&(!String(fields.title).trim()||String(fields.title).length>140))throw new Error("Etsy titles must be 1–140 characters.");
    if("description" in fields&&!String(fields.description).trim())throw new Error("The Etsy description cannot be empty.");
-   if("price" in fields&&(!Number.isFinite(Number(fields.price))||Number(fields.price)<=0||Math.abs(Number(fields.price)*100-Math.round(Number(fields.price)*100))>1e-8))throw new Error("The Etsy price must be positive with at most two decimal places.");
+   if("price" in fields&&(typeof fields.price!=="number"||!Number.isFinite(fields.price)||fields.price<=0||Math.abs(fields.price*100-Math.round(fields.price*100))>1e-8))throw new Error("The Etsy price must be a positive number with at most two decimal places.");
    if("quantity" in fields&&!(Number.isInteger(Number(fields.quantity))&&Number(fields.quantity)>0))throw new Error("The Etsy quantity must be a positive whole number.");
    for(const key of ["isSupply","isTaxable","autoRenew"])if(key in fields&&typeof fields[key]!=="boolean")throw new Error(`Etsy ${key} must be true or false.`);
    if("whoMade" in fields&&!['i_did','collective','someone_else'].includes(String(fields.whoMade)))throw new Error("Etsy whoMade must be i_did, collective or someone_else.");
@@ -166,7 +167,7 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output({listings}));
   }
   if(name==="prepare_etsy_listing_update"){
-   if(["price","tags"].some(key=>key in args))throw new Error("Editing supports title, description, existing-image alt text, image replacements, and PDF replacements only.");
+   if("tags" in args)throw new Error("Editing supports title, price, description, existing-image alt text, image replacements, and PDF replacements only.");
    if((args.digital_files||[]).some((f:any)=>f.action!=="replace"||!/\.pdf$/i.test(f.filename)))throw new Error("Choose an existing customer PDF to replace.");
    const projectId=await submissionId(userData.user.id,args.idempotency_key),fingerprint=await fingerprintOf(args);
    const prior=await db.from('review_projects').select('*').eq('id',projectId).maybeSingle();if(prior.error)throw prior.error;
@@ -176,7 +177,7 @@ Deno.serve(async(req:Request)=>{
    if(matches.length===0)throw new Error(`No ${state} Etsy listing matched “${args.product_name}”. Use list_etsy_shop_listings to check the product name.`);
    if(matches.length>1)throw new Error(`More than one Etsy listing matched “${args.product_name}”. Use a more specific product name.`);
    const prepared=await publisherRequest(auth,"",{method:"POST",body:JSON.stringify({action:"prepare_edit",listing_id:matches[0].listing_id,submission_id:projectId,submission_fingerprint:fingerprint})});
-   const requestedFields:any={};for(const key of ["title","description"])if(Object.prototype.hasOwnProperty.call(args,key))requestedFields[key]=args[key];
+   const requestedFields:any={};for(const key of ["title","price","description"])if(Object.prototype.hasOwnProperty.call(args,key))requestedFields[key]=args[key];
    const imageReplacements=Array.isArray(args.images)?args.images.map((x:any)=>({role:String(x.role),rank:Number(x.rank),altText:String(x.alt_text)})):[];
    const altTextUpdates=Array.isArray(args.alt_text)?args.alt_text.map((x:any)=>({listingImageId:String(x.listing_image_id),rank:Number(x.rank),altText:String(x.text)})):[];
    const fileUpdates=Array.isArray(args.digital_files)?args.digital_files.map((x:any)=>({action:String(x.action),role:String(x.role),filename:String(x.filename),listingFileId:x.listing_file_id==null?undefined:String(x.listing_file_id)})):[];
@@ -256,7 +257,7 @@ Deno.serve(async(req:Request)=>{
   if(name==="update_review_project"){
    const changes:any={revision:project.revision+1};if(args.title)changes.title=String(args.title).slice(0,180);if(args.manifest){
     const next={...args.manifest};
-    for(const key of ['mode','listingId','existingSnapshot','existingImages','existingFiles','submissionFingerprint','etsyPublish','pinAttempted','preparationComplete','listingDefaults']){
+    for(const key of ['mode','listingId','currency','existingSnapshot','existingImages','existingFiles','submissionFingerprint','etsyPublish','pinAttempted','preparationComplete','listingDefaults']){
      if(stableJson(next[key])!==stableJson(project.manifest[key]))throw new Error(`Cannot change protected submission field ${key}. Prepare a fresh submission.`);
     }
     if(project.kind==='pinterest'&&JSON.stringify((next.pins||[]).map((p:any)=>[p.boardId,p.link,p.imageRole]))!==JSON.stringify((project.manifest.pins||[]).map((p:any)=>[p.boardId,p.link,p.imageRole])))throw new Error('Prepare a fresh pin to change its planner or board.');
