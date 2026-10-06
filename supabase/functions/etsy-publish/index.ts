@@ -1,3 +1,4 @@
+import {verifyPriceReview} from './price-review.ts';
 import {resumeImages} from './resume-images.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.115.0";
@@ -237,8 +238,9 @@ async function updateListing(shopId: string, listingId: string, token: string, d
 }
 
 async function updateSelectedListingFields(shopId: string, listingId: string, token: string, fields: any) {
+  if (Object.prototype.hasOwnProperty.call(fields,'price')) throw new Error('Price must use the Etsy inventory endpoint.');
   const form = new URLSearchParams();
-  const direct: Record<string,string> = { title:"title", description:"description", quantity:"quantity", price:"price", taxonomyId:"taxonomy_id", shopSectionId:"shop_section_id", whoMade:"who_made", whenMade:"when_made", isSupply:"is_supply", isTaxable:"is_taxable", autoRenew:"should_auto_renew", state:"state" };
+  const direct: Record<string,string> = { title:"title", description:"description", quantity:"quantity", taxonomyId:"taxonomy_id", shopSectionId:"shop_section_id", whoMade:"who_made", whenMade:"when_made", isSupply:"is_supply", isTaxable:"is_taxable", autoRenew:"should_auto_renew", state:"state" };
   for (const [key, apiKey] of Object.entries(direct)) if (Object.prototype.hasOwnProperty.call(fields, key)) form.set(apiKey, String(fields[key]));
   for (const key of ["tags","materials","styles"]) if (Object.prototype.hasOwnProperty.call(fields,key)) appendArray(form,key,fields[key]);
   if (![...form.keys()].length) return null;
@@ -272,7 +274,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:36, api_version:'4.0.1', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:39, api_version:'4.2.1', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -349,6 +351,10 @@ Deno.serve(async (req: Request) => {
     if (!projectId) throw new Error("Choose an Etsy project to publish.");
     const { data: project, error: projectError } = await admin.from("review_projects").select("*").eq("id", projectId).single();
     if (projectError) throw projectError;
+    if(body.action==='validate_price_review'){
+      if(!Number.isInteger(body.expected_revision)||body.expected_revision!==project.revision||!['editing','ready'].includes(project.status))throw new Error('The price review changed or is not editable.');
+      return json(await verifyPriceReview(project,credential,token,{fetch:etsyFetch}));
+    }
     if(body.action==='revalidate_draft'){
       if(!Number.isInteger(body.expected_revision)||body.expected_revision!==project.revision)throw new Error('The project changed. Refresh and review its latest revision.');
       return json(await verifyExistingDraft(project,credential,token,validateProject(project),{fetch:etsyFetch}));

@@ -1,3 +1,4 @@
+import {verifyPriceInventory} from './price-inventory.ts';
 import {listingSnapshot,verifyFields,equivalent} from './safety.ts';
 // Read-only on Etsy: never repeat an upload while checking an uncertain result.
 export async function reconcileEdit(admin:any,credential:any,token:string,project:any,api:any){
@@ -10,11 +11,17 @@ export async function reconcileEdit(admin:any,credential:any,token:string,projec
  const files=(await api.fetch('/shops/'+credential.shop_id+'/listings/'+listingId+'/files',token)).results;
  if(!Array.isArray(images)||!Array.isArray(files))throw new Error('Etsy readback is unavailable.');
  const m=project.manifest,steps=run.steps||[],before=run.before_state||{},replacements=m.imageReplacements||[],updates=m.fileUpdates||[],altUpdates=m.updateScope?.includes('alt_text')?m.altTextUpdates||[]:[];
+ const hasPrice=Object.prototype.hasOwnProperty.call(m.updateFields||{},'price');
+ const inventory=hasPrice?await api.fetch('/listings/'+listingId+'/inventory',token):undefined;
  let verified=true;
  try{
   if(!before.fields||!before.images||!before.files)throw Error('The complete operation was not confirmed.');
-  if(Object.keys(m.updateFields||{}).length&&!steps.some((s:any)=>s.name==='Update selected listing fields'&&s.status==='confirmed'))throw Error('Text update was not confirmed.');
+  if(Object.keys(m.updateFields||{}).some(key=>key!=='price')&&!steps.some((s:any)=>s.name==='Update selected listing fields'&&s.status==='confirmed'))throw Error('Text update was not confirmed.');
   if(steps.some((s:any)=>s.status!=='confirmed'&&!/^Confirm image \d+ alt text$/.test(s.name)))throw Error('An operation remains uncertain.');
+  if(hasPrice){
+   if(!before.inventory||!steps.some((s:any)=>s.name==='Update listing price'&&s.status==='confirmed'))throw Error('Price inventory update was not confirmed.');
+   verifyPriceInventory(before.inventory,inventory,m.updateFields.price);
+  }
   verifyFields(before.fields,listingSnapshot(listing),m.updateFields||{});
   if(images.length!==before.images.length+replacements.filter((r:any)=>!before.images.some((i:any)=>Number(i.rank)===Number(r.rank))).length)throw Error('Image count differs.');
   for(const old of before.images){if(replacements.some((r:any)=>Number(r.rank)===Number(old.rank)))continue;const actual=images.find((i:any)=>Number(i.rank)===Number(old.rank)),alt=altUpdates.find((a:any)=>Number(a.rank)===Number(old.rank));if(!actual||String(actual.listing_image_id)!==String(old.listing_image_id)||String(actual.alt_text||'')!==String(alt?.altText??old.alt_text??''))throw Error('Image alt text or identity differs.');}
@@ -26,6 +33,6 @@ export async function reconcileEdit(admin:any,credential:any,token:string,projec
  }catch{verified=false;}
  const checkedAt=new Date().toISOString();
  if(verified){const done=await admin.from('review_projects').update({status:'published',published_at:checkedAt,last_error:null,manifest:{submissionFingerprint:project.manifest.submissionFingerprint,published:true},media:[],preview_path:null,title:'Published submission'}).eq('id',project.id).eq('revision',project.revision);if(done.error)throw done.error;const closed=await admin.from('seller_publish_runs').update({status:'succeeded',before_state:{},after_state:{verified:true},finished_at:checkedAt,last_error:null}).eq('id',run.id);if(closed.error)throw closed.error;}
- else {const saved=await admin.from('seller_publish_runs').update({after_state:{fields:listingSnapshot(listing),images,files,checked_at:checkedAt}}).eq('id',run.id);if(saved.error)throw saved.error;}
+ else {const saved=await admin.from('seller_publish_runs').update({after_state:{fields:listingSnapshot(listing),images,files,...(hasPrice?{inventory}:{}),checked_at:checkedAt}}).eq('id',run.id);if(saved.error)throw saved.error;}
  return {verified,run_id:run.id,listing_url:'https://www.etsy.com/listing/'+listingId,images:images.map((i:any)=>({rank:i.rank,alt_text:i.alt_text,url:i.url_570xN})),message:verified?'Etsy matches the approved update.':'Etsy differs from the complete approved update. Inspect the live listing before discarding this submission.'};
 }

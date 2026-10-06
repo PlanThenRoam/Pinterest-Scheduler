@@ -1,3 +1,4 @@
+import {preparePriceInventory,verifyPriceInventory} from './price-inventory.ts';
 import {syncConfirmedImageAlt} from './image-state.ts';
 import { validateAssetBlob } from './assets.ts';
 import { listingSnapshot, equivalent, equivalentField, preflightFiles, verifyFields } from './safety.ts';
@@ -46,6 +47,14 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     if (captured) for (const key of Object.keys(before)) {
       if (key in captured && !equivalentField(key, captured[key], before[key])) throw new Error(`The live ${key} changed since this draft was prepared. Reopen the listing and review a fresh update.`);
     }
+    const hasPrice=Object.prototype.hasOwnProperty.call(listing.fields,'price');
+    let inventory:any, pricePayload:any;
+    if(hasPrice){
+      if(original.listing_type!=='download')throw new Error('Price updates currently support single-product digital planners only.');
+      if(original.price?.currency_code!=='GBP'||(listing.manifest.currency&&listing.manifest.currency!==original.price.currency_code))throw Error('The live shop currency differs from this GBP price review.');
+      inventory=await api.fetch(`/listings/${listingId}/inventory`,token);
+      pricePayload=preparePriceInventory(inventory,before.price,listing.fields.price,listing.manifest.currency||original.price?.currency_code);
+    }
     const updates = [...(listing.fileUpdates || [])].sort((a, b) => (a.action === 'add' ? 1 : 0) - (b.action === 'add' ? 1 : 0));
     if (listing.scopes.includes('files')) preflightFiles(files, updates);
     const images = original.images || [];
@@ -79,8 +88,17 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       }
       entry.item = await validateAssetBlob({...item,name:entry.filename||item.name},stored.get(item.path)!,(listing.images||[]).includes(entry)?'image':'pdf');
     }
-    await writeRun({ before_state: { fields: before, images, files } });
-    if (Object.keys(listing.fields).some(key => key !== 'personalization')) await step('Update selected listing fields', () => api.updateFields(credential.shop_id, listingId, token, listing.fields));
+    await writeRun({ before_state: { fields: before, images, files, ...(hasPrice?{inventory}:{}) } });
+    if(hasPrice){
+      const latestInventory=await api.fetch(`/listings/${listingId}/inventory`,token);
+      verifyPriceInventory(inventory,latestInventory,before.price);
+      await step('Update listing price',()=>api.fetch(`/listings/${listingId}/inventory`,token,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(pricePayload)}));
+      const priceReadback=await api.fetch(`/listings/${listingId}/inventory`,token);
+      await writeRun({after_state:{inventory:priceReadback}});
+      verifyPriceInventory(inventory,priceReadback,listing.fields.price);
+    }
+    const textFields=Object.fromEntries(Object.entries(listing.fields).filter(([key])=>key!=='price'&&key!=='personalization'));
+    if (Object.keys(textFields).length) await step('Update selected listing fields', () => api.updateFields(credential.shop_id, listingId, token, textFields));
     if (listing.scopes.includes('personalization')) await step('Update personalisation', () => api.personalization(credential.shop_id, listingId, token, listing.fields.personalization));
     const expectedImages = new Map<number, string>();
     let expectedLayout=images.map((x:any)=>({...x}));
@@ -111,7 +129,9 @@ export async function runEdit(admin: any, credential: any, token: string, projec
     current.images=(await api.fetch(`/listings/${listingId}/images`,token)).results;
     if(!Array.isArray(current.images))throw new Error('Etsy image readback is unavailable.');
     const currentFiles = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results || [];
-    await writeRun({ after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles } });
+    const currentInventory=hasPrice?await api.fetch(`/listings/${listingId}/inventory`,token):undefined;
+    await writeRun({ after_state: { fields: listingSnapshot(current), images: current.images, files: currentFiles, ...(hasPrice?{inventory:currentInventory}:{}) } });
+    if(hasPrice)verifyPriceInventory(inventory,currentInventory,listing.fields.price);
     verifyFields(before, listingSnapshot(current), listing.fields);
     const expectedCount=images.length+(listing.images||[]).filter((x:any)=>!images.some((old:any)=>Number(old.rank)===Number(x.rank))).length;
     if(current.images?.length!==expectedCount||new Set((current.images||[]).map((x:any)=>Number(x.rank))).size!==expectedCount)throw new Error('Image count or order verification needs review.');

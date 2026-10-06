@@ -14,7 +14,7 @@ function setup({verified=true,status='failed',concurrentChange=false,altOnly=fal
    return {data:structuredClone(project)};
   },maybeSingle:async()=>({data:{user_id:'owner'}})};return q;}};
  const context=vm.createContext({Request,Response,URL,Blob,crypto,Date,Set,Map,masterTools:[],masterToolNames:new Set(),createClient:()=>db,validateAssetBlob:async asset=>validated.push(asset.role),fetch:async(url,init)=>{
-  const body=JSON.parse(init.body);publisherCalls.push(body);assert.equal(body.action,'revalidate_draft');assert.equal(body.project_id,'review');assert.equal(body.expected_revision,24);
+  const body=JSON.parse(init.body);publisherCalls.push(body);assert.equal(body.action,project.manifest.updateScope?.includes('price')?'validate_price_review':'revalidate_draft');assert.equal(body.project_id,'review');assert.equal(body.expected_revision,project.revision);
   if(concurrentChange)project.status='publishing';
   return new Response(JSON.stringify(verified?{verified:true,state:'draft',listing_id:'123',published:false}:{error:'description differs'}),{status:verified?200:400});
  },Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://project.supabase.co':'test'},serve:f=>handler=f}});
@@ -42,11 +42,11 @@ test('adding a price to an existing title review preserves its identity and requ
  assert.equal(updated.result.structuredContent.revision,25,JSON.stringify(updated));assert.equal(s.project.status,'editing');assert.equal(s.project.id,before.id);
  for(const key of ['existingSnapshot','existingImages','existingFiles','submissionFingerprint','preparationComplete'])assert.deepEqual(s.project.manifest[key],before.manifest[key]);
  const ready=await s.call('finalize_review_project',{project_id:'review',expected_revision:25});
- assert.equal(ready.result.structuredContent.status,'ready',JSON.stringify(ready));assert.equal(s.publisherCalls.length,0);assert.equal(s.validated.length,0);assert.deepEqual(s.project.media,[]);
+ assert.equal(ready.result.structuredContent.status,'ready',JSON.stringify(ready));assert.equal(s.publisherCalls.length,1);assert.equal(s.validated.length,0);assert.deepEqual(s.project.media,[]);
 });
 
 test('price-only review needs no assets and invalid prices are rejected without draft writes',async()=>{
- for(const price of [5.99,6.99,7.99]){const s=setup({status:'editing',altOnly:true});s.project.manifest={mode:'edit',listingId:'123',updateScope:['price'],updateFields:{price}};const result=await s.run();assert.equal(result.result.structuredContent.status,'ready',JSON.stringify(result));assert.equal(s.publisherCalls.length,0);assert.equal(s.validated.length,0);}
+ for(const price of [5.99,6.99,7.99]){const s=setup({status:'editing',altOnly:true});s.project.manifest={mode:'edit',listingId:'123',updateScope:['price'],updateFields:{price}};const result=await s.run();assert.equal(result.result.structuredContent.status,'ready',JSON.stringify(result));assert.equal(s.publisherCalls.length,1);assert.equal(s.validated.length,0);}
  for(const price of [0,-1,5.999,'5.99',true,null]){const s=setup({status:'editing',altOnly:true});s.project.manifest={mode:'edit',listingId:'123',updateScope:['price'],updateFields:{price}};const result=await s.run();assert.match(result.error.message,/price must be/);assert.deepEqual(s.writes,[]);assert.equal(s.publisherCalls.length,0);}
 });
 
@@ -55,3 +55,5 @@ test('price review cannot change the captured shop currency',async()=>{
  const result=await s.call('update_review_project',{project_id:'review',expected_revision:24,manifest:{...structuredClone(s.project.manifest),currency:'USD',updateScope:['price'],updateFields:{price:5.99}}});
  assert.match(result.error.message,/protected submission field currency/);assert.deepEqual(s.project,before);assert.deepEqual(s.writes,[]);assert.equal(s.publisherCalls.length,0);
 });
+
+test('failed live price preflight cannot mark a review ready',async()=>{const s=setup({verified:false,status:'editing',altOnly:true});s.project.manifest={mode:'edit',listingId:'123',updateScope:['price'],updateFields:{price:7.99}};const before=structuredClone(s.project);const r=await s.run();assert.equal(r.error.code,-32000);assert.deepEqual(s.project,before);assert.deepEqual(s.writes,[]);assert.equal(s.publisherCalls.length,1);});
