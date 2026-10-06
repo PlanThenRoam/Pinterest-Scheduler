@@ -18,12 +18,13 @@ export async function verifyExistingDraft(project: any, credential: any, token: 
     throw new Error('The existing draft identity or owner differs.');
   }
   if (draft.state !== 'draft') throw new Error('The existing Etsy listing is no longer a draft.');
+  if (project.manifest.listingDefaults?.currency && draft.price?.currency_code !== project.manifest.listingDefaults.currency) throw new Error('The existing draft currency differs.');
   const images = (await api.fetch(`/listings/${listingId}/images`, token)).results;
   const files = (await api.fetch(`/shops/${credential.shop_id}/listings/${listingId}/files`, token)).results;
   if (!Array.isArray(images) || !Array.isArray(files)) throw new Error('Etsy draft asset readback is unavailable.');
   verifyNewListingAssets({images}, files, checkpoint, project.manifest.altText);
   verifyFields({title: listing.title, description: listing.description, tags: listing.tags,
-    price: Number(project.manifest.listingDefaults?.price ?? project.manifest.price)}, listingSnapshot(draft), {});
+    price: project.manifest.price}, listingSnapshot(draft), {});
   return {verified: true, listing_id: listingId, state: 'draft', file_id: String(files[0].listing_file_id),
-    image_ids: [...checkpoint.imageIds], alt_texts_verified: 6, published: false};
+    image_ids: [...checkpoint.imageIds], alt_texts_verified: 6, price: project.manifest.price, published: false};
 }

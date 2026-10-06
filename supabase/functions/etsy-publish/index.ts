@@ -81,6 +81,7 @@ function validateProject(project: any) {
   }
   if (!title || title.length > 140) throw new Error("The Etsy title must be between 1 and 140 characters.");
   if (!description) throw new Error("The Etsy description is missing.");
+  if (typeof manifest.price !== 'number' || !Number.isFinite(manifest.price) || manifest.price <= 0 || Math.abs(manifest.price * 100 - Math.round(manifest.price * 100)) > 1e-8) throw new Error('The Etsy price must be a positive number with at most two decimal places.');
   if (tags.length !== 13 || new Set(tags.map((tag: string) => tag.toLowerCase())).size !== 13) throw new Error("Etsy requires exactly 13 unique tags.");
   if (tags.some((tag: string) => tag.length > 20)) throw new Error("Each Etsy tag must be 20 characters or fewer.");
   const images = imageItems(project);
@@ -274,7 +275,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:39, api_version:'4.2.1', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:39, api_version:'4.2.2', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -357,7 +358,12 @@ Deno.serve(async (req: Request) => {
     }
     if(body.action==='revalidate_draft'){
       if(!Number.isInteger(body.expected_revision)||body.expected_revision!==project.revision)throw new Error('The project changed. Refresh and review its latest revision.');
-      return json(await verifyExistingDraft(project,credential,token,validateProject(project),{fetch:etsyFetch}));
+      let reviewProject=project;
+      if(Object.prototype.hasOwnProperty.call(body,'proposed_price')){
+        if(project.status!=='failed'||project.manifest?.mode==='edit'||project.manifest?.listingDefaults?.currency!=='GBP')throw new Error('Price recovery requires an existing failed GBP new-listing draft.');
+        reviewProject={...project,manifest:{...project.manifest,price:body.proposed_price}};
+      }
+      return json(await verifyExistingDraft(reviewProject,credential,token,validateProject(reviewProject),{fetch:etsyFetch}));
     }
     if(project.status === "published") return json({ok:true,already_published:true,listing_id:project.platform_id,listing_url:`https://www.etsy.com/listing/${project.platform_id}`});
     if(body.expected_revision != null && Number(body.expected_revision)!==project.revision) throw new Error("The project changed. Refresh and review its latest revision.");
@@ -383,8 +389,12 @@ Deno.serve(async (req: Request) => {
     let listingId = listing.editMode ? String(manifest.listingId || manifest.etsyListingId || project.platform_id || "") : String(project.platform_id || checkpoint.listingId || "");
     const template = await etsyFetch(`/listings/${templateListingId}?includes=Images,Personalization`, token);
     if(!manifest.listingDefaults)throw new Error('Prepare a fresh listing so its shared defaults can be reviewed.');
-    if(!equivalent(manifest.listingDefaults,listingDefaults(template)))throw new Error('Shared Etsy listing defaults changed. Prepare a fresh submission for approval.');
-    manifest.price=manifest.listingDefaults.price;manifest.quantity=manifest.listingDefaults.quantity;
+    const {price: capturedTemplatePrice,...capturedDefaults}=manifest.listingDefaults;
+    const {price: currentTemplatePrice,...currentDefaults}=listingDefaults(template);
+    if(!equivalent(capturedDefaults,currentDefaults))throw new Error('Shared Etsy listing defaults changed. Prepare a fresh submission for approval.');
+    // The submitted price is the owner's proposed price. Template defaults are a
+    // captured configuration snapshot, not a replacement for that proposal.
+    manifest.quantity=manifest.listingDefaults.quantity;
     const taxonomyId = Math.round(numberValue(manifest.listingDefaults.taxonomy_id, template.taxonomy_id)) || await inferTaxonomy(credential.shop_id, token);
     if (!taxonomyId) throw new Error("Add an Etsy taxonomy ID in Edit before publishing.");
     if (!listingId) {

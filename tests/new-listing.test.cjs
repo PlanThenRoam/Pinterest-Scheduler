@@ -3,11 +3,11 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
-function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescription=false,proof=true}={}){
+function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescription=false,proof=true,proposedPrice=14.99,templatePrice=14.99}={}){
  const roles=['thumbnail',...Array.from({length:5},(_,i)=>`listing-image-${i+1}`)];
- const project={id:'project',kind:'etsy',status:'ready',revision:1,title:'Test planner',manifest:{title:'Test planner',description:'Guide description',tags:Array.from({length:13},(_,i)=>`Tag ${i}`),altText:roles.map((_,i)=>`Approved alt ${i}`),taxonomyId:1},media:[...roles.map((role,i)=>({role,name:`image${i}.png`,path:`image${i}`})),{role:'customer-pdf',name:'guide.pdf',path:'pdf'}]};
- const writes=[],images=[],files=[];let handler,state='draft',nextId=100,draftFields={};
- const admin={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async(path)=>({data:path==='pdf'?new Blob([invalidPdf?'bad':'%PDF-1.7 Test']):new Blob([new Uint8Array([137,80,78,71,...Array(20).fill(0)])])})})},from(table){const q={changes:null,filters:[],select(){return this;},contains(){return this;},limit(){return this;},eq(k,v){this.filters.push([k,v]);return this;},in(k,v){this.filters.push([k,v]);return this;},update(v){this.changes=structuredClone(v);return this;},single(){return Promise.resolve(this.apply());},maybeSingle(){return Promise.resolve(this.apply());},then(a,b){return Promise.resolve(this.apply()).then(a,b);},apply(){if(table==='seller_publish_runs')return {data:proof?{id:'live-verified-recovery'}:null};if(table==='app_owners')return {data:{user_id:'owner'}};if(table==='etsy_credentials')return {data:{shop_id:'shop',etsy_user_id:'owner',access_token:'test',expires_at:'2099-01-01'}};if(table!=='review_projects')throw Error('Unexpected table '+table);if(!this.filters.every(([k,v])=>Array.isArray(v)?v.includes(project[k]):project[k]===v))return {data:null};if(this.changes){if(this.changes.manifest)project.revision++;Object.assign(project,this.changes);}return {data:structuredClone(project)};}};return q;}};
+ const project={id:'project',kind:'etsy',status:'ready',revision:1,title:'Test planner',manifest:{price:proposedPrice,currency:'GBP',title:'Test planner',description:'Guide description',tags:Array.from({length:13},(_,i)=>`Tag ${i}`),altText:roles.map((_,i)=>`Approved alt ${i}`),taxonomyId:1},media:[...roles.map((role,i)=>({role,name:`image${i}.png`,path:`image${i}`})),{role:'customer-pdf',name:'guide.pdf',path:'pdf'}]};
+ const writes=[],images=[],files=[],savedManifests=[];let handler,state='draft',nextId=100,draftFields={};
+ const admin={auth:{getUser:async()=>({data:{user:{id:'owner'}}})},storage:{from:()=>({download:async(path)=>({data:path==='pdf'?new Blob([invalidPdf?'bad':'%PDF-1.7 Test']):new Blob([new Uint8Array([137,80,78,71,...Array(20).fill(0)])])})})},from(table){const q={changes:null,filters:[],select(){return this;},contains(){return this;},limit(){return this;},eq(k,v){this.filters.push([k,v]);return this;},in(k,v){this.filters.push([k,v]);return this;},update(v){this.changes=structuredClone(v);return this;},single(){return Promise.resolve(this.apply());},maybeSingle(){return Promise.resolve(this.apply());},then(a,b){return Promise.resolve(this.apply()).then(a,b);},apply(){if(table==='seller_publish_runs')return {data:proof?{id:'live-verified-recovery'}:null};if(table==='app_owners')return {data:{user_id:'owner'}};if(table==='etsy_credentials')return {data:{shop_id:'shop',etsy_user_id:'owner',access_token:'test',expires_at:'2099-01-01'}};if(table!=='review_projects')throw Error('Unexpected table '+table);if(!this.filters.every(([k,v])=>Array.isArray(v)?v.includes(project[k]):project[k]===v))return {data:null};if(this.changes){if(this.changes.manifest){project.revision++;savedManifests.push(structuredClone(this.changes.manifest));}Object.assign(project,this.changes);}return {data:structuredClone(project)};}};return q;}};
  const fetch=async(url,init={})=>{
   const path=new URL(url).pathname,method=init.method||'GET';
   if(!url.startsWith('https://openapi.etsy.com/'))throw Error('Unexpected external request');
@@ -21,13 +21,13 @@ function setup({invalidPdf=false,imageTimeout=false,wrongAlt=false,wrongDescript
   }
   if(path.endsWith('/files')){if(method==='POST'){writes.push('pdf');files.push({listing_file_id:'999'});return ok(files[0]);}return ok({results:files});}
   if(path.endsWith('/listings/12345')&&method==='PATCH'){writes.push('activate');state='active';return ok({listing_id:'12345',state});}
-  if(method==='GET'&&/\/listings\/\d+$/.test(path))return ok({listing_id:path.split('/').at(-1),user_id:'owner',state,images,price:{amount:1499,divisor:100,currency_code:'GBP'},...draftFields,who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
+  if(method==='GET'&&/\/listings\/\d+$/.test(path)){const isDraft=path.endsWith('/12345');return ok({listing_id:path.split('/').at(-1),user_id:'owner',state,images,...(isDraft?draftFields:{}),price:{amount:Math.round((isDraft?draftFields.price:templatePrice)*100),divisor:100,currency_code:'GBP'},who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});}
   throw Error('Unhandled '+method+' '+path);
  };
  const c=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,Blob,FormData,URLSearchParams,Headers,Response,Request,AbortSignal,crypto,structuredClone,Date,console,TextDecoder,TextEncoder,setTimeout:(f)=>f(),URL,fetch,createClient:()=>admin,Deno:{env:{get:()=> 'test'},serve:f=>handler=f}});
  for(const file of ['assets.ts','alt-text.ts','safety.ts','verify-draft.ts','image-state.ts','safe-edit.ts','index.ts']){const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');vm.runInContext(stripTypeScriptTypes(source),c);}
- project.manifest.listingDefaults=c.listingDefaults({price:{amount:1499,divisor:100,currency_code:'GBP'},who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
- return {project,writes,images,files,setDescription:value=>{draftFields.description=value;},run:async(overrides={})=>{const response=await handler(new Request('https://example.com/etsy-publish',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({project_id:'project',expected_revision:project.revision,...overrides})}));return {status:response.status,body:await response.json()};}};
+ project.manifest.listingDefaults=c.listingDefaults({price:{amount:Math.round(templatePrice*100),divisor:100,currency_code:'GBP'},who_made:'i_did',when_made:'2020_2026',taxonomy_id:1});
+ return {project,writes,images,files,savedManifests,getDraftPrice:()=>draftFields.price,setState:value=>{state=value;},setDescription:value=>{draftFields.description=value;},run:async(overrides={})=>{const response=await handler(new Request('https://example.com/etsy-publish',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({project_id:'project',expected_revision:project.revision,...overrides})}));return {status:response.status,body:await response.json()};}};
 }
 test('new listing verifies six images, alt text and PDF before activation',async()=>{const s=setup();const r=await s.run();assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(s.writes.filter(x=>x==='image').length,6);assert.equal(s.writes.filter(x=>x==='alt').length,0);assert.equal(s.writes.at(-1),'activate');assert.equal(s.project.status,'published');});
 test('invalid customer file blocks even draft creation',async()=>{const s=setup({invalidPdf:true});const r=await s.run();assert.equal(r.status,400);assert.match(r.body.error,/genuine PDFs/);assert.deepEqual(s.writes,[]);});
@@ -52,4 +52,53 @@ test('draft revalidation rejects wording or asset differences without writes or 
 test('draft revalidation requires the exact current review revision',async()=>{
  const s=setup({wrongDescription:true});await s.run();const writes=[...s.writes];
  for(const expected_revision of [null,undefined,s.project.revision-1]){assert.equal((await s.run({action:'revalidate_draft',expected_revision})).status,400);assert.deepEqual(s.writes,writes);}
+});
+test('new listing keeps its reviewed price through draft creation, checkpoints and verification despite cheaper template defaults',async()=>{
+ const s=setup({proposedPrice:7.99,templatePrice:6.99});
+ const r=await s.run();assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(s.getDraftPrice(),7.99);
+ const checkpoints=s.savedManifests.filter(manifest=>manifest.etsyPublish);assert.ok(checkpoints.length>0);
+ for(const manifest of checkpoints){assert.equal(manifest.price,7.99);assert.equal(manifest.listingDefaults.price,6.99);}
+ assert.equal(s.writes.filter(x=>x==='create').length,1);assert.equal(s.writes.at(-1),'activate');assert.equal(s.project.status,'published');
+});
+test('new listing rejects missing or invalid reviewed prices before any Etsy writes',async()=>{
+ for(const price of [undefined,null,'7.99',0,-1,Infinity,NaN,7.999]){
+  const s=setup();if(price===undefined)delete s.project.manifest.price;else s.project.manifest.price=price;
+  const r=await s.run();assert.equal(r.status,400,`Price ${String(price)} should fail`);assert.match(r.body.error,/price must be a positive number with at most two decimal places/);assert.deepEqual(s.writes,[]);
+ }
+});
+async function failedLegacyPriceDraft(){
+ const s=setup({proposedPrice:7.99,templatePrice:6.99,wrongDescription:true});
+ assert.equal((await s.run()).status,400);assert.equal(s.getDraftPrice(),7.99);assert.equal(s.project.status,'failed');
+ s.setDescription(s.project.manifest.description);s.project.manifest.price=6.99;
+ return s;
+}
+function recoverySnapshot(s){return structuredClone({project:s.project,images:s.images,files:s.files,writes:s.writes,savedManifests:s.savedManifests});}
+test('failed draft price recovery verifies the proposed price read-only while preserving captured defaults and every upload',async()=>{
+ const s=await failedLegacyPriceDraft(),before=recoverySnapshot(s);
+ const r=await s.run({action:'revalidate_draft',proposed_price:7.99});
+ assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.verified,true);assert.equal(r.body.price,7.99);assert.equal(r.body.published,false);assert.equal(r.body.state,'draft');assert.equal(r.body.listing_id,'12345');
+ assert.equal(r.body.alt_texts_verified,6);assert.deepEqual(r.body.image_ids,s.images.map(image=>image.listing_image_id));assert.equal(r.body.file_id,s.files[0].listing_file_id);
+ assert.deepEqual(recoverySnapshot(s),before);assert.equal(s.project.manifest.price,6.99);assert.equal(s.project.manifest.listingDefaults.price,6.99);
+});
+test('failed draft recovery without a corrected price still rejects the actual price discrepancy',async()=>{
+ const s=await failedLegacyPriceDraft(),before=recoverySnapshot(s);
+ const r=await s.run({action:'revalidate_draft'});assert.equal(r.status,400);assert.match(r.body.error,/price differs/);assert.deepEqual(recoverySnapshot(s),before);
+});
+test('failed draft price recovery rejects a wrong or invalid proposed price without writes',async()=>{
+ for(const proposed_price of [6.99,8.99,null,'7.99',0,-1,7.999]){
+  const s=await failedLegacyPriceDraft(),before=recoverySnapshot(s);
+  const r=await s.run({action:'revalidate_draft',proposed_price});assert.equal(r.status,400,`Price ${String(proposed_price)} should fail`);assert.match(r.body.error,/price differs|price must be a positive number/);assert.deepEqual(recoverySnapshot(s),before);
+ }
+});
+test('correct proposed price cannot bypass a changed description or missing image',async()=>{
+ for(const change of [s=>s.setDescription('Different wording'),s=>s.images.pop()]){
+  const s=await failedLegacyPriceDraft();change(s);const before=recoverySnapshot(s);
+  const r=await s.run({action:'revalidate_draft',proposed_price:7.99});assert.equal(r.status,400);assert.deepEqual(recoverySnapshot(s),before);
+ }
+});
+test('proposed-price recovery requires a failed GBP new-listing project and an existing Etsy draft',async()=>{
+ for(const change of [s=>s.project.status='published',s=>s.project.status='ready',s=>s.project.manifest.mode='edit',s=>s.project.manifest.listingDefaults.currency='USD',s=>s.setState('active')]){
+  const s=await failedLegacyPriceDraft();change(s);const before=recoverySnapshot(s);
+  const r=await s.run({action:'revalidate_draft',proposed_price:7.99});assert.equal(r.status,400);assert.match(r.body.error,/failed GBP new-listing draft|no longer a draft/);assert.deepEqual(recoverySnapshot(s),before);
+ }
 });

@@ -6,6 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.115.0";
 
 import { drainStorageCleanup } from './storage-cleanup.ts';
 import { cancelReview } from './cancel-review.ts';
+import { priceRecoveryCandidate } from './recover-draft-price.ts';
 
 import { masterTools, masterToolNames, handleMasterTool } from './master-files.ts';
 
@@ -14,7 +15,7 @@ const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const APP_VERSION = 39;
-const API_CAPABILITY_VERSION = "4.2.1";
+const API_CAPABILITY_VERSION = "4.2.2";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -101,7 +102,7 @@ function validate(kind:string, manifest:any){
    if(String(manifest.title).length>140)throw new Error("Etsy listing titles must be 140 characters or fewer.");
    if(tags.length!==13||new Set(tags.map((x:string)=>x.toLowerCase())).size!==13)throw new Error("New Etsy listings require exactly 13 unique tags.");
    if(tags.some((x:string)=>x.length>20))throw new Error("Each Etsy tag must be 20 characters or fewer.");
-   if(!(Number(manifest.price)>0))manifest.price=14.99;
+   if(typeof manifest.price!=='number'||!Number.isFinite(manifest.price)||manifest.price<=0||Math.abs(manifest.price*100-Math.round(manifest.price*100))>1e-8)throw new Error('The Etsy price must be a positive number with at most two decimal places.');
    if(!(Number(manifest.quantity)>0))manifest.quantity=999;
    manifest.tags=tags;
   }
@@ -194,7 +195,7 @@ Deno.serve(async(req:Request)=>{
    const existing=await db.from('review_projects').select('id,kind,title,status,revision,manifest').eq('id',projectId).maybeSingle();if(existing.error)throw existing.error;
    if(existing.data){if(existing.data.manifest.submissionFingerprint!==fingerprint)throw new Error('This submission key belongs to different content.');const {manifest,...safe}=existing.data;return rpc(id,output({...safe,already_prepared:true}));}
    const defaults=await publisherRequest(auth,'?defaults=1');
-   const {data,error}=await db.from("review_projects").insert({id:projectId,kind:args.kind,title:String(args.title).slice(0,180),manifest:{...args.manifest,listingDefaults:defaults.defaults,price:defaults.defaults.price,quantity:defaults.defaults.quantity,submissionFingerprint:fingerprint},media:[],source:"chatgpt",status:"editing"}).select("id,kind,title,status,revision").single();
+   const {data,error}=await db.from("review_projects").insert({id:projectId,kind:args.kind,title:String(args.title).slice(0,180),manifest:{...args.manifest,listingDefaults:defaults.defaults,quantity:defaults.defaults.quantity,submissionFingerprint:fingerprint},media:[],source:"chatgpt",status:"editing"}).select("id,kind,title,status,revision").single();
    if(error)throw error;return rpc(id,output(data));
   }
   if(name==="list_review_projects"){
@@ -209,7 +210,16 @@ Deno.serve(async(req:Request)=>{
   if(!["etsy","pinterest"].includes(project.kind))throw new Error("Seller Tools supports Etsy and Pinterest projects only.");
   if(name!=="clear_review_project"&&args.expected_revision!==project.revision)throw new Error("The submission changed. Read its current revision before saving.");
   const retryDraftReview=name==='finalize_review_project'&&project.kind==='etsy'&&project.status==='failed'&&project.manifest?.mode!=='edit'&&Boolean(project.manifest?.etsyPublish?.listingId);
-  if(name!=="clear_review_project"&&!retryDraftReview&&["publishing","published","changes_requested","failed"].includes(project.status))throw new Error("This submission is locked or cancelled. Refresh before making changes.");
+  const recoverDraftPrice=name==='update_review_project'&&project.status==='failed'?priceRecoveryCandidate(project,args):null;
+  if(name!=="clear_review_project"&&!retryDraftReview&&recoverDraftPrice===null&&["publishing","published","changes_requested","failed"].includes(project.status))throw new Error("This submission is locked or cancelled. Refresh before making changes.");
+  if(recoverDraftPrice!==null){
+   const verified=await publisherRequest(auth,'',{method:'POST',body:JSON.stringify({action:'revalidate_draft',project_id:project.id,expected_revision:project.revision,proposed_price:recoverDraftPrice})});
+   if(verified.verified!==true||verified.state!=='draft'||verified.published!==false||verified.listing_id!==String(project.platform_id)||verified.price!==recoverDraftPrice)throw new Error('The existing Etsy draft price could not be verified.');
+   const manifest={...project.manifest,price:recoverDraftPrice};
+   const {error}=await db.from('review_projects').update({manifest,revision:project.revision+1,status:'failed'}).eq('id',project.id).eq('revision',project.revision).eq('status','failed').select('id').single();
+   if(error)throw error;
+   return rpc(id,output({project_id:project.id,updated:true,revision:project.revision+1,status:'failed',price:recoverDraftPrice,etsy_draft_verification:verified,next_action:'Finalize the existing submission for owner review. Nothing has been published.'}));
+  }
   if(name==="attach_project_asset"||name==="attach_project_asset_from_url"){
    let bytes:Uint8Array,contentType=String(args.content_type||"application/octet-stream");
    if(name==="attach_project_asset"){if(typeof args.base64_data!=="string"||args.base64_data.length>9_000_000)throw new Error("Base64 asset is missing or exceeds the 6 MB direct-upload limit. Use the trusted URL tool for larger files.");bytes=Uint8Array.from(atob(args.base64_data),c=>c.charCodeAt(0))}
