@@ -1,5 +1,5 @@
 import {preparePriceInventory,verifyPriceInventory} from './price-inventory.ts';
-import {syncConfirmedImageAlt} from './image-state.ts';
+import {sameImageAltText,syncConfirmedImageAlt} from './image-state.ts';
 import { validateAssetBlob } from './assets.ts';
 import { listingSnapshot, equivalent, equivalentField, preflightFiles, verifyFields } from './safety.ts';
 
@@ -75,7 +75,7 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       if (!images.some((x: any) => String(x.listing_image_id) === String(image.listingImageId) && Number(x.rank) === Number(image.rank))) throw new Error('An image moved or was replaced. Reopen the listing before editing its alt text.');
       const saved = listing.manifest.existingImages.find((x: any) => String(x.id) === String(image.listingImageId));
       const live = images.find((x: any) => String(x.listing_image_id) === String(image.listingImageId));
-      if (String(saved.altText || '') !== String(live.alt_text || '')) throw new Error('The image alt text changed since this draft was prepared. Review a fresh update.');
+      if (!sameImageAltText(saved.altText,live.alt_text)) throw new Error('The image alt text changed since this draft was prepared. Review a fresh update.');
     }
     const resultingRanks=[...new Set([...images.map((x:any)=>Number(x.rank)),...(listing.images||[]).map((x:any)=>Number(x.rank))])].sort((a,b)=>a-b);
     if(resultingRanks.some((rank,i)=>rank!==i+1))throw new Error('Add images in consecutive positions after the current final image.');
@@ -142,11 +142,11 @@ export async function runEdit(admin: any, credential: any, token: string, projec
       const replacement = (listing.images || []).find((x: any) => Number(x.rank) === rank);
       const alt = (listing.altTextUpdates || []).find((x: any) => Number(x.rank) === rank);
       const actual = (current.images || []).find((x: any) => Number(x.rank) === rank);
-      if (!actual || (!replacement && String(actual.listing_image_id) !== String(previous.listing_image_id)) || String(actual.alt_text || '') !== String(replacement?.altText ?? alt?.altText ?? previous.alt_text ?? '')) throw new Error(`Image ${rank} verification needs review.`);
+      if (!actual || (!replacement && String(actual.listing_image_id) !== String(previous.listing_image_id)) || !sameImageAltText(replacement?.altText ?? alt?.altText ?? previous.alt_text,actual.alt_text)) throw new Error(`Image ${rank} verification needs review.`);
     }
     for (const replacement of listing.images || []) {
       const actual = (current.images || []).find((x: any) => Number(x.rank) === Number(replacement.rank));
-      if (!actual || String(actual.listing_image_id) !== expectedImages.get(Number(replacement.rank)) || String(actual.alt_text || '') !== String(replacement.altText)) throw new Error(`Image ${replacement.rank} verification needs review.`);
+      if (!actual || String(actual.listing_image_id) !== expectedImages.get(Number(replacement.rank)) || !sameImageAltText(replacement.altText,actual.alt_text)) throw new Error(`Image ${replacement.rank} verification needs review.`);
     }
     const completedAt = new Date().toISOString();
 

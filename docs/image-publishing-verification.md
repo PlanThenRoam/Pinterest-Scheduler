@@ -25,3 +25,13 @@ New listings use the same identity and alt-text verification before activation. 
 - Test draft was never activated. Etsy refused its deletion because the existing connection lacks `listings_d`; the unpublished test draft requires owner deletion in Etsy.
 
 The temporary authenticated diagnostic and maintenance routes are removed from the released code. No API credentials are stored here.
+
+## October 2026 image-update correction
+
+An image-only update from six existing photos to seven approved photos exposed two verification bugs. Etsy returned quotation marks in alt text as `&quot;`, so the raw string comparison rejected unchanged wording after the second photo. Recovery then misclassified the approved seventh photo as a missing original photo.
+
+Alt-text verification now decodes one HTML-entity layer on both sides. It preserves case, spacing, punctuation and literal nested entity distinctions. The same comparison is used during upload, final verification, reconciliation, new-listing checks and price-review attachment checks. Image identity, rank, count and file verification remain strict.
+
+Image recovery now distinguishes an untouched approved append from an original final photo requiring restoration. It adds only consecutive approved positions, retains confirmed appended photos on retry, and requires the paused run to match the project's revision and listing. Unconfirmed uploads, external image changes and changed listing fields or PDFs still stop recovery.
+
+Regression tests exercise fresh and resumed six-to-seven updates with encoded alt text, partial recovery, unchanged completed photo identities, legacy final-slot restoration and rejection paths. These are controlled platform tests. The existing owner-only **Finish approved image update** action performs the live completion; deployment does not publish a listing or alter its approval record.

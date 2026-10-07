@@ -1,3 +1,4 @@
+import {sameImageAltText} from './image-state.ts';
 // Validate every selected attachment before making any Etsy changes.
 export async function validateAssetBlob(item:any, blob:Blob, kind:'image'|'pdf') {
   if(!blob.size||blob.size>20*1024*1024)throw new Error(`${item.name}: use a non-empty file no larger than 20 MB.`);
@@ -17,7 +18,7 @@ export function verifyNewListingAssets(current:any, files:any[], checkpoint:any,
   if(current.images?.length!==6||checkpoint.imageIds?.length!==6)throw new Error('The six new listing images could not be verified. The listing has not been activated.');
   for(let i=0;i<6;i++){
     const image=current.images.find((x:any)=>Number(x.rank)===i+1);
-    if(!image||String(image.listing_image_id)!==String(checkpoint.imageIds[i])||String(image.alt_text||'')!==String(altText[i]))throw new Error(`New listing image ${i+1} verification needs review. The listing has not been activated.`);
+    if(!image||String(image.listing_image_id)!==String(checkpoint.imageIds[i])||!sameImageAltText(altText[i],image.alt_text))throw new Error(`New listing image ${i+1} verification needs review. The listing has not been activated.`);
   }
   if(files.length!==1||!checkpoint.fileId||String(files[0].listing_file_id)!==String(checkpoint.fileId))throw new Error('The new listing PDF could not be verified. The listing has not been activated.');
 }
