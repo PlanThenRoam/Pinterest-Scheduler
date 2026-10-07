@@ -5,12 +5,14 @@ import {readImageState,syncConfirmedImageAlt,verifyImageLayout} from './image-st
 // Resume only an already approved, image-only operation. A recorded upload ID
 // is required; an unconfirmed upload is never repeated. Legacy missing final
 // images can be restored once, after verifying every remaining image and file.
+// Untouched, originally approved appends are added in consecutive rank order.
 export async function resumeImages(admin:any,credential:any,token:string,project:any,api:any){
  const m=project.manifest||{},listingId=String(m.listingId||'');
- if(m.mode!=='edit'||!/^\d+$/.test(listingId)||m.updateScope?.length!==1||m.updateScope[0]!=='images'||Object.keys(m.updateFields||{}).length)throw Error('Only an approved image-only update can use image recovery.');
+ if(project.kind!=='etsy'||project.status!=='failed'||m.mode!=='edit'||!/^\d+$/.test(listingId)||m.updateScope?.length!==1||m.updateScope[0]!=='images'||Object.keys(m.updateFields||{}).length)throw Error('Only an approved failed image-only update can use image recovery.');
  const found=await admin.from('seller_publish_runs').select('*').eq('project_id',project.id).in('status',['needs_review']).order('created_at',{ascending:false}).limit(1).maybeSingle();
  if(found.error)throw found.error;const run=found.data;if(!run)throw Error('No paused image update was found, or it is already finishing.');
- const claim=await admin.from('seller_publish_runs').update({status:'running'}).eq('id',run.id).eq('status','needs_review').select('id').maybeSingle();if(claim.error||!claim.data)throw Error('This image update is already finishing.');
+ if(!Number.isInteger(project.revision)||run.revision!==project.revision||String(run.listing_key)!==listingId)throw Error('The paused image update does not match this approved revision and listing.');
+ const claim=await admin.from('seller_publish_runs').update({status:'running'}).eq('id',run.id).eq('revision',project.revision).eq('listing_key',listingId).eq('status','needs_review').select('id').maybeSingle();if(claim.error||!claim.data)throw Error('This image update is already finishing.');
  const steps=structuredClone(run.steps||[]),before=run.before_state||{};
  const save=async(value:any)=>{const result=await admin.from('seller_publish_runs').update(value).eq('id',run.id);if(result.error)throw result.error;};
  const step=async(name:string,action:any)=>{
@@ -27,6 +29,8 @@ export async function resumeImages(admin:any,credential:any,token:string,project
   if(!Array.isArray(files)||!equivalent(before.files.map((x:any)=>String(x.listing_file_id)).sort(),files.map((x:any)=>String(x.listing_file_id)).sort()))throw Error('The listing PDFs changed. Image recovery stopped.');
   let images=(await api.fetch(`/listings/${listingId}/images`,token)).results;
   if(!Array.isArray(images))throw Error('Etsy image readback is unavailable.');
+  const originalRanks=before.images.map((image:any)=>Number(image.rank)).sort((a:number,b:number)=>a-b);
+  if(originalRanks.some((rank:number,index:number)=>rank!==index+1))throw Error('The original image positions are incomplete or duplicated.');
   const plans=m.imageReplacements.map((image:any)=>{
    const rank=Number(image.rank),old=before.images.find((x:any)=>Number(x.rank)===rank),actual=images.find((x:any)=>Number(x.rank)===rank);
    const uploadSteps=steps.filter((s:any)=>s.name===`Replace image ${rank}`||s.name===`Restore image ${rank}`);
@@ -36,12 +40,18 @@ export async function resumeImages(admin:any,credential:any,token:string,project
    const recordedId=String(upload?.image_id||legacy?.image_id||'');
    if(upload&&!recordedId)throw Error(`Image ${rank}'s uploaded identity needs verification before recovery.`);
    if(actual&&String(actual.listing_image_id)!==String(upload?recordedId:old?.listing_image_id||''))throw Error(`Image ${rank} changed outside this update. Recovery stopped.`);
-   if(!actual&&(rank!==images.length+1||rank!==before.images.length||uploadSteps.some((s:any)=>s.name===`Restore image ${rank}`)))throw Error('The missing image is not an untouched final slot. Recovery stopped.');
-   return {...image,rank,actual,upload,recordedId,needsUpload:!actual||!upload};
-  });
+   if(!actual){
+    const untouchedAppend=!old&&!upload&&!legacy&&rank>before.images.length;
+    const legacyFinal=Boolean(old)&&rank===images.length+1&&rank===before.images.length&&!uploadSteps.some((s:any)=>s.name===`Restore image ${rank}`);
+    if(!untouchedAppend&&!legacyFinal)throw Error('The missing image is not an untouched final slot or approved append. Recovery stopped.');
+   }
+   return {...image,rank,old,actual,upload,recordedId,needsUpload:!actual||!upload};
+  }).sort((a:any,b:any)=>a.rank-b.rank);
   const ranks=plans.map((p:any)=>p.rank);
   if(new Set(ranks).size!==ranks.length)throw Error('Image positions are duplicated.');
-  const allowed=before.images.map((old:any)=>{const p=plans.find((x:any)=>x.rank===Number(old.rank));return p?(p.actual||null):old;}).filter(Boolean);
+  const resultingRanks=[...new Set([...originalRanks,...ranks])].sort((a:number,b:number)=>a-b);
+  if(resultingRanks.length>20||resultingRanks.some((rank:number,index:number)=>rank!==index+1))throw Error('Approved image appends must use consecutive positions after the original final image.');
+  const allowed=[...before.images.map((old:any)=>{const p=plans.find((x:any)=>x.rank===Number(old.rank));return p?(p.actual||null):old;}),...plans.filter((p:any)=>!p.old&&p.actual).map((p:any)=>p.actual)].filter(Boolean);
   verifyImageLayout(images,allowed,ranks);
   // Validate every asset before any recovery write.
   for(const p of plans.filter((x:any)=>x.needsUpload)){

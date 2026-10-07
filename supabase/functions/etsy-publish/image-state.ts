@@ -1,3 +1,11 @@
+import { decodeHTMLStrict } from 'npm:entities@6.0.1';
+
+// Etsy may HTML-encode readback. Decode one layer on each side while keeping
+// case, whitespace, markup and nested literal entity text significant.
+export function sameImageAltText(expected:unknown,actual:unknown):boolean{
+ return decodeHTMLStrict(String(expected??''))===decodeHTMLStrict(String(actual??''));
+}
+
 // Etsy's binary overwrite can inherit the old image's alt text. Resolve the
 // returned ID first, then update that exact image with overwrite=false.
 // Never retry an image upload while its outcome is uncertain.
@@ -7,7 +15,7 @@ export function verifyImageLayout(actual:any[],expected:any[],ignoreAltRanks:num
  for(const image of expected){
   const current=actual.find(x=>Number(x.rank)===Number(image.rank));
   if(!current||String(current.listing_image_id)!==String(image.listing_image_id))throw new Error(`Image ${image.rank} identity or order is not yet confirmed.`);
-  if(!ignoreAltRanks.includes(Number(image.rank))&&String(current.alt_text||'')!==String(image.alt_text||''))throw new Error(`Image ${image.rank} alt text is not yet confirmed.`);
+  if(!ignoreAltRanks.includes(Number(image.rank))&&!sameImageAltText(image.alt_text,current.alt_text))throw new Error(`Image ${image.rank} alt text is not yet confirmed.`);
  }
 }
 export async function readImageState(api:any,listingId:string,token:string,expected:any[],ignoreAltRanks:number[]=[]){
@@ -22,7 +30,7 @@ export async function readImageState(api:any,listingId:string,token:string,expec
 export async function syncConfirmedImageAlt(admin:any,credential:any,token:string,listingId:string,image:any,expected:any[],api:any,step:any){
  const images=await readImageState(api,listingId,token,expected,[Number(image.rank)]);
  const current=images.find((x:any)=>Number(x.rank)===Number(image.rank));
- if(String(current.alt_text||'')!==String(image.altText)){
+ if(!sameImageAltText(image.altText,current.alt_text)){
   await step(`Confirm image ${image.rank} alt text`,()=>api.altText(credential.shop_id,listingId,token,{listingImageId:current.listing_image_id,rank:Number(image.rank),altText:image.altText}));
  }
  return await readImageState(api,listingId,token,expected);
