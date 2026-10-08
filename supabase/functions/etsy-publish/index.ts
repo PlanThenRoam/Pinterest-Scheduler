@@ -93,6 +93,31 @@ function validateProject(project: any) {
   return { manifest, title, description, tags, images, pdf, editMode };
 }
 
+async function withListingFiles(listings: any[], shopId: string, token: string) {
+  const result: any[] = new Array(listings.length);
+  let next = 0;
+  // Bound concurrent Etsy reads and retain listing order.
+  await Promise.all(Array.from({length: Math.min(3, listings.length)}, async () => {
+    while (next < listings.length) {
+      const index = next++, listing = listings[index];
+      try {
+        const response = await etsyFetch(`/shops/${shopId}/listings/${listing.listing_id}/files`, token);
+        if (!Array.isArray(response.results)) throw new Error("Etsy returned an invalid files response.");
+        const digital_files = response.results.map((file: any) => ({
+          listing_file_id: String(file.listing_file_id),
+          filename: file.filename || file.display_name || "Digital file",
+          rank: file.rank,
+        }));
+        result[index] = {...listing, digital_files, digital_files_status: "ok"};
+      } catch (error) {
+        result[index] = {...listing, digital_files: null, digital_files_status: "error",
+          digital_files_error: error instanceof Error ? error.message : "Unable to retrieve Etsy files."};
+      }
+    }
+  }));
+  return result;
+}
+
 async function etsyFetch(path: string, accessToken: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers || {});
   headers.set("x-api-key", `${etsyKey}:${etsySecret}`);
@@ -275,7 +300,7 @@ async function activate(shopId: string, listingId: string, token: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   const url = new URL(req.url);
-  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:39, api_version:'4.2.2', configured: Boolean(etsyKey && etsySecret) });
+  if (req.method === "GET" && url.pathname.endsWith("/health")) return json({ ok: true, app_version:39, api_version:'4.2.3', configured: Boolean(etsyKey && etsySecret) });
   if (!["GET", "POST"].includes(req.method)) return json({ error: "Method not allowed." }, 405);
   if (!etsyKey || !etsySecret) return json({ error: "Etsy API credentials are not configured." }, 503);
   const authorization = req.headers.get("authorization") || "";
@@ -297,13 +322,20 @@ Deno.serve(async (req: Request) => {
       if(url.searchParams.get('defaults')==='1'){const template=await etsyFetch(`/listings/${templateListingId}?includes=Personalization`,token);return json({defaults:listingDefaults(template)});}
       const state = ["active", "draft", "inactive", "expired", "sold_out"].includes(url.searchParams.get("state") || "") ? url.searchParams.get("state")! : "active";
       const listings = await etsyFetch(`/shops/${credential.shop_id}/listings?state=${state}&limit=100&includes=Images,Personalization`, token);
-      return json({ ok: true, listings: (listings.results || []).map((item: any) => ({
+      let items = (listings.results || []).map((item: any) => ({
         listing_id: String(item.listing_id), title: item.title, state: item.state,
         snapshot: listingSnapshot(item),
         thumbnail: item.images?.[0]?.url_170x135 || item.images?.[0]?.url_570xN || "",
         image_count: item.images?.length || 0, price: moneyValue(item.price), currency: item.price?.currency_code || "GBP", url: item.url,
         images: (item.images || []).map((image: any) => ({ listing_image_id: String(image.listing_image_id), rank: Number(image.rank), alt_text: image.alt_text ?? null, url_fullxfull: image.url_fullxfull, url_570xN: image.url_570xN })),
-      })) });
+      }));
+      if (url.searchParams.get("include_files") === "1") {
+        const normal = (value: unknown) => String(value || "").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+        const query = normal(url.searchParams.get("query"));
+        if (query) items = items.filter((item: any) => normal(item.title).includes(query) || query.includes(normal(item.title)));
+        items = await withListingFiles(items, String(credential.shop_id), token);
+      }
+      return json({ok: true, listings: items});
     }
     const body = await req.json();
     if (body.action === "acknowledge_run") {

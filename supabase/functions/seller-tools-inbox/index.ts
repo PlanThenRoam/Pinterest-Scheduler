@@ -15,7 +15,7 @@ const publishableKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const endpoint = projectUrl + "/functions/v1/seller-tools-inbox";
 const etsyPublisher = projectUrl + "/functions/v1/etsy-publish";
 const APP_VERSION = 39;
-const API_CAPABILITY_VERSION = "4.2.2";
+const API_CAPABILITY_VERSION = "4.2.3";
 const bucketFor: Record<string,string> = {etsy:"etsy-assets",pinterest:"pinterest-media"};
 const cors = {"access-control-allow-origin":"*","access-control-allow-headers":"authorization, apikey, x-client-info, content-type, mcp-protocol-version","access-control-allow-methods":"GET,POST,OPTIONS"};
 
@@ -163,7 +163,7 @@ Deno.serve(async(req:Request)=>{
    return rpc(id,output({project_id:projectId,status:saved.data.status,board:board.name,etsy_link:manifest.pins[0].link,next_action:'Attach pin-1, then finalize_review_project. Owner approval publishes.'}));
   }
   if(name==="list_etsy_shop_listings"){
-   const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}`);
+   const state=args.state||"active",data=await publisherRequest(auth,`?state=${encodeURIComponent(state)}&include_files=1&query=${encodeURIComponent(args.query||"")}`);
    const q=normal(args.query);const listings=q?(data.listings||[]).filter((x:any)=>normal(x.title).includes(q)||q.includes(normal(x.title))):(data.listings||[]);
    return rpc(id,output({listings}));
   }
