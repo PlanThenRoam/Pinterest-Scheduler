@@ -15,9 +15,17 @@ test('description verification decodes named, decimal and hexadecimal HTML entit
   verifyFields({description:'Old copy'},{description:actual},{description:expected});
  }
 });
-test('description verification still rejects changed wording, punctuation, whitespace and literal entity text',()=>{
- for(const [expected,actual] of [["Lake O'Hara",'Lake O&#39;Hare'],['5 days','7 days'],['A & B','A and B'],['A\nB','A B'],['Guide.','Guide'],['<b>Guide</b>','Guide'],['&amp;amp;','&amp;'],['&notin','¬in'],['Guide',null]])assert.throws(()=>verifyFields({description:expected},{description:actual},{}),/description differs/);
+test('description verification accepts trimmed boundaries after one strict entity decode',()=>{
+ for(const [expected,actual] of [['A guide.\n','A guide.'],[' \tA\n\nB\r\n','A\n\nB'],['&#10;A &amp; B&nbsp;','A & B'],['A &amp;amp; B\n','A &amp;amp; B']]){
+  verifyFields({description:expected},{description:actual},{});
+  verifyFields({description:actual},{description:expected},{});
+  verifyFields({description:'Old copy'},{description:actual},{description:expected});
+ }
+});
+test('description verification still rejects changed wording, punctuation, internal whitespace and literal entity text',()=>{
+ for(const [expected,actual] of [["Lake O'Hara",'Lake O&#39;Hare'],['5 days','7 days'],['A & B','A and B'],['Guide','guide'],['A\nB','A B'],['A\n\nB\n','A\nB'],['A  B\n','A B'],['A\u00a0B','A B'],['Guide.','Guide'],['<b>Guide</b>','Guide'],['&amp;amp;','&amp;'],['&amp;#10;Guide','Guide'],['&notin','¬in'],['Guide',null]])assert.throws(()=>verifyFields({description:expected},{description:actual},{}),/description differs/);
  assert.throws(()=>verifyFields({title:'A & B'},{title:'A &amp; B'},{}),/title differs/);
+ assert.throws(()=>verifyFields({title:'Guide\n'},{title:'Guide'},{}),/title differs/);
 });
 const source=fs.readFileSync(base+'/index.ts','utf8');
 vm.runInContext(stripTypeScriptTypes(source.slice(source.indexOf('function numberValue('),source.indexOf('async function etsyFetch('))),context);
@@ -34,6 +42,19 @@ function setup({count=2,uploadFail=false,drift=false,unexpectedField=false}={}){
 }
 test('unsupported edit fields are rejected before publishing',()=>{for(const key of ['tags','alt_text','quantity']){const s=setup();s.project.manifest.updateScope=[key];s.project.manifest.updateFields={[key]:'value'};assert.throws(()=>s.listing(),/unsupported/);}});
 test('replacement uploads before deleting original and verifies the exact file set',async()=>{const s=setup();const result=await s.run();assert.equal(result.verified,true);assert.deepEqual(s.writes,['upload','delete']);assert.deepEqual(s.files.map(x=>x.listing_file_id).sort(),['101','200']);assert.equal(s.runs[0].status,'succeeded');});
+test('publication accepts Etsy trimming a description without repeating the PDF replacement',async()=>{
+ const s=setup(),approved='A & B\n\nPlan the trip.\n';s.project.manifest.updateScope=['description','files'];s.project.manifest.updateFields={description:approved};
+ const update=s.api.updateFields;s.api.updateFields=async(...args)=>{await update(...args);s.current.description='A &amp; B\n\nPlan the trip.';};
+ const result=await s.run();assert.equal(result.verified,true);assert.equal(s.project.status,'published');assert.deepEqual(s.writes,['fields','upload','delete']);assert.equal(s.current.description,'A &amp; B\n\nPlan the trip.');
+});
+test('description reconciliation requires internal paragraphs but accepts trimmed boundaries without Etsy writes',async()=>{
+ const s=setup(),approved='A & B\n\nPlan the trip.\n';s.project.manifest.updateScope=['description','files'];s.project.manifest.updateFields={description:approved};
+ const update=s.api.updateFields;s.api.updateFields=async(...args)=>{await update(...args);s.current.description='A &amp; B\nPlan the trip.';};
+ await assert.rejects(s.run(),/description differs/);assert.deepEqual(s.writes,['fields','upload','delete']);
+ const mismatch=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(mismatch.verified,false);assert.equal(s.project.status,'failed');
+ s.current.description='A &amp; B\n\nPlan the trip.';const before=structuredClone(s.current),files=structuredClone(s.files);
+ const result=await context.reconcileEdit(s.admin,{shop_id:'shop',etsy_user_id:'owner'},'test',s.project,s.api);assert.equal(result.verified,true);assert.equal(s.project.status,'published');assert.deepEqual(s.writes,['fields','upload','delete']);assert.deepEqual(s.current,before);assert.deepEqual(s.files,files);
+});
 test('full five-file listing is blocked before any Etsy write',async()=>{const s=setup({count:5});await assert.rejects(s.run(),/one free Etsy file slot/);assert.deepEqual(s.writes,[]);assert.equal(s.files.length,5);assert.equal(s.runs[0].status,'blocked');});
 test('upload failure retains original and blocks unsafe retry',async()=>{const s=setup({uploadFail:true});await assert.rejects(s.run(),/may already be live/);assert.deepEqual(s.writes,['upload']);assert.equal(s.files[0].listing_file_id,'100');assert.equal(s.runs[0].status,'needs_review');await assert.rejects(s.run(),/unresolved update/);assert.deepEqual(s.writes,['upload']);});
 test('parallel attempts cannot publish the same listing twice',async()=>{const s=setup();const result=await Promise.allSettled([s.run(),s.run()]);assert.equal(result.filter(x=>x.status==='fulfilled').length,1);assert.equal(result.filter(x=>x.status==='rejected').length,1);assert.deepEqual(s.writes,['upload','delete']);});
