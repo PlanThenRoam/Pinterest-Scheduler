@@ -25,10 +25,10 @@ export function equivalent(a: any, b: any): boolean {
   return a === b;
 }
 export function equivalentField(key: string, expected: any, actual: any): boolean {
-  // Decode one layer only. Do not strip markup, fold whitespace, change case,
-  // or recursively decode literal entity text: genuine copy changes must fail.
+  // Etsy may trim description boundaries. Decode one layer, then trim only
+  // outer whitespace; retain internal spacing, markup, case and literal entities.
   if (key === 'description' && typeof expected === 'string' && typeof actual === 'string') {
-    return decodeHTMLStrict(expected) === decodeHTMLStrict(actual);
+    return decodeHTMLStrict(expected).trim() === decodeHTMLStrict(actual).trim();
   }
   return equivalent(expected, actual);
 }
