@@ -3,11 +3,12 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const context=vm.createContext({});
-vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/seller-tools-inbox/recover-draft-price.ts','utf8').replace(/\bexport /g,'')),context);
+ vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/etsy-publish/new-listing.ts','utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'')),context);
+vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/seller-tools-inbox/recover-draft-price.ts','utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'')),context);
 const candidate=context.priceRecoveryCandidate;
 
 function fixture(){
- const project={id:'review',kind:'etsy',status:'failed',revision:25,title:'Utah Mighty Five',platform_id:'12345',manifest:{title:'Utah Mighty Five',description:'Approved copy',price:6.99,tags:['unchanged'],altText:['unchanged'],listingDefaults:{price:6.99,currency:'GBP',quantity:999},submissionFingerprint:'same-submission',etsyPublish:{listingId:'12345',imagesUploaded:6,imageIds:['1','2','3','4','5','6'],imageUploadAttempted:false,fileId:'999',fileUploaded:true,fileUploadAttempted:true}}};
+ const project={id:'review',kind:'etsy',status:'failed',revision:25,title:'Utah Mighty Five',platform_id:'12345',manifest:{title:'Utah Mighty Five',description:'Approved copy',price:6.99,tags:['unchanged'],altText:['unchanged'],listingDefaults:{price:6.99,currency:'GBP',quantity:999},submissionFingerprint:'same-submission',etsyPublish:{listingId:'12345',imagesUploaded:7,imageIds:['1','2','3','4','5','6','7'],imageUploadAttempted:false,fileId:'999',fileUploaded:true,fileUploadAttempted:true}}};
  const args={project_id:project.id,expected_revision:project.revision,manifest:{...structuredClone(project.manifest),price:7.99}};
  return {project,args};
 }

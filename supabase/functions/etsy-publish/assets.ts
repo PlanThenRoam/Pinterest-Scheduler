@@ -1,3 +1,4 @@
+import { NEW_LISTING_IMAGE_COUNT, validateNewListingAltText } from './new-listing.ts';
 import {sameImageAltText} from './image-state.ts';
 // Validate every selected attachment before making any Etsy changes.
 export async function validateAssetBlob(item:any, blob:Blob, kind:'image'|'pdf') {
@@ -15,8 +16,12 @@ export async function validateAssetBlob(item:any, blob:Blob, kind:'image'|'pdf')
 }
 
 export function verifyNewListingAssets(current:any, files:any[], checkpoint:any, altText:string[]) {
-  if(current.images?.length!==6||checkpoint.imageIds?.length!==6)throw new Error('The six new listing images could not be verified. The listing has not been activated.');
-  for(let i=0;i<6;i++){
+  validateNewListingAltText(altText);
+  if(!Array.isArray(current.images)||current.images.length!==NEW_LISTING_IMAGE_COUNT
+      ||!Array.isArray(checkpoint.imageIds)||checkpoint.imageIds.length!==NEW_LISTING_IMAGE_COUNT
+      ||Array.from(checkpoint.imageIds).some((id:any)=>!/^\d+$/.test(String(id)))
+      ||new Set(checkpoint.imageIds.map(String)).size!==NEW_LISTING_IMAGE_COUNT)throw new Error('All seven new listing images could not be verified. The listing has not been activated.');
+  for(let i=0;i<NEW_LISTING_IMAGE_COUNT;i++){
     const image=current.images.find((x:any)=>Number(x.rank)===i+1);
     if(!image||String(image.listing_image_id)!==String(checkpoint.imageIds[i])||!sameImageAltText(altText[i],image.alt_text))throw new Error(`New listing image ${i+1} verification needs review. The listing has not been activated.`);
   }

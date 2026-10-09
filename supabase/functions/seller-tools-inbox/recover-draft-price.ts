@@ -1,3 +1,5 @@
+import { NEW_LISTING_IMAGE_COUNT } from '../etsy-publish/new-listing.ts';
+
 function sameJson(left: any, right: any): boolean {
   const canonical = (value: any): any => Array.isArray(value) ? value.map(canonical)
     : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]))
@@ -31,11 +33,11 @@ export function priceRecoveryCandidate(project: any, args: any): number {
   // A confirmed file ID resolves an earlier fileUploadAttempted checkpoint.
   // The publisher retains that historical flag after a successful PDF upload.
   if (checkpoint.fileUploaded !== true || !/^\d+$/.test(String(checkpoint.fileId || ''))
-      || checkpoint.imagesUploaded !== 6 || checkpoint.imageUploadAttempted
-      || !Array.isArray(checkpoint.imageIds) || checkpoint.imageIds.length !== 6
+      || checkpoint.imagesUploaded !== NEW_LISTING_IMAGE_COUNT || checkpoint.imageUploadAttempted
+      || !Array.isArray(checkpoint.imageIds) || checkpoint.imageIds.length !== NEW_LISTING_IMAGE_COUNT
       || checkpoint.imageIds.some((id: any) => !/^\d+$/.test(String(id)))
-      || new Set(checkpoint.imageIds.map(String)).size !== 6) {
-    throw new Error('Price recovery requires six confirmed images and the confirmed customer PDF.');
+      || new Set(checkpoint.imageIds.map(String)).size !== NEW_LISTING_IMAGE_COUNT) {
+    throw new Error('Price recovery requires seven confirmed images and the confirmed customer PDF.');
   }
   if (current.listingDefaults?.currency !== 'GBP'
       || (current.currency !== undefined && current.currency !== 'GBP')) {

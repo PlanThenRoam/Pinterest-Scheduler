@@ -12,8 +12,9 @@ function setup(){
   assert.equal(url,'https://project.supabase.co/functions/v1/etsy-publish?defaults=1');assert.equal(init.method||'GET','GET','Creating a private review may only read Etsy defaults');
   return new Response(JSON.stringify({defaults}),{status:200});
  },Deno:{env:{get:k=>k==='SUPABASE_URL'?'https://project.supabase.co':'test'},serve:f=>handler=f}});
+ vm.runInContext(stripTypeScriptTypes(fs.readFileSync('supabase/functions/etsy-publish/new-listing.ts','utf8').replace(/\bexport /g,'')),context);
  const source=fs.readFileSync('supabase/functions/seller-tools-inbox/index.ts','utf8').replace(/^import .*?;\s*$/gm,'');vm.runInContext(stripTypeScriptTypes(source),context);
- const manifest={title:'Utah Mighty Five Road Trip Planner',description:'The approved planner description.',price:7.99,quantity:999,tags:Array.from({length:13},(_,i)=>`tag ${i}`),altText:Array.from({length:6},(_,i)=>`Approved image ${i}`)};
+ const manifest={title:'Utah Mighty Five Road Trip Planner',description:'The approved planner description.',price:7.99,quantity:999,tags:Array.from({length:13},(_,i)=>`tag ${i}`),altText:Array.from({length:7},(_,i)=>`Approved image ${i}`)};
  return {manifest,inserted,requests,run:async()=>{
   const response=await handler(new Request('https://project.supabase.co/functions/v1/seller-tools-inbox',{method:'POST',headers:{authorization:'Bearer test','content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'create_review_project',arguments:{kind:'etsy',title:manifest.title,idempotency_key:'utah-price-regression',manifest}}})}));return response.json();
  }};
@@ -27,5 +28,12 @@ test('review creation rejects missing and invalid explicit prices instead of sub
  for(const price of [undefined,null,'7.99',0,-1,7.999,Infinity,NaN]){
   const s=setup();if(price===undefined)delete s.manifest.price;else s.manifest.price=price;
   const result=await s.run();assert.match(result.error?.message||'',/price must be a positive number with at most two decimal places/);assert.deepEqual(s.inserted,[]);assert.deepEqual(s.requests,[]);
+ }
+});
+
+
+test('new-listing creation rejects six or eight alt texts and an invalid seventh alt text',async()=>{
+ for(const change of [a=>a.pop(),a=>a.push('Extra'),a=>a[6]='',a=>a[6]=null,a=>a[6]='x'.repeat(501)]){
+  const s=setup();change(s.manifest.altText);const result=await s.run();assert.match(result.error?.message||'',/seven.*alt texts/);assert.deepEqual(s.inserted,[]);assert.deepEqual(s.requests,[]);
  }
 });

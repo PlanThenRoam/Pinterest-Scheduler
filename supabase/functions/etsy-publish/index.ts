@@ -1,3 +1,4 @@
+import { newListingImages, validateNewListingAltText } from './new-listing.ts';
 import {verifyPriceReview} from './price-review.ts';
 import {resumeImages} from './resume-images.ts';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -40,12 +41,6 @@ function mediaByRole(project: any, role: string) {
   return (Array.isArray(project.media) ? project.media : []).find((item: any) => item?.role === role);
 }
 
-function imageItems(project: any) {
-  const ordered = [mediaByRole(project, "thumbnail")];
-  for (let index = 1; index <= 5; index += 1) ordered.push(mediaByRole(project, `listing-image-${index}`));
-  return ordered.filter(Boolean);
-}
-
 function validateProject(project: any) {
   if (!project || project.kind !== "etsy") throw new Error("Etsy project not found.");
   if(project.manifest?.archived)throw new Error('Restore this archived project before editing it.');
@@ -84,10 +79,8 @@ function validateProject(project: any) {
   if (typeof manifest.price !== 'number' || !Number.isFinite(manifest.price) || manifest.price <= 0 || Math.abs(manifest.price * 100 - Math.round(manifest.price * 100)) > 1e-8) throw new Error('The Etsy price must be a positive number with at most two decimal places.');
   if (tags.length !== 13 || new Set(tags.map((tag: string) => tag.toLowerCase())).size !== 13) throw new Error("Etsy requires exactly 13 unique tags.");
   if (tags.some((tag: string) => tag.length > 20)) throw new Error("Each Etsy tag must be 20 characters or fewer.");
-  const images = imageItems(project);
-  if (!editMode && images.length !== 6) throw new Error("Attach the thumbnail and all five listing images before publishing.");
-  const altText = Array.isArray(manifest.altText) ? manifest.altText.map((value: unknown) => String(value).trim()) : [];
-  if (!editMode && (altText.length < 6 || altText.slice(0, 6).some((value: string) => !value || value.length>500))) throw new Error("Add alt text for all six Etsy listing images.");
+  const images = newListingImages(project.media);
+  validateNewListingAltText(manifest.altText);
   const pdf = mediaByRole(project, "customer-pdf");
   if (!editMode && !pdf) throw new Error("Attach the customer PDF before publishing.");
   return { manifest, title, description, tags, images, pdf, editMode };
@@ -476,7 +469,7 @@ Deno.serve(async (req: Request) => {
     }
     const draft=await etsyFetch(`/listings/${listingId}?includes=Images,Personalization`,token);
     const expectedDraftImages=checkpoint.imageIds.map((id:string,i:number)=>({listing_image_id:id,rank:i+1,alt_text:String(altText[i])}));
-    let draftLayout=await readImageState({fetch:etsyFetch},listingId,token,expectedDraftImages,[1,2,3,4,5,6]);
+    let draftLayout=await readImageState({fetch:etsyFetch},listingId,token,expectedDraftImages,expectedDraftImages.map((image:any)=>image.rank));
     for(const image of expectedDraftImages){
       draftLayout=draftLayout.map((x:any)=>Number(x.rank)===image.rank?image:x);
       await syncConfirmedImageAlt(admin,credential,token,listingId,{rank:image.rank,altText:image.alt_text},draftLayout,{fetch:etsyFetch,altText:updateExistingImageAltText},async(name:string,action:any)=>{

@@ -4,7 +4,7 @@ const fs=require('node:fs'),vm=require('node:vm');
 const {stripTypeScriptTypes}=require('node:module');
 const base=require('node:path').join(__dirname,'../supabase/functions/etsy-publish');
 const context=vm.createContext({decodeHTMLStrict:require('entities').decodeHTMLStrict,TextDecoder,TextEncoder,Blob,crypto,structuredClone,Date,console,setTimeout});
-for(const file of ['safety.ts','assets.ts','image-state.ts','resume-images.ts']){
+for(const file of ['new-listing.ts','safety.ts','assets.ts','image-state.ts','resume-images.ts']){
  const source=fs.readFileSync(base+'/'+file,'utf8').replace(/^import .*?;\s*$/gm,'').replace(/\bexport /g,'');
  vm.runInContext(stripTypeScriptTypes(source),context);
 }

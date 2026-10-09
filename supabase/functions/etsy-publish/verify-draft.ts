@@ -1,3 +1,4 @@
+import { NEW_LISTING_IMAGE_COUNT } from './new-listing.ts';
 import { listingSnapshot, verifyFields } from './safety.ts';
 import { verifyNewListingAssets } from './assets.ts';
 
@@ -9,8 +10,8 @@ export async function verifyExistingDraft(project: any, credential: any, token: 
       || !/^\d+$/.test(listingId) || String(project.platform_id || '') !== listingId) {
     throw new Error('Only an existing failed or ready new-listing draft can be revalidated.');
   }
-  if (!checkpoint.fileUploaded || !checkpoint.fileId || checkpoint.imagesUploaded !== 6
-      || checkpoint.imageIds?.length !== 6 || checkpoint.imageUploadAttempted) {
+  if (!checkpoint.fileUploaded || !checkpoint.fileId || checkpoint.imagesUploaded !== NEW_LISTING_IMAGE_COUNT
+      || checkpoint.imageIds?.length !== NEW_LISTING_IMAGE_COUNT || checkpoint.imageUploadAttempted) {
     throw new Error('The existing draft uploads are incomplete or uncertain. No uploads were repeated.');
   }
   const draft = await api.fetch(`/listings/${listingId}?includes=Personalization`, token);
@@ -26,5 +27,5 @@ export async function verifyExistingDraft(project: any, credential: any, token: 
   verifyFields({title: listing.title, description: listing.description, tags: listing.tags,
     price: project.manifest.price}, listingSnapshot(draft), {});
   return {verified: true, listing_id: listingId, state: 'draft', file_id: String(files[0].listing_file_id),
-    image_ids: [...checkpoint.imageIds], alt_texts_verified: 6, price: project.manifest.price, published: false};
+    image_ids: [...checkpoint.imageIds], alt_texts_verified: NEW_LISTING_IMAGE_COUNT, price: project.manifest.price, published: false};
 }

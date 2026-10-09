@@ -9,7 +9,7 @@ export async function cancelReview(admin:any, project:any, userId:string, readLi
   if(project.kind!=='etsy'||project.manifest?.mode==='edit'||project.status!=='failed'||
     !/^[0-9]+$/.test(knownId)||String(project.platform_id||'')!==knownId||
     publish.imageUploadAttempted||!publish.fileUploaded||!publish.fileId||
-    !Array.isArray(publish.imageIds)||publish.imageIds.length!==6||publish.imagesUploaded!==6||!readListing)
+    !Array.isArray(publish.imageIds)||![6,7].includes(publish.imageIds.length)||publish.imagesUploaded!==publish.imageIds.length||!readListing)
    throw new Error('A platform submission has started. Verify its result before deleting this submission.');
   const live=await readListing(knownId);
   const imageIds=new Set((live?.images||[]).map((image:any)=>String(image.listing_image_id)));
